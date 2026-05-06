@@ -1,0 +1,215 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  role         String   @default("dentist")
+  specialty    String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  appointments Appointment[]
+  evolutions   Evolution[]
+  budgets      Budget[]
+}
+
+model Patient {
+  id              String    @id @default(cuid())
+  rut             String    @unique
+  firstName       String
+  lastName        String
+  email           String?
+  phone           String?
+  birthDate       DateTime?
+  gender          String?
+  address         String?
+  city            String?
+  healthInsurance String?
+  insuranceNumber String?
+  notes           String?
+  active          Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  appointments   Appointment[]
+  clinicalRecord ClinicalRecord?
+  evolutions     Evolution[]
+  budgets        Budget[]
+  payments       Payment[]
+  documents      PatientDocument[]
+  odontogram     OdontogramRecord?
+  facialRecord   FacialRecord?
+}
+
+model Appointment {
+  id                String    @id @default(cuid())
+  patientId         String
+  userId            String
+  date              String
+  startTime         String
+  endTime           String
+  type              String
+  status            String    @default("scheduled")
+  notes             String?
+  box               Int       @default(1)
+  confirmationToken String?   @unique
+  confirmedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+}
+
+model ClinicalRecord {
+  id                 String   @id @default(cuid())
+  patientId          String   @unique
+  bloodType          String?
+  allergies          String?
+  currentMedications String?
+  medicalBackground  String?
+  dentalBackground   String?
+  habits             String?
+  observations       String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id])
+}
+
+model Evolution {
+  id           String   @id @default(cuid())
+  patientId    String
+  userId       String
+  date         String
+  diagnosis    String?
+  treatment    String
+  tooth        String?
+  observations String?
+  cost         Float    @default(0)
+  createdAt    DateTime @default(now())
+
+  patient Patient @relation(fields: [patientId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+}
+
+model Treatment {
+  id          String   @id @default(cuid())
+  name        String
+  category    String   @default("General")
+  price       Float    @default(0)
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Budget {
+  id         String   @id @default(cuid())
+  number     Int      @unique
+  patientId  String
+  userId     String
+  date       String
+  validUntil String?
+  status     String   @default("pending")
+  subtotal   Float    @default(0)
+  discount   Float    @default(0)
+  total      Float    @default(0)
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  patient  Patient      @relation(fields: [patientId], references: [id])
+  user     User         @relation(fields: [userId], references: [id])
+  items    BudgetItem[]
+  payments Payment[]
+}
+
+model BudgetItem {
+  id          String  @id @default(cuid())
+  budgetId    String
+  description String
+  tooth       String?
+  area        String?
+  quantity    Int     @default(1)
+  unitPrice   Float
+  discount    Float   @default(0)
+  total       Float
+
+  budget Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  patientId String
+  budgetId  String?
+  date      String
+  amount    Float
+  method    String
+  status    String   @default("completed")
+  reference String?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  patient Patient @relation(fields: [patientId], references: [id])
+  budget  Budget? @relation(fields: [budgetId], references: [id])
+}
+
+model Expense {
+  id            String   @id @default(cuid())
+  date          String
+  category      String
+  description   String
+  amount        Float
+  provider      String?
+  paymentMethod String?
+  notes         String?
+  createdAt     DateTime @default(now())
+}
+
+model PatientDocument {
+  id        String   @id @default(cuid())
+  patientId String
+  name      String
+  type      String   @default("other")
+  fileName  String
+  mimeType  String?
+  size      Int?
+  createdAt DateTime @default(now())
+
+  patient Patient @relation(fields: [patientId], references: [id])
+}
+
+model OdontogramRecord {
+  id        String   @id @default(cuid())
+  patientId String   @unique
+  data      String
+  updatedAt DateTime @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id])
+}
+
+model FacialRecord {
+  id        String   @id @default(cuid())
+  patientId String   @unique
+  data      String
+  updatedAt DateTime @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id])
+}
+
+model ClinicConfig {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+}
