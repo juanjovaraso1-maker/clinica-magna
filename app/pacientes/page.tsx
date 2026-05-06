@@ -14,10 +14,26 @@ interface Patient {
 }
 
 const initialForm = {
-  rut: "", firstName: "", lastName: "", email: "", phone: "",
+  rut: "", firstName: "", lastName: "", email: "", phone: "+569",
   birthDate: "", gender: "M", address: "", city: "Santiago",
   healthInsurance: "FONASA", notes: "",
 };
+
+function formatRut(value: string): string {
+  const clean = value.replace(/[^0-9kK]/g, "").toUpperCase();
+  if (clean.length <= 1) return clean;
+  const body = clean.slice(0, -1);
+  const dv = clean.slice(-1);
+  const formatted = body.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `${formatted}-${dv}`;
+}
+
+function handlePhone(value: string): string {
+  const prefix = "+569";
+  if (!value.startsWith(prefix)) return prefix;
+  const digits = value.slice(prefix.length).replace(/\D/g, "").slice(0, 8);
+  return prefix + digits;
+}
 
 export default function Pacientes() {
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -25,6 +41,7 @@ export default function Pacientes() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(initialForm);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const load = useCallback(async () => {
     const r = await fetch(`/api/patients?search=${encodeURIComponent(search)}`);
@@ -34,13 +51,14 @@ export default function Pacientes() {
   useEffect(() => { load(); }, [load]);
 
   async function save() {
-    setSaving(true);
+    setSaving(true); setError("");
     const r = await fetch("/api/patients", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
     if (r.ok) { setOpen(false); setForm(initialForm); load(); }
+    else { const d = await r.json(); setError(d.error || "Error al guardar paciente"); }
     setSaving(false);
   }
 
@@ -163,7 +181,7 @@ export default function Pacientes() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">RUT *</label>
-              <input className="input" value={form.rut} onChange={(e) => set("rut", e.target.value)} placeholder="12.345.678-9" />
+              <input className="input" value={form.rut} onChange={(e) => set("rut", formatRut(e.target.value))} placeholder="12.345.678-9" />
             </div>
             <div>
               <label className="label">Sexo</label>
@@ -176,7 +194,8 @@ export default function Pacientes() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">Teléfono</label>
-              <input className="input" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="+56 9 8765 4321" />
+              <input className="input" value={form.phone} onChange={(e) => set("phone", handlePhone(e.target.value))} placeholder="+56987654321" />
+              <p className="text-xs text-slate-400 mt-1">Máx. 8 dígitos después de +569</p>
             </div>
             <div>
               <label className="label">Email</label>
@@ -215,11 +234,14 @@ export default function Pacientes() {
             <textarea className="input resize-none" rows={2} value={form.notes} onChange={(e) => set("notes", e.target.value)} />
           </div>
         </div>
-        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
-          <button className="btn-secondary" onClick={() => setOpen(false)}>Cancelar</button>
-          <button className="btn-primary" onClick={save} disabled={saving || !form.firstName || !form.lastName || !form.rut}>
-            {saving ? "Guardando..." : "Guardar Paciente"}
-          </button>
+        <div className="px-6 py-4 border-t border-slate-100">
+          {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
+          <div className="flex justify-end gap-3">
+            <button className="btn-secondary" onClick={() => { setOpen(false); setError(""); }}>Cancelar</button>
+            <button className="btn-primary" onClick={save} disabled={saving || !form.firstName || !form.lastName || !form.rut}>
+              {saving ? "Guardando..." : "Guardar Paciente"}
+            </button>
+          </div>
         </div>
       </Modal>
     </div>

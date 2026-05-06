@@ -145,6 +145,8 @@ model BudgetItem {
   unitPrice   Float
   discount    Float   @default(0)
   total       Float
+  status      String  @default("pending")
+  sessions    Int     @default(1)
 
   budget Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
 }

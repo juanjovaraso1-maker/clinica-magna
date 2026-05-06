@@ -1,9 +1,10 @@
 "use client";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, Calendar, FileText,
-  TrendingUp, Settings, Stethoscope, ChevronRight, ClipboardList,
+  TrendingUp, Settings, Stethoscope, ClipboardList, Menu, X,
 } from "lucide-react";
 
 const nav = [
@@ -17,49 +18,55 @@ const nav = [
 
 export default function Sidebar() {
   const pathname = usePathname();
-  return (
-    <aside className="w-60 flex-shrink-0 bg-slate-900 flex flex-col h-full">
+  const [open, setOpen] = useState(false);
+
+  const SidebarContent = () => (
+    <>
       <div className="px-5 py-5 border-b border-slate-800">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center">
-            <Stethoscope className="w-5 h-5 text-white" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center flex-shrink-0">
+              <Stethoscope className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="text-white font-semibold text-sm leading-tight">Clínica Magna</p>
+              <p className="text-slate-400 text-xs">Sistema Dental</p>
+            </div>
           </div>
-          <div>
-            <p className="text-white font-semibold text-sm leading-tight">Clínica Magna</p>
-            <p className="text-slate-400 text-xs">Sistema Dental</p>
-          </div>
+          <button onClick={() => setOpen(false)} className="md:hidden text-slate-400 hover:text-white p-1">
+            <X size={20} />
+          </button>
         </div>
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-0.5">
-        <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider px-3 mb-2">Módulos</p>
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider px-3 mb-3">Módulos</p>
         {nav.map(({ href, label, icon: Icon }) => {
           const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
           return (
-            <Link key={href} href={href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+            <Link key={href} href={href} onClick={() => setOpen(false)}
+              className={`flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-xl text-sm font-medium transition-all ${
                 active ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white hover:bg-slate-800"
               }`}
             >
-              <Icon size={18} className="flex-shrink-0" />
+              <Icon size={20} className="flex-shrink-0" />
               <span className="flex-1">{label}</span>
-              {active && <ChevronRight size={14} className="opacity-60" />}
             </Link>
           );
         })}
       </nav>
 
-      <div className="px-3 py-4 border-t border-slate-800 space-y-0.5">
-        <Link href="/configuracion"
-          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+      <div className="px-3 py-4 border-t border-slate-800 space-y-1">
+        <Link href="/configuracion" onClick={() => setOpen(false)}
+          className={`flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-xl text-sm font-medium transition-all ${
             pathname === "/configuracion" ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white hover:bg-slate-800"
           }`}
         >
-          <Settings size={18} />
+          <Settings size={20} />
           <span>Configuración</span>
         </Link>
         <div className="flex items-center gap-3 px-3 py-2.5 mt-1">
-          <div className="w-7 h-7 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
+          <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
             <span className="text-white text-xs font-semibold">CM</span>
           </div>
           <div className="min-w-0">
@@ -68,6 +75,41 @@ export default function Sidebar() {
           </div>
         </div>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Barra superior móvil */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-slate-900 flex items-center gap-3 px-4 h-14 border-b border-slate-800">
+        <button onClick={() => setOpen(true)} className="text-slate-300 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors">
+          <Menu size={22} />
+        </button>
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
+            <Stethoscope className="w-4 h-4 text-white" />
+          </div>
+          <p className="text-white font-semibold text-sm">Clínica Magna</p>
+        </div>
+      </div>
+
+      {/* Backdrop móvil */}
+      {open && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/60 z-40 backdrop-blur-sm"
+          onClick={() => setOpen(false)}
+        />
+      )}
+
+      {/* Sidebar desktop (siempre visible) */}
+      <aside className="hidden md:flex w-60 flex-shrink-0 bg-slate-900 flex-col h-full">
+        <SidebarContent />
+      </aside>
+
+      {/* Sidebar móvil (drawer) */}
+      <aside className={`md:hidden fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 flex flex-col transform transition-transform duration-300 ease-in-out ${open ? "translate-x-0" : "-translate-x-full"}`}>
+        <SidebarContent />
+      </aside>
+    </>
   );
 }
