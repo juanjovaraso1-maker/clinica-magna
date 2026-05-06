@@ -190,6 +190,7 @@ async function main() {
 
   const budget1 = await prisma.budget.create({
     data: {
+      number: 1,
       patientId: patients[0].id,
       userId,
       date: today,
@@ -210,6 +211,7 @@ async function main() {
 
   await prisma.budget.create({
     data: {
+      number: 2,
       patientId: patients[1].id,
       userId,
       date: today,
