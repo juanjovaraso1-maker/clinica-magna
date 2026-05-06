@@ -3,7 +3,14 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
   const date = req.nextUrl.searchParams.get("date");
-  const where = date ? { date } : {};
+  const weekStart = req.nextUrl.searchParams.get("weekStart");
+  const weekEnd = req.nextUrl.searchParams.get("weekEnd");
+  let where = {};
+  if (weekStart && weekEnd) {
+    where = { date: { gte: weekStart, lte: weekEnd } };
+  } else if (date) {
+    where = { date };
+  }
   const appointments = await prisma.appointment.findMany({
     where,
     include: { patient: true, user: true },

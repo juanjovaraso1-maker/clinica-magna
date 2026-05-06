@@ -53,6 +53,9 @@ export default function PatientDetail() {
   const [payModal, setPayModal] = useState(false);
   const [payForm, setPayForm] = useState(initPayForm());
   const [paySaving, setPaySaving] = useState(false);
+  const [fichaEdit, setFichaEdit] = useState(false);
+  const [fichaForm, setFichaForm] = useState({ bloodType:"", allergies:"", currentMedications:"", medicalBackground:"", dentalBackground:"", habits:"", observations:"" });
+  const [fichaSaving, setFichaSaving] = useState(false);
 
   async function load() {
     const [pr, ur, or_, fr] = await Promise.all([
@@ -85,6 +88,26 @@ export default function PatientDetail() {
     await fetch("/api/payments", { method:"POST", headers:{"Content-Type":"application/json"},
       body:JSON.stringify({ patientId:id, date:payForm.date, amount:parseFloat(payForm.amount), method:payForm.method, budgetId:payForm.budgetId||null, notes:payForm.notes||null }) });
     setPayModal(false); setPayForm(initPayForm()); load(); setPaySaving(false);
+  }
+
+  function openFicha() {
+    setFichaForm({
+      bloodType: patient?.clinicalRecord?.bloodType ?? "",
+      allergies: patient?.clinicalRecord?.allergies ?? "",
+      currentMedications: patient?.clinicalRecord?.currentMedications ?? "",
+      medicalBackground: patient?.clinicalRecord?.medicalBackground ?? "",
+      dentalBackground: patient?.clinicalRecord?.dentalBackground ?? "",
+      habits: patient?.clinicalRecord?.habits ?? "",
+      observations: patient?.clinicalRecord?.observations ?? "",
+    });
+    setFichaEdit(true);
+  }
+
+  async function saveFicha() {
+    setFichaSaving(true);
+    await fetch("/api/clinical-records", { method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ patientId: id, ...fichaForm }) });
+    setFichaEdit(false); load(); setFichaSaving(false);
   }
 
   async function updateItemStatus(itemId: string, status: string) {
@@ -210,15 +233,71 @@ export default function PatientDetail() {
       {/* === TAB 1: FICHA CLÍNICA === */}
       {tab===1&&(
         <div className="card p-6">
-          <h3 className="section-title mb-4">Ficha Clínica</h3>
-          {!patient.clinicalRecord?<p className="text-muted">Sin ficha clínica registrada</p>:(
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {[["Grupo sanguíneo",patient.clinicalRecord.bloodType],["Alergias",patient.clinicalRecord.allergies],["Medicamentos",patient.clinicalRecord.currentMedications],["Antec. médicos",patient.clinicalRecord.medicalBackground],["Antec. dentales",patient.clinicalRecord.dentalBackground],["Hábitos",patient.clinicalRecord.habits]].map(([l,v])=>(
-                <div key={l as string}>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">{l}</p>
-                  <p className="text-sm text-slate-800">{v||<span className="text-slate-400 italic">Sin registro</span>}</p>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="section-title">Ficha Clínica</h3>
+            <button onClick={openFicha} className="btn-primary text-sm">
+              <Edit2 size={14}/> {patient.clinicalRecord ? "Editar ficha" : "Crear ficha clínica"}
+            </button>
+          </div>
+          {!fichaEdit ? (
+            !patient.clinicalRecord ? (
+              <div className="text-center py-8">
+                <p className="text-muted mb-3">Este paciente no tiene ficha clínica registrada.</p>
+                <button onClick={openFicha} className="btn-primary"><Plus size={15}/> Crear ficha clínica</button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {[
+                  ["Grupo sanguíneo", patient.clinicalRecord.bloodType],
+                  ["Alergias", patient.clinicalRecord.allergies],
+                  ["Medicamentos actuales", patient.clinicalRecord.currentMedications],
+                  ["Antecedentes médicos", patient.clinicalRecord.medicalBackground],
+                  ["Antecedentes dentales", patient.clinicalRecord.dentalBackground],
+                  ["Hábitos", patient.clinicalRecord.habits],
+                  ["Observaciones", patient.clinicalRecord.observations],
+                ].map(([l,v])=>(
+                  <div key={l as string}>
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">{l}</p>
+                    <p className="text-sm text-slate-800">{v || <span className="text-slate-400 italic">Sin registro</span>}</p>
+                  </div>
+                ))}
+              </div>
+            )
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="label">Grupo sanguíneo</label>
+                  <select className="select" value={fichaForm.bloodType} onChange={e=>setFichaForm(f=>({...f,bloodType:e.target.value}))}>
+                    <option value="">No especificado</option>
+                    {["A+","A-","B+","B-","AB+","AB-","O+","O-"].map(t=><option key={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Hábitos</label>
+                  <input className="input" value={fichaForm.habits} onChange={e=>setFichaForm(f=>({...f,habits:e.target.value}))} placeholder="Tabaquismo, bruxismo..."/>
+                </div>
+              </div>
+              {[
+                ["allergies","Alergias","Penicilina, látex..."],
+                ["currentMedications","Medicamentos actuales","Ej: Aspirina 100mg"],
+                ["medicalBackground","Antecedentes médicos","Hipertensión, diabetes..."],
+                ["dentalBackground","Antecedentes dentales","Extracciones previas, ortodoncia..."],
+                ["observations","Observaciones","Notas adicionales..."],
+              ].map(([key,label,ph])=>(
+                <div key={key}>
+                  <label className="label">{label}</label>
+                  <textarea className="input resize-none" rows={2} placeholder={ph}
+                    value={fichaForm[key as keyof typeof fichaForm]}
+                    onChange={e=>setFichaForm(f=>({...f,[key]:e.target.value}))}/>
                 </div>
               ))}
+              <div className="flex gap-3 pt-2">
+                <button onClick={saveFicha} disabled={fichaSaving} className="btn-primary">
+                  {fichaSaving?"Guardando...":"Guardar ficha clínica"}
+                </button>
+                <button onClick={()=>setFichaEdit(false)} className="btn-secondary">Cancelar</button>
+              </div>
             </div>
           )}
         </div>

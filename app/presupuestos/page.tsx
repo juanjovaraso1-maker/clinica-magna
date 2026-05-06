@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
-import { Plus, Trash2, FileText, Printer } from "lucide-react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Plus, Trash2, FileText, Printer, ArrowLeft } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Badge from "@/components/ui/Badge";
 
@@ -21,6 +22,10 @@ const initItem = ():BudgetItem => ({description:"",tooth:"",area:"",quantity:1,u
 const AREAS = ["","Maxilar superior","Maxilar inferior","Ambos maxilares","Anterior superior","Anterior inferior","Posterior superior","Posterior inferior"];
 
 export default function Presupuestos() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const fromPatientId = searchParams.get("patientId");
+
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [filter, setFilter] = useState("all");
   const [open, setOpen] = useState(false);
@@ -29,7 +34,7 @@ export default function Presupuestos() {
   const [users, setUsers] = useState<Array<{id:string;name:string}>>([]);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [clinicCfg, setClinicCfg] = useState<Record<string,string>>({});
-  const [form, setForm] = useState({ patientId:"", userId:"", date:new Date().toISOString().split("T")[0], validUntil:new Date(Date.now()+30*86400000).toISOString().split("T")[0], status:"pending", discount:0, notes:"" });
+  const [form, setForm] = useState({ patientId: fromPatientId ?? "", userId:"", date:new Date().toISOString().split("T")[0], validUntil:new Date(Date.now()+30*86400000).toISOString().split("T")[0], status:"pending", discount:0, notes:"" });
   const [items, setItems] = useState<BudgetItem[]>([initItem()]);
   const [saving, setSaving] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
@@ -48,6 +53,9 @@ export default function Presupuestos() {
   }
 
   useEffect(()=>{ load(); },[filter]);
+
+  // Abrir modal automáticamente si viene desde ficha de paciente
+  useEffect(()=>{ if(fromPatientId) setOpen(true); },[fromPatientId]);
 
   function applyTreatment(i:number, t:Treatment) {
     setItems(items=>items.map((item,idx)=>{ if(idx!==i) return item; const total=t.price*item.quantity*(1-item.discount/100); return {...item,description:t.name,unitPrice:t.price,total}; }));
@@ -70,7 +78,9 @@ export default function Presupuestos() {
   async function save() {
     setSaving(true);
     await fetch("/api/budgets",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({...form,subtotal,total,items}) });
-    setOpen(false); load(); setSaving(false);
+    setSaving(false);
+    if(fromPatientId) { router.back(); return; }
+    setOpen(false); load();
   }
 
   async function changeStatus(id:string, status:string) {
@@ -151,7 +161,12 @@ export default function Presupuestos() {
   return (
     <div className="space-y-5 max-w-7xl">
       <div className="flex items-center justify-between">
-        <div><h1 className="page-title">Presupuestos</h1><p className="text-muted">{budgets.length} presupuestos</p></div>
+        <div className="flex items-center gap-3">
+          {fromPatientId&&(
+            <button onClick={()=>router.back()} className="btn-secondary text-xs"><ArrowLeft size={14}/> Volver</button>
+          )}
+          <div><h1 className="page-title">Presupuestos</h1><p className="text-muted">{budgets.length} presupuestos</p></div>
+        </div>
         <button onClick={()=>setOpen(true)} className="btn-primary"><Plus size={16}/> Nuevo Presupuesto</button>
       </div>
 
@@ -259,13 +274,23 @@ export default function Presupuestos() {
       <Modal open={open} onClose={()=>setOpen(false)} title="Nuevo Presupuesto" size="xl">
         <div className="p-6 space-y-5">
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="label">Paciente *</label>
-              <select className="select" value={form.patientId} onChange={e=>setForm(f=>({...f,patientId:e.target.value}))}>
-                <option value="">Seleccionar...</option>
-                {patients.map(p=><option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>)}
-              </select>
-            </div>
+            {!fromPatientId&&(
+              <div>
+                <label className="label">Paciente *</label>
+                <select className="select" value={form.patientId} onChange={e=>setForm(f=>({...f,patientId:e.target.value}))}>
+                  <option value="">Seleccionar...</option>
+                  {patients.map(p=><option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>)}
+                </select>
+              </div>
+            )}
+            {fromPatientId&&(
+              <div>
+                <label className="label">Paciente</label>
+                <p className="input bg-slate-50 text-slate-600">
+                  {patients.find(p=>p.id===fromPatientId)?.firstName} {patients.find(p=>p.id===fromPatientId)?.lastName}
+                </p>
+              </div>
+            )}
             <div>
               <label className="label">Profesional *</label>
               <select className="select" value={form.userId} onChange={e=>setForm(f=>({...f,userId:e.target.value}))}>
