@@ -16,3 +16,9 @@ export async function PUT(req: NextRequest) {
   const evolution = await prisma.evolution.update({ where: { id }, data: rest });
   return NextResponse.json(evolution);
 }
+
+export async function DELETE(req: NextRequest) {
+  const { id } = await req.json();
+  await prisma.evolution.delete({ where: { id } });
+  return NextResponse.json({ ok: true });
+}

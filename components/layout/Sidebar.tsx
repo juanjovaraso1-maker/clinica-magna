@@ -4,16 +4,18 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, Calendar, FileText,
-  TrendingUp, Settings, Stethoscope, ClipboardList, Menu, X,
+  TrendingUp, Settings, Stethoscope, ClipboardList, Menu, X, BarChart2, ShieldCheck,
 } from "lucide-react";
 
 const nav = [
-  { href: "/",             label: "Dashboard",    icon: LayoutDashboard },
+  { href: "/dashboard",    label: "Dashboard",    icon: LayoutDashboard },
   { href: "/pacientes",    label: "Pacientes",    icon: Users },
   { href: "/agenda",       label: "Agenda",       icon: Calendar },
   { href: "/prestaciones", label: "Prestaciones", icon: ClipboardList },
   { href: "/presupuestos", label: "Presupuestos", icon: FileText },
   { href: "/finanzas",     label: "Finanzas",     icon: TrendingUp },
+  { href: "/reportes",        label: "Reportes",        icon: BarChart2 },
+  { href: "/administracion",  label: "Administración",  icon: ShieldCheck },
 ];
 
 export default function Sidebar() {
@@ -22,31 +24,33 @@ export default function Sidebar() {
 
   const SidebarContent = () => (
     <>
-      <div className="px-5 py-5 border-b border-slate-800">
+      <div className="px-5 py-5 border-b border-primary-800">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center flex-shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-primary-500 flex items-center justify-center flex-shrink-0">
               <Stethoscope className="w-5 h-5 text-white" />
             </div>
             <div>
               <p className="text-white font-semibold text-sm leading-tight">Clínica Magna</p>
-              <p className="text-slate-400 text-xs">Sistema Dental</p>
+              <p className="text-primary-300 text-xs">Sistema Dental</p>
             </div>
           </div>
-          <button onClick={() => setOpen(false)} className="md:hidden text-slate-400 hover:text-white p-1">
+          <button onClick={() => setOpen(false)} className="md:hidden text-primary-300 hover:text-white p-1">
             <X size={20} />
           </button>
         </div>
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider px-3 mb-3">Módulos</p>
+        <p className="text-primary-400 text-xs font-semibold uppercase tracking-wider px-3 mb-3">Módulos</p>
         {nav.map(({ href, label, icon: Icon }) => {
-          const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+          const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
           return (
             <Link key={href} href={href} onClick={() => setOpen(false)}
               className={`flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-xl text-sm font-medium transition-all ${
-                active ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white hover:bg-slate-800"
+                active
+                  ? "bg-primary-500 text-white shadow-sm"
+                  : "text-primary-200 hover:text-white hover:bg-primary-800"
               }`}
             >
               <Icon size={20} className="flex-shrink-0" />
@@ -56,22 +60,24 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="px-3 py-4 border-t border-slate-800 space-y-1">
+      <div className="px-3 py-4 border-t border-primary-800 space-y-1">
         <Link href="/configuracion" onClick={() => setOpen(false)}
           className={`flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-xl text-sm font-medium transition-all ${
-            pathname === "/configuracion" ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white hover:bg-slate-800"
+            pathname === "/configuracion"
+              ? "bg-primary-500 text-white shadow-sm"
+              : "text-primary-200 hover:text-white hover:bg-primary-800"
           }`}
         >
           <Settings size={20} />
           <span>Configuración</span>
         </Link>
         <div className="flex items-center gap-3 px-3 py-2.5 mt-1">
-          <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
+          <div className="w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center flex-shrink-0">
             <span className="text-white text-xs font-semibold">CM</span>
           </div>
           <div className="min-w-0">
             <p className="text-white text-xs font-medium truncate">Dr. Carlos Magna</p>
-            <p className="text-slate-500 text-xs truncate">Administrador</p>
+            <p className="text-primary-400 text-xs truncate">Administrador</p>
           </div>
         </div>
       </div>
@@ -81,12 +87,12 @@ export default function Sidebar() {
   return (
     <>
       {/* Barra superior móvil */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-slate-900 flex items-center gap-3 px-4 h-14 border-b border-slate-800">
-        <button onClick={() => setOpen(true)} className="text-slate-300 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-primary-900 flex items-center gap-3 px-4 h-14 border-b border-primary-800">
+        <button onClick={() => setOpen(true)} className="text-primary-300 hover:text-white p-1.5 rounded-lg hover:bg-primary-800 transition-colors">
           <Menu size={22} />
         </button>
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
+          <div className="w-7 h-7 rounded-lg bg-primary-500 flex items-center justify-center">
             <Stethoscope className="w-4 h-4 text-white" />
           </div>
           <p className="text-white font-semibold text-sm">Clínica Magna</p>
@@ -102,12 +108,12 @@ export default function Sidebar() {
       )}
 
       {/* Sidebar desktop (siempre visible) */}
-      <aside className="hidden md:flex w-60 flex-shrink-0 bg-slate-900 flex-col h-full">
+      <aside className="hidden md:flex w-60 flex-shrink-0 bg-primary-900 flex-col h-full">
         <SidebarContent />
       </aside>
 
       {/* Sidebar móvil (drawer) */}
-      <aside className={`md:hidden fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 flex flex-col transform transition-transform duration-300 ease-in-out ${open ? "translate-x-0" : "-translate-x-full"}`}>
+      <aside className={`md:hidden fixed inset-y-0 left-0 z-50 w-72 bg-primary-900 flex flex-col transform transition-transform duration-300 ease-in-out ${open ? "translate-x-0" : "-translate-x-full"}`}>
         <SidebarContent />
       </aside>
     </>
