@@ -294,7 +294,7 @@ export default function Finanzas() {
                       <Cell key={c.name} fill={CAT_COLORS[c.name] ?? "#94a3b8"} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(v: number) => fmt(v)} />
+                  <Tooltip formatter={(v: any) => fmt(Number(v))} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="space-y-1.5 mt-2">

@@ -359,7 +359,7 @@ export default function PatientDetail() {
       badge: b.status, amount: b.total, color:"bg-amber-100 text-amber-700",
       icon: <FileText size={14}/>,
     })),
-  ].sort((a,b) => b.date.localeCompare(a.date) || (b.time??"").localeCompare(a.time??""));
+  ].sort((a,b) => b.date.localeCompare(a.date) || (("time" in b ? b.time : "")??"").localeCompare(("time" in a ? a.time : "")??""));
 
   return (
     <div className="space-y-4 max-w-6xl">
