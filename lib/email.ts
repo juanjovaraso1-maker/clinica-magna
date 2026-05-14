@@ -8,22 +8,19 @@ async function getConfig() {
 
 export async function sendEmail(to: string, subject: string, html: string) {
   const cfg = await getConfig();
-  if (!cfg.smtp_host || !cfg.smtp_user || !cfg.smtp_pass) {
-    return { ok: false, error: "Email no configurado. Configure el SMTP en Configuración." };
+  const host  = process.env.SMTP_HOST  || cfg.smtp_host;
+  const port  = parseInt(process.env.SMTP_PORT  || cfg.smtp_port  || "465");
+  const secure= (process.env.SMTP_SECURE || cfg.smtp_secure || "true") === "true";
+  const user  = process.env.SMTP_USER  || cfg.smtp_user;
+  const pass  = process.env.SMTP_PASS  || cfg.smtp_pass;
+  const name  = cfg.clinic_name ?? "Clínica Magna";
+
+  if (!host || !user || !pass) {
+    return { ok: false, error: "Email no configurado." };
   }
   try {
-    const transporter = nodemailer.createTransport({
-      host: cfg.smtp_host,
-      port: parseInt(cfg.smtp_port ?? "587"),
-      secure: cfg.smtp_secure === "true",
-      auth: { user: cfg.smtp_user, pass: cfg.smtp_pass },
-    });
-    await transporter.sendMail({
-      from: `"${cfg.clinic_name ?? "Clínica Magna"}" <${cfg.smtp_user}>`,
-      to,
-      subject,
-      html,
-    });
+    const transporter = nodemailer.createTransport({ host, port, secure, auth: { user, pass } });
+    await transporter.sendMail({ from: `"${name}" <${user}>`, to, subject, html });
     return { ok: true };
   } catch (e: unknown) {
     return { ok: false, error: String(e) };
@@ -72,4 +69,129 @@ export function buildWhatsappUrl(phone: string, message: string) {
   const clean = phone.replace(/\D/g, "");
   const formatted = clean.startsWith("56") ? clean : `56${clean}`;
   return `https://wa.me/${formatted}?text=${encodeURIComponent(message)}`;
+}
+
+export function buildBudgetHtml(cfg: Record<string,string>, data: {
+  patientName: string; patientRut: string; budgetNumber: number; date: string; validUntil: string;
+  professionalName: string; notes: string;
+  items: Array<{ description:string; tooth:string; area:string; quantity:number; unitPrice:number; discount:number; total:number }>;
+  subtotal: number; discount: number; total: number;
+}) {
+  const fmt = (n:number) => new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(n);
+  const logo = cfg.clinic_logo ?? "";
+  const rows = data.items.map((item,i) => `
+    <tr style="border-bottom:1px solid #e2e8f0">
+      <td style="padding:8px 10px;color:#374151;font-size:12px;text-align:center">${i+1}</td>
+      <td style="padding:8px 10px;color:#374151;font-size:12px">${item.description}</td>
+      <td style="padding:8px 10px;color:#374151;font-size:12px;text-align:center">${item.tooth||item.area||"—"}</td>
+      <td style="padding:8px 10px;color:#374151;font-size:12px;text-align:center">${item.quantity}</td>
+      <td style="padding:8px 10px;color:#1f2937;font-size:12px;text-align:right;font-weight:600">${fmt(item.total)}</td>
+    </tr>`).join("");
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/></head><body style="margin:0;padding:20px;background:#f8fafc;font-family:Arial,sans-serif">
+  <div style="max-width:640px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+    <div style="background:#3a5a40;padding:24px 32px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <h1 style="color:white;margin:0;font-size:22px;font-weight:700">${cfg.clinic_name ?? "Clínica Magna"}</h1>
+        <p style="color:#a3c4a8;margin:4px 0 0;font-size:13px">${cfg.clinic_slogan ?? "Odontología y Estética Facial"}</p>
+      </div>
+      <div style="text-align:right;color:#a3c4a8;font-size:11px;line-height:1.7">
+        ${cfg.clinic_address ? `<div>${cfg.clinic_address}</div>` : ""}
+        ${cfg.clinic_phone ? `<div>${cfg.clinic_phone}</div>` : ""}
+        ${cfg.clinic_email ? `<div>${cfg.clinic_email}</div>` : ""}
+        ${cfg.clinic_web ? `<div>${cfg.clinic_web}</div>` : ""}
+      </div>
+    </div>
+
+    <div style="padding:28px 32px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
+        <div>
+          <h2 style="margin:0;font-size:18px;color:#1f2937;font-weight:700">PRESUPUESTO DENTAL</h2>
+          <p style="margin:4px 0 0;font-size:12px;color:#6b7280">N° ${String(data.budgetNumber).padStart(4,"0")} · Válido por 30 días</p>
+        </div>
+        <div style="text-align:right;font-size:12px;color:#6b7280">
+          <div><strong>Fecha:</strong> ${data.date}</div>
+          <div><strong>Vence:</strong> ${data.validUntil}</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+        <div style="background:#f0f4f0;border-radius:8px;padding:14px 16px">
+          <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#3a5a40;text-transform:uppercase;letter-spacing:.5px">Profesional</p>
+          <p style="margin:0;font-size:13px;font-weight:600;color:#1f2937">${data.professionalName}</p>
+        </div>
+        <div style="background:#f0f4f0;border-radius:8px;padding:14px 16px">
+          <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#3a5a40;text-transform:uppercase;letter-spacing:.5px">Paciente</p>
+          <p style="margin:0;font-size:13px;font-weight:600;color:#1f2937">${data.patientName}</p>
+          <p style="margin:2px 0 0;font-size:11px;color:#6b7280">RUT: ${data.patientRut}</p>
+        </div>
+      </div>
+
+      <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
+        <thead>
+          <tr style="background:#3a5a40">
+            <th style="padding:10px;color:white;font-size:11px;text-align:center;width:36px">N°</th>
+            <th style="padding:10px;color:white;font-size:11px;text-align:left">Tratamiento</th>
+            <th style="padding:10px;color:white;font-size:11px;text-align:center">Diente</th>
+            <th style="padding:10px;color:white;font-size:11px;text-align:center">Ses.</th>
+            <th style="padding:10px;color:white;font-size:11px;text-align:right">Precio</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+        <tfoot>
+          ${data.discount > 0 ? `
+          <tr style="background:#f8fafc"><td colspan="4" style="padding:8px 10px;text-align:right;font-size:12px;color:#6b7280">Subtotal</td><td style="padding:8px 10px;text-align:right;font-size:12px;color:#374151">${fmt(data.subtotal)}</td></tr>
+          <tr style="background:#f8fafc"><td colspan="4" style="padding:8px 10px;text-align:right;font-size:12px;color:#6b7280">Descuento</td><td style="padding:8px 10px;text-align:right;font-size:12px;color:#dc2626">-${fmt(data.discount)}</td></tr>
+          ` : ""}
+          <tr style="background:#3a5a40">
+            <td colspan="4" style="padding:12px 10px;text-align:right;font-size:13px;font-weight:700;color:white">TOTAL</td>
+            <td style="padding:12px 10px;text-align:right;font-size:15px;font-weight:700;color:white">${fmt(data.total)}</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      ${data.notes ? `<div style="margin-top:16px;padding:12px 16px;background:#fffbeb;border-left:4px solid #f59e0b;border-radius:4px;font-size:12px;color:#92400e"><strong>Observaciones:</strong> ${data.notes}</div>` : ""}
+
+      <div style="margin-top:20px;padding:14px 16px;background:#f0f4f0;border-radius:8px;font-size:11px;color:#6b7280;line-height:1.8">
+        <strong style="color:#3a5a40">Condiciones del presupuesto:</strong><br/>
+        • Este presupuesto tiene una validez de 30 días desde la fecha de emisión.<br/>
+        • Algunos tratamientos están sujetos a diagnóstico definitivo, por lo que los costos pueden variar.<br/>
+        • Los precios incluyen honorarios profesionales. Insumos especiales no están incluidos salvo indicación.<br/>
+        • ${cfg.clinic_disclaimer ?? "Los tratamientos marcados con (*) requieren evaluación adicional antes de iniciar."}
+      </div>
+    </div>
+
+    <div style="background:#f1f5f9;padding:14px 32px;text-align:center;color:#64748b;font-size:11px;border-top:1px solid #e2e8f0">
+      ${cfg.clinic_name ?? "Clínica Magna"} · ${cfg.clinic_phone ?? ""} · ${cfg.clinic_email ?? ""} · ${cfg.clinic_web ?? ""}
+    </div>
+  </div>
+</body></html>`;
+}
+
+export function buildBirthdayHtml(cfg: Record<string,string>, patientName: string) {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/></head><body style="margin:0;padding:20px;background:#f8fafc;font-family:Arial,sans-serif">
+  <div style="max-width:520px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08)">
+    <div style="background:linear-gradient(135deg,#3a5a40,#588157);padding:40px 32px;text-align:center">
+      <div style="font-size:48px;margin-bottom:8px">🎂</div>
+      <h1 style="color:white;margin:0;font-size:24px">¡Feliz Cumpleaños!</h1>
+    </div>
+    <div style="padding:32px;text-align:center">
+      <p style="font-size:17px;color:#1f2937;margin:0 0 12px">Estimado/a <strong>${patientName}</strong>,</p>
+      <p style="font-size:14px;color:#6b7280;line-height:1.7;margin:0 0 20px">
+        En este día especial, todo el equipo de <strong>${cfg.clinic_name ?? "Clínica Magna"}</strong>
+        quiere desearle un muy feliz cumpleaños. 🎉<br/><br/>
+        Esperamos que este nuevo año esté lleno de salud, felicidad y muchas sonrisas. 😊
+      </p>
+      <div style="background:#f0f4f0;border-radius:12px;padding:16px;display:inline-block;margin:0 auto">
+        <p style="margin:0;font-size:13px;color:#3a5a40;font-weight:600">¿Tienes algún control o tratamiento pendiente?</p>
+        <p style="margin:6px 0 0;font-size:12px;color:#6b7280">Contáctanos para agendar tu cita</p>
+        ${cfg.clinic_phone ? `<p style="margin:6px 0 0;font-size:13px;color:#3a5a40;font-weight:700">📞 ${cfg.clinic_phone}</p>` : ""}
+        ${cfg.clinic_whatsapp ? `<p style="margin:4px 0 0;font-size:13px;color:#25d366;font-weight:700">💬 WhatsApp: ${cfg.clinic_whatsapp}</p>` : ""}
+      </div>
+    </div>
+    <div style="background:#f1f5f9;padding:14px 32px;text-align:center;color:#94a3b8;font-size:11px;border-top:1px solid #e2e8f0">
+      ${cfg.clinic_name ?? "Clínica Magna"} · ${cfg.clinic_address ?? ""} · ${cfg.clinic_email ?? ""}
+    </div>
+  </div>
+</body></html>`;
 }

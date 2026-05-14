@@ -5,7 +5,7 @@ import {
   ArrowLeft, Edit2, Phone, Mail, MapPin, Heart, Plus, Trash2, Upload,
   ExternalLink, CreditCard, AlertTriangle, Pill, Calendar, FileText,
   TrendingUp, Activity, ChevronRight, Check, X, Save, Printer, ClipboardList,
-  BookOpen, CalendarPlus, Banknote,
+  BookOpen, CalendarPlus, Banknote, MessageCircle,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Badge from "@/components/ui/Badge";
@@ -1167,8 +1167,20 @@ export default function PatientDetail() {
             </div>
           )}
         </div>
-        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
+        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3 flex-wrap">
           <button className="btn-secondary" onClick={()=>setRxModal(false)}>Cancelar</button>
+          {patient.phone && (
+            <button className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
+              onClick={()=>{
+                const meds = rxItems.filter(m=>m.drug.trim()).map((m,i)=>`${i+1}. *${m.drug}*${m.dose?` — ${m.dose}`:""}\n   ${[m.freq,m.duration,m.instructions].filter(Boolean).join(" · ")}`).join("\n");
+                const msg = `*RECETA MÉDICA*\n_${new Date().toLocaleDateString("es-CL",{day:"numeric",month:"long",year:"numeric"})}_\n\nPaciente: *${patient.firstName} ${patient.lastName}*\n\n${meds}${rxNotes?`\n\nIndicaciones: ${rxNotes}`:""}`;
+                const clean = patient.phone.replace(/\D/g,""); const num = clean.startsWith("56")?clean:`56${clean}`;
+                window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`,"_blank");
+              }}
+              disabled={!rxUserId||rxItems.every(m=>!m.drug.trim())}>
+              <MessageCircle size={15}/> WhatsApp
+            </button>
+          )}
           <button className="flex items-center gap-2 btn-primary" onClick={printRx}
             disabled={!rxUserId || rxItems.every(m=>!m.drug.trim())}>
             <Printer size={15}/> Imprimir Receta
@@ -1323,8 +1335,18 @@ export default function PatientDetail() {
               value={cuidadosText} onChange={e=>setCuidadosText(e.target.value)}/>
           </div>
         </div>
-        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
+        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3 flex-wrap">
           <button className="btn-secondary" onClick={()=>setCuidadosModal(false)}>Cerrar</button>
+          {patient.phone && (
+            <button className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
+              onClick={()=>{
+                const msg = `*INSTRUCCIONES DE CUIDADOS — ${cuidadosTemplate.toUpperCase()}*\n\nPaciente: *${patient.firstName} ${patient.lastName}*\n\n${cuidadosText}`;
+                const clean = patient.phone.replace(/\D/g,""); const num = clean.startsWith("56")?clean:`56${clean}`;
+                window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`,"_blank");
+              }}>
+              <MessageCircle size={15}/> WhatsApp
+            </button>
+          )}
           <button className="flex items-center gap-2 btn-primary" onClick={printCuidados} disabled={!cuidadosUserId}>
             <Printer size={15}/> Imprimir instrucciones
           </button>

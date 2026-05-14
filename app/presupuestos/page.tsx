@@ -4,7 +4,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import {
   Plus, Trash2, FileText, Printer, ArrowLeft,
   CheckCircle, XCircle, Clock, CreditCard, ChevronRight,
-  AlertCircle, TrendingUp,
+  AlertCircle, TrendingUp, Mail, MessageCircle,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Badge from "@/components/ui/Badge";
@@ -20,7 +20,7 @@ interface Payment {
 interface Budget {
   id: string; number: number; date: string; validUntil: string; status: string;
   subtotal: number; discount: number; total: number; notes: string;
-  patient: { id: string; firstName: string; lastName: string; rut: string; phone: string; address: string };
+  patient: { id: string; firstName: string; lastName: string; rut: string; phone: string; email: string; address: string };
   user: { name: string };
   items: Array<{ id: string; description: string; tooth: string; area: string; quantity: number; unitPrice: number; discount: number; total: number }>;
   payments: Payment[];
@@ -73,6 +73,29 @@ function PresupuestosContent() {
   // Inline payment form inside detail
   const [payForm, setPayForm] = useState({ date: new Date().toISOString().split("T")[0], amount: "", method: "efectivo", notes: "" });
   const [payingSaving, setPayingSaving] = useState(false);
+  const [emailSending, setEmailSending] = useState(false);
+  const [toast, setToast] = useState<string|null>(null);
+
+  function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 3500); }
+
+  async function sendBudgetEmail(budgetId: string) {
+    setEmailSending(true);
+    const r = await fetch("/api/budgets/send-email", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ budgetId }) });
+    const d = await r.json();
+    setEmailSending(false);
+    showToast(d.ok ? "✅ Presupuesto enviado por email" : `❌ ${d.error}`);
+  }
+
+  function sendBudgetWhatsApp(budget: Budget) {
+    const phone = budget.patient.phone;
+    if (!phone) { showToast("❌ El paciente no tiene teléfono"); return; }
+    const fmt = (n:number) => new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(n);
+    const items = budget.items.map((it,i) => `${i+1}. ${it.description}${it.tooth?` (D.${it.tooth})`:""}  ${fmt(it.total)}`).join("\n");
+    const msg = `*PRESUPUESTO DENTAL N° ${String(budget.number).padStart(4,"0")}*\n${clinicCfg.clinic_name ?? "Clínica Magna"}\n\nEstimado/a *${budget.patient.firstName} ${budget.patient.lastName}*,\n\nAdjuntamos su presupuesto dental:\n\n${items}\n\n*TOTAL: ${fmt(budget.total)}*\n\nVálido por 30 días desde ${budget.date}.\n\n${clinicCfg.clinic_phone ? `📞 ${clinicCfg.clinic_phone}` : ""}\n${clinicCfg.clinic_whatsapp ? `💬 ${clinicCfg.clinic_whatsapp}` : ""}`;
+    const clean = phone.replace(/\D/g,"");
+    const num = clean.startsWith("56") ? clean : `56${clean}`;
+    window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, "_blank");
+  }
 
   const load = useCallback(async () => {
     const q = filter !== "all" ? `?status=${filter}` : "";
@@ -304,6 +327,7 @@ function PresupuestosContent() {
 
   return (
     <div className="space-y-5 max-w-7xl">
+      {toast && <div className="fixed top-20 right-4 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg text-sm">{toast}</div>}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -484,9 +508,14 @@ function PresupuestosContent() {
                     <Clock size={13} /> Reabrir
                   </button>
                 )}
-                <button onClick={shareWhatsApp}
+                <button onClick={() => sendBudgetEmail(detail.id)} disabled={emailSending || !detail.patient.email}
+                  title={!detail.patient.email ? "El paciente no tiene email" : "Enviar por email"}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed">
+                  <Mail size={13} /> {emailSending ? "Enviando..." : "Email"}
+                </button>
+                <button onClick={() => sendBudgetWhatsApp(detail)}
                   className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors font-medium">
-                  WhatsApp
+                  <MessageCircle size={13} /> WhatsApp
                 </button>
                 <button onClick={printBudget}
                   className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors font-medium">
