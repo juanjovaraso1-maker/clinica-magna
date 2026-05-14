@@ -75,7 +75,7 @@ export default function PatientDetail() {
   const router = useRouter();
   const [patient, setPatient] = useState<Patient|null>(null);
   const [tab, setTab] = useState(0);
-  const [users, setUsers] = useState<Array<{id:string;name:string}>>([]);
+  const [users, setUsers] = useState<Array<{id:string;name:string;rut?:string}>>([]);
   const [evoModal, setEvoModal] = useState(false);
   const [evoForm, setEvoForm] = useState({ date:new Date().toISOString().split("T")[0], diagnosis:"", observations:"", userId:"" });
   const [evoItems, setEvoItems] = useState([{ treatment:"", tooth:"", cost:"" }]);
@@ -322,23 +322,25 @@ export default function PatientDetail() {
     const ig   = clinicCfg.clinic_instagram|| "";
     const l1   = [addr, phone&&`WHATSAPP ${phone}`, mail].filter(Boolean).join("  |  ");
     const l2   = [web, ig&&`INSTAGRAM ${ig}`].filter(Boolean).join("  |  ");
+    const logoBase = typeof window !== "undefined" ? window.location.origin + "/logo.png" : "/logo.png";
     return `<div style="display:flex;align-items:flex-start;gap:14px;padding-bottom:10px;border-bottom:2px solid #1e5f74;margin-bottom:18px">
-      <div style="width:68px;height:58px;flex-shrink:0;background:#1e5f74;display:flex;align-items:center;justify-content:center;border-radius:4px;color:white;font-size:9px;font-weight:bold;text-align:center;line-height:1.4">CLÍNICA<br>MAGNA</div>
+      <img src="${logoBase}" style="width:80px;height:70px;object-fit:contain;flex-shrink:0" onerror="this.style.display='none'"/>
       <div>
-        <div style="font-size:19px;font-weight:bold;color:#1e5f74;letter-spacing:0.5px">${name}</div>
+        <div style="font-size:19px;font-weight:bold;color:#000;letter-spacing:0.5px">${name}</div>
         <div style="font-size:11px;font-style:italic;color:#2e75b6;margin-top:2px">${sub}</div>
         ${l1?`<div style="font-size:9px;color:#555;margin-top:3px">${l1}</div>`:""}
         ${l2?`<div style="font-size:9px;color:#555">${l2}</div>`:""}
       </div></div>`;
   }
 
-  function buildDocProfPat(profName:string, extra:{label:string;value:string}[]): string {
+  function buildDocProfPat(prof:{name:string;rut?:string;showRut?:boolean}, extra:{label:string;value:string}[]): string {
+    const showRut = prof.showRut !== false;
     return `<table style="width:100%;border-collapse:collapse;margin:14px 0">
       <tr>
         <td style="width:50%;vertical-align:top;padding-right:20px">
           <div style="font-size:11px;font-weight:bold;color:#2e75b6;border-bottom:1.5px solid #2e75b6;margin-bottom:6px;padding-bottom:2px">PROFESIONAL</div>
-          <div style="font-size:11px"><b>Nombre:</b> ${profName}</div>
-          <div style="font-size:11px"><b>RUT:</b></div>
+          <div style="font-size:11px"><b>Nombre:</b> ${prof.name}</div>
+          ${showRut?`<div style="font-size:11px"><b>RUT:</b> ${prof.rut||""}</div>`:""}
         </td>
         <td style="width:50%;vertical-align:top">
           <div style="font-size:11px;font-weight:bold;color:#2e75b6;border-bottom:1.5px solid #2e75b6;margin-bottom:6px;padding-bottom:2px">PACIENTE</div>
@@ -373,39 +375,26 @@ export default function PatientDetail() {
     const today = new Date().toLocaleDateString("es-CL",{day:"numeric",month:"long",year:"numeric"});
     const meds = rxItems.filter(m=>m.drug.trim());
     const fmtBD = patient.birthDate ? patient.birthDate.split("T")[0] : "";
-    const rows = meds.map((m,i)=>`
-      <tr style="background:${i%2===0?"#fff":"#dce6f1"}">
-        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${i+1}</td>
-        <td style="padding:5px 7px;border:1px solid #bcd2e8;font-size:10px">${m.drug}</td>
-        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${m.dose}</td>
-        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${m.freq}</td>
-        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${m.duration}</td>
-        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${m.instructions}</td>
-      </tr>`).join("");
-    const emptyRows = Array.from({length:Math.max(0,8-meds.length)},(_,i)=>`
-      <tr style="background:${(meds.length+i)%2===0?"#fff":"#dce6f1"}"><td style="padding:5px 7px;border:1px solid #bcd2e8;height:22px"></td><td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td></tr>`).join("");
+    const medLines = meds.map((m,i)=>`
+      <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #e2e8f0">
+        <div style="font-size:12px;font-weight:bold;text-transform:uppercase;color:#1a1a1a;margin-bottom:3px">${i+1}-. ${m.drug.toUpperCase()}</div>
+        <div style="font-size:11.5px;text-transform:uppercase;color:#1a1a1a;margin-bottom:3px">
+          ${["TOMAR", m.dose&&m.dose.toUpperCase(), m.freq&&`CADA ${m.freq.toUpperCase()}`, m.duration&&`POR ${m.duration.toUpperCase()}`].filter(Boolean).join(" ")}
+        </div>
+        ${m.instructions?`<div style="font-size:11.5px;text-transform:uppercase;color:#1a1a1a">${m.instructions.toUpperCase()}</div>`:""}
+      </div>`).join("");
     const body = `
       ${buildDocHeader()}
       <div style="text-align:center;margin:14px 0 10px">
         <div style="font-size:17px;font-weight:bold;letter-spacing:1px">RECETA MÉDICA ODONTOLÓGICA</div>
       </div>
-      ${buildDocProfPat(professional?.name||"", [
+      ${buildDocProfPat({name:professional?.name||"",rut:professional?.rut||""}, [
         {label:"Nombre",value:`${patient.firstName} ${patient.lastName}`},
         {label:"RUT / Fecha nac.",value:`${patient.rut}${fmtBD?" / "+fmtBD:""}`},
         {label:"Fecha",value:today}
       ])}
-      <div style="font-size:11px;font-weight:bold;color:#2e75b6;margin:10px 0 6px;text-transform:uppercase">Medicamentos Recetados</div>
-      <table style="width:100%;border-collapse:collapse;margin-bottom:14px">
-        <thead><tr style="background:#1f4e79;color:white">
-          <th style="padding:6px 7px;border:1px solid #1f4e79;width:5%;font-size:10px">N°</th>
-          <th style="padding:6px 7px;text-align:left;border:1px solid #1f4e79;width:28%;font-size:10px">Medicamento / Principio Activo</th>
-          <th style="padding:6px 7px;border:1px solid #1f4e79;width:14%;font-size:10px">Dosis / Concentración</th>
-          <th style="padding:6px 7px;border:1px solid #1f4e79;width:13%;font-size:10px">Posología</th>
-          <th style="padding:6px 7px;border:1px solid #1f4e79;width:12%;font-size:10px">Duración</th>
-          <th style="padding:6px 7px;border:1px solid #1f4e79;width:28%;font-size:10px">Indicaciones</th>
-        </tr></thead>
-        <tbody>${rows}${emptyRows}</tbody>
-      </table>
+      <div style="font-size:11px;font-weight:bold;color:#2e75b6;margin:10px 0 8px;text-transform:uppercase;border-bottom:1px solid #2e75b6;padding-bottom:4px">Medicamentos Recetados</div>
+      <div style="margin-bottom:16px">${medLines}</div>
       <div style="margin-bottom:12px">
         <div style="font-size:11px;font-weight:bold;color:#2e75b6;margin-bottom:5px">DIAGNÓSTICO / INDICACIÓN:</div>
         <div style="border:1px solid #bcd2e8;min-height:44px;padding:8px;background:#fff;font-size:10px"></div>
@@ -444,7 +433,7 @@ export default function PatientDetail() {
         <div style="font-size:16px;font-weight:bold;letter-spacing:1px">INDICACIONES POST-PROCEDIMIENTO</div>
         <div style="font-size:10px;font-style:italic;color:#c0392b;margin-top:3px">Léa detenidamente antes de retirarse de la clínica</div>
       </div>
-      ${buildDocProfPat(professional?.name||"",[
+      ${buildDocProfPat({name:professional?.name||"",showRut:false},[
         {label:"Nombre",value:`${patient.firstName} ${patient.lastName}`},
         {label:"Fecha",value:today},
         {label:"Procedimiento realizado",value:cuidadosTemplate}
@@ -452,53 +441,54 @@ export default function PatientDetail() {
       <div style="font-size:11px;font-weight:bold;color:#1e6091;margin:10px 0 7px;text-transform:uppercase;letter-spacing:0.3px">Indicaciones Específicas:</div>
       <div style="background:#eaf4fb;border:1px solid #9fc5e8;border-radius:4px;padding:12px 14px;line-height:1.7">
         ${bulletHtml}
-      </div>
-      <div style="margin-top:14px">
-        <div style="font-size:11px;font-weight:bold;color:#1e6091;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px">Observaciones Adicionales:</div>
-        <div style="border:1px solid #9fc5e8;min-height:55px;padding:8px;background:#fff"></div>
-      </div>
-      ${buildDocFooter("Firma y Timbre <u>Profesional</u>","Firma del Paciente o Representante")}`;
+      </div>`;
     openDocWindow("Indicaciones",body);
   }
 
   function printBudgetDetail(db: Patient["budgets"][0]) {
     if (!patient) return;
-    const today = new Date().toLocaleDateString("es-CL",{day:"numeric",month:"long",year:"numeric"});
-    const rows = db.items.map((it,i)=>`
-      <tr style="background:${i%2===0?"#fff":"#dce6f1"}">
-        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${i+1}</td>
+    const baseTotal   = db.items.reduce((s,it)=>s+it.unitPrice*it.quantity,0);
+    const itemDisc    = db.items.reduce((s,it)=>s+it.unitPrice*it.quantity*(it.discount||0)/100,0);
+    const globalDisc  = db.discount||0;
+    const totalDisc   = itemDisc+globalDisc;
+    const totalFinal  = db.total;
+    const rows = db.items.map((it,i)=>{
+      const bruto = it.unitPrice*it.quantity;
+      const desc  = bruto*(it.discount||0)/100;
+      return `<tr style="background:${i%2===0?"#fff":"#dce6f1"}">
         <td style="padding:5px 7px;border:1px solid #bcd2e8;font-size:10px">${it.description}</td>
-        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${it.area||""}</td>
         <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${it.tooth||""}</td>
-        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${it.sessions||1}</td>
-        <td style="padding:5px 7px;text-align:right;border:1px solid #bcd2e8;font-size:10px">${fmt(it.total)}</td>
-      </tr>`).join("");
-    const emptyRows = Array.from({length:Math.max(0,10-db.items.length)},(_,i)=>`
-      <tr style="background:${(db.items.length+i)%2===0?"#fff":"#dce6f1"}"><td style="padding:5px 7px;border:1px solid #bcd2e8;height:22px"></td><td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td></tr>`).join("");
+        <td style="padding:5px 7px;text-align:right;border:1px solid #bcd2e8;font-size:10px">${fmt(bruto)}</td>
+        <td style="padding:5px 7px;text-align:right;border:1px solid #bcd2e8;font-size:10px">${desc>0?fmt(desc):"-"}</td>
+        <td style="padding:5px 7px;text-align:right;border:1px solid #bcd2e8;font-size:10px;font-weight:${desc>0?"bold":"normal"}">${fmt(it.total)}</td>
+      </tr>`;}).join("");
+    const emptyRows = Array.from({length:Math.max(0,8-db.items.length)},(_,i)=>`
+      <tr style="background:${(db.items.length+i)%2===0?"#fff":"#dce6f1"}"><td style="padding:5px 7px;border:1px solid #bcd2e8;height:22px"></td><td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td></tr>`).join("");
+    const tdSummary = `padding:6px 7px;border:1px solid #bcd2e8;font-size:10.5px`;
     const body = `
       ${buildDocHeader()}
       <div style="text-align:center;margin:14px 0 10px">
         <div style="font-size:17px;font-weight:bold;letter-spacing:1px">PRESUPUESTO DENTAL</div>
         <div style="font-size:10px;font-style:italic;color:#555;margin-top:3px">Válido por 30 días desde la fecha de emisión</div>
       </div>
-      ${buildDocProfPat(db.user.name,[
+      ${buildDocProfPat({name:db.user.name},[
         {label:"Nombre",value:`${patient.firstName} ${patient.lastName}`},
         {label:"RUT",value:patient.rut},
         {label:"Fecha",value:db.date}
       ])}
       <table style="width:100%;border-collapse:collapse;margin:4px 0 14px">
         <thead><tr style="background:#1f4e79;color:white">
-          <th style="padding:6px 7px;border:1px solid #1f4e79;width:5%;font-size:10px">N°</th>
-          <th style="padding:6px 7px;text-align:left;border:1px solid #1f4e79;width:33%;font-size:10px">Tratamiento / Descripción</th>
-          <th style="padding:6px 7px;border:1px solid #1f4e79;width:14%;font-size:10px">Categoría</th>
-          <th style="padding:6px 7px;border:1px solid #1f4e79;width:12%;font-size:10px">Diente(s)</th>
-          <th style="padding:6px 7px;border:1px solid #1f4e79;width:10%;font-size:10px">Sesiones</th>
-          <th style="padding:6px 7px;text-align:right;border:1px solid #1f4e79;width:16%;font-size:10px">Precio ($)</th>
+          <th style="padding:6px 7px;text-align:left;border:1px solid #1f4e79;width:38%;font-size:10px">Tratamiento</th>
+          <th style="padding:6px 7px;border:1px solid #1f4e79;width:12%;font-size:10px">Diente</th>
+          <th style="padding:6px 7px;text-align:right;border:1px solid #1f4e79;width:18%;font-size:10px">Valor</th>
+          <th style="padding:6px 7px;text-align:right;border:1px solid #1f4e79;width:16%;font-size:10px">Descuento</th>
+          <th style="padding:6px 7px;text-align:right;border:1px solid #1f4e79;width:16%;font-size:10px">Valor Total</th>
         </tr></thead>
         <tbody>
           ${rows}${emptyRows}
-          <tr><td colspan="5" style="padding:6px 7px;text-align:right;font-weight:bold;border:1px solid #bcd2e8;font-size:11px">TOTAL:</td>
-          <td style="padding:6px 7px;text-align:right;font-weight:bold;border:1px solid #bcd2e8;font-size:11px">${fmt(db.total)}</td></tr>
+          <tr style="background:#f0f6ff"><td colspan="4" style="${tdSummary};text-align:right;font-weight:bold">Valor total sin descuento</td><td style="${tdSummary};text-align:right;font-weight:bold">${fmt(baseTotal)}</td></tr>
+          <tr style="background:#f0f6ff"><td colspan="4" style="${tdSummary};text-align:right;font-weight:bold;color:#c0392b">Valor total del descuento</td><td style="${tdSummary};text-align:right;font-weight:bold;color:#c0392b">- ${fmt(totalDisc)}</td></tr>
+          <tr style="background:#1f4e79"><td colspan="4" style="${tdSummary};text-align:right;font-weight:bold;color:white;font-size:12px">TOTAL A PAGAR</td><td style="${tdSummary};text-align:right;font-weight:bold;color:white;font-size:12px">${fmt(totalFinal)}</td></tr>
         </tbody>
       </table>
       <div style="border:1px solid #bcd2e8;padding:10px 13px;background:#f0f6ff;border-radius:3px;font-size:9.5px;line-height:1.7">

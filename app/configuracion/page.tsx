@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 
-type User = { id: string; name: string; email: string; role: string; specialty: string | null; active: boolean };
+type User = { id: string; name: string; email: string; rut?: string; role: string; specialty: string | null; active: boolean };
 
 const TABS = [
   { key: "general",  label: "General",   icon: Building2 },
@@ -50,7 +50,7 @@ const DEFAULT_SCHEDULE: Schedule = {
   sun: { enabled: false, open: "09:00", close: "13:00" },
 };
 
-const EMPTY_USER = { name: "", email: "", role: "dentist", specialty: "" };
+const EMPTY_USER = { name: "", email: "", rut: "", role: "dentist", specialty: "" };
 
 function initials(name: string) {
   return name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
@@ -94,7 +94,7 @@ export default function Configuracion() {
 
   function openNew() { setForm(EMPTY_USER); setEditing(null); setFormError(""); setUserModal(true); }
   function openEdit(u: User) {
-    setForm({ name: u.name, email: u.email, role: u.role, specialty: u.specialty || "" });
+    setForm({ name: u.name, email: u.email, rut: u.rut || "", role: u.role, specialty: u.specialty || "" });
     setEditing(u); setFormError(""); setUserModal(true);
   }
 
@@ -485,6 +485,10 @@ export default function Configuracion() {
             <div>
               <label className="label">Nombre completo *</label>
               <input className="input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Dra. Carolina López" />
+            </div>
+            <div>
+              <label className="label">RUT</label>
+              <input className="input" value={form.rut} onChange={e => setForm(f => ({ ...f, rut: e.target.value }))} placeholder="12.345.678-9" />
             </div>
             <div>
               <label className="label">Email *</label>
