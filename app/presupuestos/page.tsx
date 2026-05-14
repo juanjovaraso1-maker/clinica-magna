@@ -21,7 +21,7 @@ interface Budget {
   id: string; number: number; date: string; validUntil: string; status: string;
   subtotal: number; discount: number; total: number; notes: string;
   patient: { id: string; firstName: string; lastName: string; rut: string; phone: string; email: string; address: string };
-  user: { name: string };
+  user: { id: string; name: string };
   items: Array<{ id: string; description: string; tooth: string; area: string; quantity: number; unitPrice: number; discount: number; total: number }>;
   payments: Payment[];
 }
@@ -75,6 +75,7 @@ function PresupuestosContent() {
   const [payingSaving, setPayingSaving] = useState(false);
   const [emailSending, setEmailSending] = useState(false);
   const [toast, setToast] = useState<string|null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 3500); }
 
@@ -152,14 +153,42 @@ function PresupuestosContent() {
   const subtotal = items.reduce((s, i) => s + i.total, 0);
   const total = subtotal - Number(form.discount);
 
+  function openEditBudget(b: Budget) {
+    setForm({
+      patientId: b.patient.id, userId: b.user.id,
+      date: b.date, validUntil: b.validUntil ?? "",
+      status: b.status, discount: b.discount, notes: b.notes ?? "",
+    });
+    setItems(b.items.map(i => ({ description:i.description, tooth:i.tooth??"", area:i.area??"", quantity:i.quantity, unitPrice:i.unitPrice, discount:i.discount, total:i.total })));
+    setEditId(b.id);
+    setDetailId(null);
+    setOpen(true);
+  }
+
+  async function deleteBudget(id: string) {
+    if (!confirm("¿Eliminar este presupuesto? Esta acción no se puede deshacer.")) return;
+    await fetch(`/api/budgets/${id}`, { method: "DELETE" });
+    setDetailId(null);
+    load();
+    showToast("✅ Presupuesto eliminado");
+  }
+
   async function save() {
     setSaving(true);
-    await fetch("/api/budgets", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, subtotal, total, items }),
-    });
+    if (editId) {
+      await fetch(`/api/budgets/${editId}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, subtotal, total, items }),
+      });
+    } else {
+      await fetch("/api/budgets", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, subtotal, total, items }),
+      });
+    }
     setSaving(false);
-    if (fromPatientId) { router.back(); return; }
+    setEditId(null);
+    if (fromPatientId && !editId) { router.back(); return; }
     setOpen(false); load();
   }
 
@@ -521,6 +550,14 @@ function PresupuestosContent() {
                   className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors font-medium">
                   <Printer size={13} /> PDF
                 </button>
+                <button onClick={() => openEditBudget(detail)}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors font-medium">
+                  <FileText size={13} /> Editar
+                </button>
+                <button onClick={() => deleteBudget(detail.id)}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors font-medium">
+                  <Trash2 size={13} /> Eliminar
+                </button>
               </div>
             </div>
 
@@ -668,8 +705,8 @@ function PresupuestosContent() {
         </Modal>
       )}
 
-      {/* New budget modal */}
-      <Modal open={open} onClose={() => setOpen(false)} title="Nuevo Presupuesto" size="xl">
+      {/* New/Edit budget modal */}
+      <Modal open={open} onClose={() => { setOpen(false); setEditId(null); }} title={editId ? "Editar Presupuesto" : "Nuevo Presupuesto"} size="xl">
         <div className="p-6 space-y-5 overflow-y-auto max-h-[75vh]">
           <div className="grid grid-cols-2 gap-4">
             {!fromPatientId ? (
@@ -824,10 +861,10 @@ function PresupuestosContent() {
           </div>
         </div>
         <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
-          <button className="btn-secondary" onClick={() => setOpen(false)}>Cancelar</button>
+          <button className="btn-secondary" onClick={() => { setOpen(false); setEditId(null); }}>Cancelar</button>
           <button className="btn-primary" onClick={save}
             disabled={saving || !form.patientId || !form.userId || items.every(i => !i.description)}>
-            {saving ? "Guardando..." : "Crear Presupuesto"}
+            {saving ? "Guardando..." : editId ? "Guardar cambios" : "Crear Presupuesto"}
           </button>
         </div>
       </Modal>

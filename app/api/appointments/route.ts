@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
         patientName, date: appointment.date, startTime: appointment.startTime,
         type: appointment.type, confirmToken: token, baseUrl,
       });
-      sendEmail(appointment.patient.email, `Confirmación de cita - ${cfg.clinic_name ?? "Clínica Magna"}`, html);
+      await sendEmail(appointment.patient.email, `Confirmación de cita - ${cfg.clinic_name ?? "Clínica Magna"}`, html);
     }
   } catch (_) {}
 

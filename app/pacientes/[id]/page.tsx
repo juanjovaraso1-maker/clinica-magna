@@ -107,19 +107,51 @@ export default function PatientDetail() {
   const [fichaForm, setFichaForm] = useState({ bloodType:"", allergies:"", currentMedications:"", medicalBackground:"", dentalBackground:"", habits:"", observations:"" });
   const [fichaSaving, setFichaSaving] = useState(false);
   const [editPatient, setEditPatient] = useState(false);
-  const [editForm, setEditForm] = useState({ firstName:"", lastName:"", phone:"", email:"", address:"", city:"", healthInsurance:"", notes:"" });
+  const [editForm, setEditForm] = useState({ firstName:"", lastName:"", phone:"", email:"", address:"", city:"", healthInsurance:"", birthDate:"", notes:"" });
   const [editSaving, setEditSaving] = useState(false);
+  const [clinicCfg, setClinicCfg] = useState<Record<string,string>>({});
+  const [toast, setToast] = useState<string|null>(null);
+  const [emailSending, setEmailSending] = useState<string|null>(null);
 
   async function load() {
-    const [pr, ur, or_, fr] = await Promise.all([
+    const [pr, ur, or_, fr, cr] = await Promise.all([
       fetch(`/api/patients/${id}`), fetch("/api/users"),
       fetch(`/api/odontogram?patientId=${id}`),
       fetch(`/api/facial?patientId=${id}`),
+      fetch("/api/clinic-config"),
     ]);
     if (pr.ok) setPatient(await pr.json());
     if (ur.ok) setUsers(await ur.json());
     if (or_.ok) setOdontogram(await or_.json());
     if (fr.ok) setFacial(await fr.json());
+    if (cr.ok) setClinicCfg(await cr.json());
+  }
+
+  function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 3500); }
+
+  async function sendBudgetEmail(budgetId: string) {
+    setEmailSending(budgetId);
+    const r = await fetch("/api/budgets/send-email", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ budgetId }) });
+    const d = await r.json();
+    setEmailSending(null);
+    showToast(d.ok ? "✅ Presupuesto enviado por email" : `❌ ${d.error}`);
+  }
+
+  function sendBudgetWA(b: { number:number; date:string; total:number; items:BudgetItem[] }) {
+    if (!patient?.phone) { showToast("❌ El paciente no tiene teléfono"); return; }
+    const fmtCLP = (n:number) => new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(n);
+    const lines = b.items.map((it,i)=>`${i+1}. ${it.description}${it.tooth?` (D.${it.tooth})`:""}  ${fmtCLP(it.total)}`).join("\n");
+    const msg = `*PRESUPUESTO DENTAL N° ${String(b.number).padStart(4,"0")}*\n${clinicCfg.clinic_name??"Clínica Magna"}\n\nEstimado/a *${patient.firstName} ${patient.lastName}*,\n\n${lines}\n\n*TOTAL: ${fmtCLP(b.total)}*\n\nVálido por 30 días desde ${b.date}.`;
+    const clean = patient.phone.replace(/\D/g,"");
+    const num = clean.startsWith("56")?clean:`56${clean}`;
+    window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`,"_blank");
+  }
+
+  async function deleteBudget(budgetId: string) {
+    if (!confirm("¿Eliminar este presupuesto? Esta acción no se puede deshacer.")) return;
+    await fetch(`/api/budgets/${budgetId}`, { method:"DELETE" });
+    load();
+    showToast("✅ Presupuesto eliminado");
   }
 
   useEffect(() => { load(); }, [id]);
@@ -277,7 +309,7 @@ export default function PatientDetail() {
 
   function openEditPatient() {
     if (!patient) return;
-    setEditForm({ firstName:patient.firstName, lastName:patient.lastName, phone:patient.phone||"", email:patient.email||"", address:patient.address||"", city:patient.city||"", healthInsurance:patient.healthInsurance||"", notes:patient.notes||"" });
+    setEditForm({ firstName:patient.firstName, lastName:patient.lastName, phone:patient.phone||"", email:patient.email||"", address:patient.address||"", city:patient.city||"", healthInsurance:patient.healthInsurance||"", birthDate:patient.birthDate?patient.birthDate.split("T")[0]:"", notes:patient.notes||"" });
     setEditPatient(true);
   }
 
@@ -327,7 +359,8 @@ export default function PatientDetail() {
   const age = patient.birthDate ? Math.floor((Date.now()-new Date(patient.birthDate).getTime())/(1000*60*60*24*365.25)) : null;
   const paidTotal = patient.payments.reduce((s,p)=>s+p.amount,0);
   const budgetTotal = patient.budgets.filter(b=>b.status!=="rejected").reduce((s,b)=>s+b.total,0);
-  const saldo = budgetTotal - paidTotal;
+  const activeItemsTotal = patient.budgets.filter(b=>b.status!=="rejected").reduce((s,b)=>s+b.items.filter(i=>i.status!=="pending").reduce((is,i)=>is+i.total,0),0);
+  const saldo = activeItemsTotal - paidTotal;
   const docIcons: Record<string,string> = { radiografia:"🦷", examen:"🧪", consentimiento:"📄", foto:"📷", other:"📎" };
   const selectedBudgetItems = evoBudgetId ? (patient.budgets.find(b=>b.id===evoBudgetId)?.items ?? []) : [];
   const hasAlerts = patient.clinicalRecord?.allergies || patient.clinicalRecord?.currentMedications;
@@ -363,6 +396,7 @@ export default function PatientDetail() {
 
   return (
     <div className="space-y-4 max-w-6xl">
+      {toast && <div className="fixed top-20 right-4 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg text-sm">{toast}</div>}
 
       {/* Back */}
       <button onClick={()=>router.back()} className="flex items-center gap-1.5 text-slate-500 hover:text-primary-600 text-sm transition-colors">
@@ -730,14 +764,29 @@ export default function PatientDetail() {
           {patient.budgets.length===0 ? <div className="card py-12 text-center text-muted">Sin presupuestos</div> :
             patient.budgets.map(b=>(
               <div key={b.id} className="card overflow-hidden">
-                <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+                <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
                   <div>
                     <p className="font-semibold text-slate-900">Presupuesto #{b.number}</p>
                     <p className="text-xs text-slate-500">{b.date} · {b.user.name}</p>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Badge value={b.status}/>
-                    <p className="text-lg font-bold text-slate-900">{fmt(b.total)}</p>
+                    <p className="text-base font-bold text-slate-900">{fmt(b.total)}</p>
+                    <button onClick={()=>sendBudgetEmail(b.id)} disabled={emailSending===b.id||!patient.email}
+                      title={!patient.email?"Sin email":"Enviar por email"}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                      <Mail size={12}/> {emailSending===b.id?"...":"Email"}
+                    </button>
+                    <button onClick={()=>sendBudgetWA(b)}
+                      title="Enviar por WhatsApp"
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-green-50 text-green-700 hover:bg-green-100 transition-colors">
+                      <MessageCircle size={12}/> WA
+                    </button>
+                    <button onClick={()=>deleteBudget(b.id)}
+                      title="Eliminar presupuesto"
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-red-50 text-red-600 hover:bg-red-100 transition-colors">
+                      <Trash2 size={12}/>
+                    </button>
                   </div>
                 </div>
                 <table className="w-full text-sm">
@@ -1009,7 +1058,7 @@ export default function PatientDetail() {
             <div className="space-y-2">
               {evoItems.map((item,i)=>(
                 <div key={i} className="grid grid-cols-12 gap-2 items-start bg-slate-50 rounded-xl p-3">
-                  <div className="col-span-6">
+                  <div className="col-span-5">
                     <label className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">Tratamiento *</label>
                     <input className="input mt-0.5 text-sm py-1.5" value={item.treatment}
                       onChange={e=>setEvoItems(its=>its.map((x,j)=>j===i?{...x,treatment:e.target.value}:x))}
@@ -1021,8 +1070,8 @@ export default function PatientDetail() {
                       onChange={e=>setEvoItems(its=>its.map((x,j)=>j===i?{...x,tooth:e.target.value}:x))}
                       placeholder="16, 17..." />
                   </div>
-                  <div className="col-span-2">
-                    <label className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">Costo</label>
+                  <div className="col-span-3">
+                    <label className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">Costo ($)</label>
                     <input className="input mt-0.5 text-sm py-1.5" type="number" value={item.cost}
                       onChange={e=>setEvoItems(its=>its.map((x,j)=>j===i?{...x,cost:e.target.value}:x))}
                       placeholder="0" />
@@ -1359,6 +1408,7 @@ export default function PatientDetail() {
           <div className="grid grid-cols-2 gap-4">
             <div><label className="label">Nombre</label><input className="input" value={editForm.firstName} onChange={e=>setEditForm(f=>({...f,firstName:e.target.value}))}/></div>
             <div><label className="label">Apellido</label><input className="input" value={editForm.lastName} onChange={e=>setEditForm(f=>({...f,lastName:e.target.value}))}/></div>
+            <div><label className="label">Fecha de nacimiento</label><input className="input" type="date" value={editForm.birthDate} onChange={e=>setEditForm(f=>({...f,birthDate:e.target.value}))}/></div>
             <div><label className="label">Teléfono</label><input className="input" value={editForm.phone} onChange={e=>setEditForm(f=>({...f,phone:e.target.value}))}/></div>
             <div><label className="label">Email</label><input className="input" type="email" value={editForm.email} onChange={e=>setEditForm(f=>({...f,email:e.target.value}))}/></div>
             <div><label className="label">Dirección</label><input className="input" value={editForm.address} onChange={e=>setEditForm(f=>({...f,address:e.target.value}))}/></div>

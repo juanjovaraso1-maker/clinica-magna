@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { ChevronLeft, ChevronRight, Plus, MessageCircle, Mail, Check, Users, LayoutGrid, Calendar, Link2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, MessageCircle, Mail, Check, Users, LayoutGrid, Calendar, Link2, Trash2 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Badge from "@/components/ui/Badge";
 
@@ -127,6 +127,12 @@ export default function Agenda() {
   async function updateStatus(id: string, status: string) {
     await fetch(`/api/appointments/${id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status})});
     load();
+  }
+
+  async function deleteAppt() {
+    if (!selected || !confirm("¿Eliminar esta cita? Esta acción no se puede deshacer.")) return;
+    await fetch(`/api/appointments/${selected.id}`, { method:"DELETE" });
+    setOpen(false); setSelected(null); setForm(initForm); load();
   }
 
   function openNew(date?: string, hour?: string, userId?: string) {
@@ -527,11 +533,21 @@ export default function Agenda() {
             <textarea className="input resize-none" rows={2} value={form.notes} onChange={e=>set("notes",e.target.value)}/>
           </div>
         </div>
-        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
-          <button className="btn-secondary" onClick={()=>setOpen(false)}>Cancelar</button>
-          <button className="btn-primary" onClick={save} disabled={saving||!form.patientId||!form.userId}>
-            {saving?"Guardando...":selected?"Actualizar":"Agendar"}
-          </button>
+        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3">
+          <div>
+            {selected && (
+              <button onClick={deleteAppt}
+                className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors font-medium">
+                <Trash2 size={14}/> Eliminar cita
+              </button>
+            )}
+          </div>
+          <div className="flex gap-3">
+            <button className="btn-secondary" onClick={()=>setOpen(false)}>Cancelar</button>
+            <button className="btn-primary" onClick={save} disabled={saving||!form.patientId||!form.userId}>
+              {saving?"Guardando...":selected?"Actualizar":"Agendar"}
+            </button>
+          </div>
         </div>
       </Modal>
     </div>
