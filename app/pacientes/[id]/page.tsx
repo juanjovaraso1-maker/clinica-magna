@@ -5,22 +5,22 @@ import {
   ArrowLeft, Edit2, Phone, Mail, MapPin, Heart, Plus, Trash2, Upload,
   ExternalLink, CreditCard, AlertTriangle, Pill, Calendar, FileText,
   TrendingUp, Activity, ChevronRight, Check, X, Save, Printer, ClipboardList,
-  BookOpen, CalendarPlus, Banknote, MessageCircle,
+  BookOpen, CalendarPlus, Banknote, MessageCircle, CheckCircle, XCircle, Clock,
+  Pencil, Download,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Badge from "@/components/ui/Badge";
 import DentalChart from "@/components/odontogram/DentalChart";
 import FacialChart from "@/components/odontogram/FacialChart";
-import Link from "next/link";
 
-interface BudgetItem { id:string; description:string; tooth:string; area:string; quantity:number; unitPrice:number; total:number; status:string; sessions:number }
+interface BudgetItem { id:string; description:string; tooth:string; area:string; quantity:number; unitPrice:number; discount:number; total:number; status:string; sessions:number }
 interface Patient {
   id: string; rut: string; firstName: string; lastName: string;
   email: string; phone: string; gender: string; address: string; city: string;
   healthInsurance: string; birthDate: string; notes: string;
   clinicalRecord?: { bloodType:string; allergies:string; currentMedications:string; medicalBackground:string; dentalBackground:string; habits:string; observations:string };
   evolutions: Array<{ id:string; date:string; diagnosis:string; treatment:string; tooth:string; observations:string; cost:number; user:{name:string} }>;
-  budgets: Array<{ id:string; number:number; date:string; status:string; total:number; discount:number; items:BudgetItem[]; payments:Array<{amount:number}>; user:{name:string} }>;
+  budgets: Array<{ id:string; number:number; date:string; validUntil:string; status:string; subtotal:number; total:number; discount:number; notes:string; items:BudgetItem[]; payments:Array<{id:string;amount:number;date:string;method:string;notes:string}>; user:{id:string;name:string} }>;
   payments: Array<{ id:string; date:string; amount:number; method:string; notes:string; reference?:string; budget?:{number:number} }>;
   appointments: Array<{ id:string; date:string; startTime:string; type:string; status:string; user:{name:string} }>;
   documents: Array<{ id:string; name:string; type:string; fileName:string; mimeType:string; size:number; createdAt:string }>;
@@ -112,22 +112,129 @@ export default function PatientDetail() {
   const [clinicCfg, setClinicCfg] = useState<Record<string,string>>({});
   const [toast, setToast] = useState<string|null>(null);
   const [emailSending, setEmailSending] = useState<string|null>(null);
+  const [treatments, setTreatments] = useState<Array<{id:string;name:string;category:string;price:number}>>([]);
+  const [budgetDetailId, setBudgetDetailId] = useState<string|null>(null);
+  const [budgetPayForm, setBudgetPayForm] = useState({ date:new Date().toISOString().split("T")[0], amount:"", method:"efectivo", notes:"" });
+  const [budgetPaySaving, setBudgetPaySaving] = useState(false);
+  const [budgetCreateOpen, setBudgetCreateOpen] = useState(false);
+  const [budgetForm, setBudgetForm] = useState({ userId:"", date:new Date().toISOString().split("T")[0], validUntil:new Date(Date.now()+30*86400000).toISOString().split("T")[0], status:"pending", discount:0, notes:"" });
+  const [budgetItems, setBudgetItems] = useState([{ description:"", tooth:"", area:"", quantity:1, unitPrice:0, discount:0, total:0 }]);
+  const [budgetEditId, setBudgetEditId] = useState<string|null>(null);
+  const [budgetSaving, setBudgetSaving] = useState(false);
+  const [rxEmailSending, setRxEmailSending] = useState(false);
+  const [careEmailSending, setCareEmailSending] = useState(false);
+  const [payEditId, setPayEditId] = useState<string|null>(null);
+  const [payEditForm, setPayEditForm] = useState({ date:"", amount:"", method:"efectivo", notes:"" });
+  const [payEditSaving, setPayEditSaving] = useState(false);
 
   async function load() {
-    const [pr, ur, or_, fr, cr] = await Promise.all([
+    const [pr, ur, or_, fr, cr, tr] = await Promise.all([
       fetch(`/api/patients/${id}`), fetch("/api/users"),
       fetch(`/api/odontogram?patientId=${id}`),
       fetch(`/api/facial?patientId=${id}`),
       fetch("/api/clinic-config"),
+      fetch("/api/treatments"),
     ]);
     if (pr.ok) setPatient(await pr.json());
     if (ur.ok) setUsers(await ur.json());
     if (or_.ok) setOdontogram(await or_.json());
     if (fr.ok) setFacial(await fr.json());
     if (cr.ok) setClinicCfg(await cr.json());
+    if (tr.ok) setTreatments(await tr.json());
   }
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 3500); }
+
+  async function sendRxEmail() {
+    if (!patient?.email) { showToast("❌ El paciente no tiene email"); return; }
+    if (!rxUserId || rxItems.every(m=>!m.drug.trim())) { showToast("❌ Selecciona profesional y agrega medicamentos"); return; }
+    setRxEmailSending(true);
+    const professional = users.find(u => u.id === rxUserId);
+    const r = await fetch("/api/send-rx", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ patientName:`${patient.firstName} ${patient.lastName}`, patientRut:patient.rut, patientEmail:patient.email, professionalName:professional?.name??"", medications:rxItems.filter(m=>m.drug.trim()), notes:rxNotes }) });
+    const d = await r.json();
+    setRxEmailSending(false);
+    showToast(d.ok ? "✅ Receta enviada por email" : `❌ ${d.error}`);
+  }
+
+  async function sendCareEmail() {
+    if (!patient?.email) { showToast("❌ El paciente no tiene email"); return; }
+    setCareEmailSending(true);
+    const professional = users.find(u => u.id === cuidadosUserId);
+    const r = await fetch("/api/send-care", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ patientName:`${patient.firstName} ${patient.lastName}`, patientEmail:patient.email, professionalName:professional?.name??"", templateName:cuidadosTemplate, text:cuidadosText }) });
+    const d = await r.json();
+    setCareEmailSending(false);
+    showToast(d.ok ? "✅ Indicaciones enviadas por email" : `❌ ${d.error}`);
+  }
+
+  async function changeBudgetStatus(budgetId: string, status: string) {
+    await fetch(`/api/budgets/${budgetId}`, { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ status }) });
+    load();
+  }
+
+  async function registerBudgetPayment() {
+    if (!budgetDetailId || !budgetPayForm.amount) return;
+    setBudgetPaySaving(true);
+    await fetch("/api/payments", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ patientId:id, budgetId:budgetDetailId, date:budgetPayForm.date, amount:parseFloat(budgetPayForm.amount), method:budgetPayForm.method, notes:budgetPayForm.notes||null }) });
+    setBudgetPayForm(f => ({ ...f, amount:"", notes:"" }));
+    setBudgetPaySaving(false);
+    load();
+  }
+
+  function openBudgetCreate() {
+    setBudgetForm({ userId:"", date:new Date().toISOString().split("T")[0], validUntil:new Date(Date.now()+30*86400000).toISOString().split("T")[0], status:"pending", discount:0, notes:"" });
+    setBudgetItems([{ description:"", tooth:"", area:"", quantity:1, unitPrice:0, discount:0, total:0 }]);
+    setBudgetEditId(null);
+    setBudgetCreateOpen(true);
+  }
+
+  function openBudgetEdit(b: Patient["budgets"][0]) {
+    setBudgetForm({ userId:b.user.id, date:b.date, validUntil:b.validUntil??"", status:b.status, discount:b.discount, notes:b.notes??"" });
+    setBudgetItems(b.items.map(i => ({ description:i.description, tooth:i.tooth??"", area:i.area??"", quantity:i.quantity, unitPrice:i.unitPrice, discount:i.discount??0, total:i.total })));
+    setBudgetEditId(b.id);
+    setBudgetDetailId(null);
+    setBudgetCreateOpen(true);
+  }
+
+  async function saveBudget() {
+    setBudgetSaving(true);
+    const validItems = budgetItems.filter(i => i.description.trim());
+    const subtotal = validItems.reduce((s,i) => s+i.total, 0);
+    const total = subtotal - Number(budgetForm.discount);
+    if (budgetEditId) {
+      await fetch(`/api/budgets/${budgetEditId}`, { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ ...budgetForm, subtotal, total, items:validItems }) });
+    } else {
+      await fetch("/api/budgets", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ ...budgetForm, patientId:id, subtotal, total, items:validItems }) });
+    }
+    setBudgetSaving(false); setBudgetCreateOpen(false); setBudgetEditId(null);
+    load(); showToast(budgetEditId ? "✅ Presupuesto actualizado" : "✅ Presupuesto creado");
+  }
+
+  function updateBudgetItem(i: number, k: string, v: string|number) {
+    setBudgetItems(its => its.map((item, idx) => {
+      if (idx !== i) return item;
+      const u = { ...item, [k]: v };
+      if (["quantity","unitPrice","discount"].includes(k)) u.total = Number(u.quantity)*Number(u.unitPrice)*(1-Number(u.discount)/100);
+      return u;
+    }));
+  }
+
+  function openPayEdit(p: Patient["payments"][0]) {
+    setPayEditId(p.id);
+    setPayEditForm({ date:p.date, amount:String(p.amount), method:p.method, notes:p.notes??"" });
+  }
+
+  async function savePayEdit() {
+    if (!payEditId) return;
+    setPayEditSaving(true);
+    await fetch(`/api/payments/${payEditId}`, { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ date:payEditForm.date, amount:parseFloat(payEditForm.amount), method:payEditForm.method, notes:payEditForm.notes||null }) });
+    setPayEditId(null); setPayEditSaving(false); load();
+  }
+
+  async function deletePayment(payId: string) {
+    if (!confirm("¿Eliminar este pago? Esta acción no se puede deshacer.")) return;
+    await fetch(`/api/payments/${payId}`, { method:"DELETE" });
+    load(); showToast("✅ Pago eliminado");
+  }
 
   async function sendBudgetEmail(budgetId: string) {
     setEmailSending(budgetId);
@@ -336,7 +443,7 @@ export default function PatientDetail() {
 
   async function saveEditPatient() {
     setEditSaving(true);
-    await fetch(`/api/patients/${id}`, { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify(editForm) });
+    await fetch(`/api/patients/${id}`, { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ ...editForm, birthDate: editForm.birthDate || null }) });
     setEditPatient(false); load(); setEditSaving(false);
   }
 
@@ -377,7 +484,7 @@ export default function PatientDetail() {
     </div>
   );
 
-  const age = patient.birthDate ? Math.floor((Date.now()-new Date(patient.birthDate).getTime())/(1000*60*60*24*365.25)) : null;
+  const age = patient.birthDate ? Math.floor((Date.now()-new Date(patient.birthDate.split("T")[0]+"T12:00:00").getTime())/(1000*60*60*24*365.25)) : null;
   const paidTotal = patient.payments.reduce((s,p)=>s+p.amount,0);
   const budgetTotal = patient.budgets.filter(b=>b.status!=="rejected").reduce((s,b)=>s+b.total,0);
   const activeItemsTotal = patient.budgets.filter(b=>b.status!=="rejected").reduce((s,b)=>s+b.items.filter(i=>i.status!=="pending").reduce((is,i)=>is+i.total,0),0);
@@ -440,9 +547,26 @@ export default function PatientDetail() {
                   <h1 className="text-xl font-bold text-slate-900">{patient.firstName} {patient.lastName}</h1>
                   <p className="text-slate-500 text-sm font-mono">{patient.rut}{age ? ` · ${age} años` : ""}{patient.gender ? ` · ${patient.gender === "M" ? "Masculino" : "Femenino"}` : ""}</p>
                 </div>
-                <button onClick={openEditPatient} className="btn-secondary text-xs flex-shrink-0">
-                  <Edit2 size={13}/> Editar
-                </button>
+                <div className="flex gap-2 flex-shrink-0">
+                  <button onClick={()=>{
+                    if (!patient) return;
+                    // @ts-ignore
+                    import("xlsx").then(XLSX => {
+                      const wb = XLSX.utils.book_new();
+                      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ RUT:patient.rut, Nombre:`${patient.firstName} ${patient.lastName}`, Teléfono:patient.phone, Email:patient.email, Dirección:patient.address, Ciudad:patient.city, Previsión:patient.healthInsurance, "Fecha nac.":patient.birthDate?.split("T")[0]??"", Notas:patient.notes }]), "Datos");
+                      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(patient.evolutions.map(e=>({ Fecha:e.date, Diagnóstico:e.diagnosis, Tratamiento:e.treatment, Diente:e.tooth, Observaciones:e.observations, Costo:e.cost, Profesional:e.user.name }))), "Evoluciones");
+                      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(patient.budgets.map(b=>({ "N°":b.number, Fecha:b.date, Estado:b.status, Total:b.total, Abonado:b.payments.reduce((s,p)=>s+p.amount,0), Saldo:b.total-b.payments.reduce((s,p)=>s+p.amount,0) }))), "Presupuestos");
+                      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(patient.payments.map(p=>({ Fecha:p.date, Monto:p.amount, Método:p.method, Notas:p.notes }))), "Pagos");
+                      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(patient.appointments.map(a=>({ Fecha:a.date, Hora:a.startTime, Tipo:a.type, Estado:a.status, Profesional:a.user.name }))), "Citas");
+                      XLSX.writeFile(wb, `Paciente_${patient.rut}_${new Date().toISOString().split("T")[0]}.xlsx`);
+                    });
+                  }} className="btn-secondary text-xs">
+                    <Download size={13}/> Excel
+                  </button>
+                  <button onClick={openEditPatient} className="btn-secondary text-xs">
+                    <Edit2 size={13}/> Editar
+                  </button>
+                </div>
               </div>
               <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
                 {patient.phone && <a href={`tel:${patient.phone}`} className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-primary-600"><Phone size={13} className="text-slate-400"/>{patient.phone}</a>}
@@ -506,12 +630,12 @@ export default function PatientDetail() {
           <button onClick={()=>setPayModal(true)} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors">
             <CreditCard size={13}/> Registrar pago
           </button>
-          <Link href={`/presupuestos?patientId=${id}`} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-amber-700 hover:bg-amber-50 px-3 py-1.5 rounded-lg transition-colors">
+          <button onClick={openBudgetCreate} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-amber-700 hover:bg-amber-50 px-3 py-1.5 rounded-lg transition-colors">
             <FileText size={13}/> Nuevo presupuesto
-          </Link>
-          <Link href={`/agenda?patientId=${id}&newAppt=1`} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors">
+          </button>
+          <a href={`/agenda?patientId=${id}&newAppt=1`} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors">
             <CalendarPlus size={13}/> Nueva cita
-          </Link>
+          </a>
         </div>
       </div>
 
@@ -777,79 +901,35 @@ export default function PatientDetail() {
                 <p className={`text-sm font-bold ${saldo>0?"text-red-600":"text-emerald-700"}`}>{fmt(saldo)}</p>
               </div>
             </div>
-            <Link href={`/presupuestos?patientId=${id}`} className="btn-primary text-sm">
+            <button onClick={openBudgetCreate} className="btn-primary text-sm">
               <Plus size={15}/> Nuevo Presupuesto
-            </Link>
+            </button>
           </div>
 
           {patient.budgets.length===0 ? <div className="card py-12 text-center text-muted">Sin presupuestos</div> :
-            patient.budgets.map(b=>(
-              <div key={b.id} className="card overflow-hidden">
+            patient.budgets.map(b=>{
+              const bPaid = b.payments.reduce((s,p)=>s+p.amount,0);
+              const bBalance = b.total - bPaid;
+              return (
+              <button key={b.id} onClick={()=>setBudgetDetailId(b.id)} className="card overflow-hidden w-full text-left hover:border-primary-200 transition-colors cursor-pointer">
                 <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
                   <div>
-                    <p className="font-semibold text-slate-900">Presupuesto #{b.number}</p>
+                    <p className="font-semibold text-slate-900">Presupuesto #{String(b.number).padStart(4,"0")}</p>
                     <p className="text-xs text-slate-500">{b.date} · {b.user.name}</p>
                   </div>
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
                     <Badge value={b.status}/>
                     <p className="text-base font-bold text-slate-900">{fmt(b.total)}</p>
-                    <button onClick={()=>sendBudgetEmail(b.id)} disabled={emailSending===b.id||!patient.email}
-                      title={!patient.email?"Sin email":"Enviar por email"}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-                      <Mail size={12}/> {emailSending===b.id?"...":"Email"}
-                    </button>
-                    <button onClick={()=>sendBudgetWA(b)}
-                      title="Enviar por WhatsApp"
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-green-50 text-green-700 hover:bg-green-100 transition-colors">
-                      <MessageCircle size={12}/> WA
-                    </button>
-                    <button onClick={()=>deleteBudget(b.id)}
-                      title="Eliminar presupuesto"
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-red-50 text-red-600 hover:bg-red-100 transition-colors">
-                      <Trash2 size={12}/>
-                    </button>
+                    {bBalance > 0 && <span className="text-xs text-red-600 font-medium">Saldo: {fmt(bBalance)}</span>}
+                    <ChevronRight size={15} className="text-slate-400"/>
                   </div>
                 </div>
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50"><tr>
-                    <th className="text-left px-5 py-2 text-xs text-slate-500">Tratamiento</th>
-                    <th className="text-center px-3 py-2 text-xs text-slate-500 hidden sm:table-cell">Diente/Área</th>
-                    <th className="text-center px-3 py-2 text-xs text-slate-500">Sesiones</th>
-                    <th className="text-center px-3 py-2 text-xs text-slate-500">Estado</th>
-                    <th className="text-right px-5 py-2 text-xs text-slate-500">Total</th>
-                  </tr></thead>
-                  <tbody>{b.items.map(item=>(
-                    <tr key={item.id} className="border-t border-slate-100">
-                      <td className="px-5 py-2.5 text-slate-700">{item.description}</td>
-                      <td className="px-3 py-2.5 text-center text-slate-500 hidden sm:table-cell">{item.tooth||item.area||"—"}</td>
-                      <td className="px-3 py-2.5 text-center">
-                        <input type="number" min={1} max={20} value={item.sessions}
-                          className="w-12 text-center text-xs border border-slate-200 rounded-lg px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                          onChange={async e=>{
-                            await fetch(`/api/budget-items/${item.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status:item.status,sessions:parseInt(e.target.value)||1})});
-                            load();
-                          }}/>
-                      </td>
-                      <td className="px-3 py-2.5 text-center">
-                        <select value={item.status}
-                          className={`text-xs px-2 py-1 rounded-full border-0 font-medium cursor-pointer ${ITEM_STATUS[item.status]?.color ?? "bg-slate-100 text-slate-600"}`}
-                          onChange={e=>updateItemStatus(item.id,e.target.value)}>
-                          <option value="pending">Pendiente</option>
-                          <option value="in_progress">En progreso</option>
-                          <option value="completed">Completado</option>
-                        </select>
-                      </td>
-                      <td className="px-5 py-2.5 text-right font-medium">{fmt(item.total)}</td>
-                    </tr>
-                  ))}</tbody>
-                </table>
-                <div className="px-5 py-2.5 bg-slate-50/80 border-t border-slate-100 flex justify-between items-center text-xs">
-                  <span className="text-slate-500">Abonado: <span className="font-semibold text-emerald-700">{fmt(b.payments.reduce((s,p)=>s+p.amount,0))}</span></span>
-                  <span className="text-red-600 font-semibold">Saldo: {fmt(b.total - b.payments.reduce((s,p)=>s+p.amount,0))}</span>
-                  <span className="font-bold text-slate-900">Total: {fmt(b.total)}</span>
+                <div className="px-5 py-2.5 bg-slate-50/80 flex justify-between items-center text-xs text-slate-500">
+                  <span>{b.items.length} ítem{b.items.length!==1?"s":""}</span>
+                  <span>Abonado: <span className="font-semibold text-emerald-700">{fmt(bPaid)}</span></span>
                 </div>
-              </div>
-            ))}
+              </button>
+            )})}
         </div>
       )}
 
@@ -879,10 +959,11 @@ export default function PatientDetail() {
                 <th className="text-left px-4 py-3 text-xs text-slate-500 uppercase tracking-wide">Método</th>
                 <th className="text-left px-4 py-3 text-xs text-slate-500 uppercase tracking-wide hidden md:table-cell">Vinculado a</th>
                 <th className="text-left px-4 py-3 text-xs text-slate-500 uppercase tracking-wide hidden lg:table-cell">Notas</th>
+                <th className="w-16"/>
               </tr></thead>
               <tbody>
                 {patient.payments.length===0 ? (
-                  <tr><td colSpan={5} className="px-5 py-10 text-center text-muted">Sin pagos registrados</td></tr>
+                  <tr><td colSpan={6} className="px-5 py-10 text-center text-muted">Sin pagos registrados</td></tr>
                 ) : patient.payments.map(p=>{
                   const linkedEvo = p.reference ? patient.evolutions.find(e=>e.id===p.reference) : null;
                   return (
@@ -896,6 +977,12 @@ export default function PatientDetail() {
                         : "—"}
                     </td>
                     <td className="px-4 py-3 text-slate-500 hidden lg:table-cell">{p.notes||"—"}</td>
+                    <td className="px-3 py-3">
+                      <div className="flex gap-1">
+                        <button onClick={()=>openPayEdit(p)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"><Pencil size={12}/></button>
+                        <button onClick={()=>deletePayment(p.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"><Trash2 size={12}/></button>
+                      </div>
+                    </td>
                   </tr>
                   );
                 })}
@@ -957,7 +1044,7 @@ export default function PatientDetail() {
       {tab===8&&(
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[
-            ["Datos Personales",[["RUT",patient.rut],["Nombre",`${patient.firstName} ${patient.lastName}`],["Género",patient.gender==="M"?"Masculino":"Femenino"],["Fecha nac.",patient.birthDate?new Date(patient.birthDate+"T12:00:00").toLocaleDateString("es-CL"):"—"],["Edad",age?`${age} años`:"—"]]],
+            ["Datos Personales",[["RUT",patient.rut],["Nombre",`${patient.firstName} ${patient.lastName}`],["Género",patient.gender==="M"?"Masculino":"Femenino"],["Fecha nac.",patient.birthDate?new Date(patient.birthDate.split("T")[0]+"T12:00:00").toLocaleDateString("es-CL"):"—"],["Edad",age?`${age} años`:"—"]]],
             ["Contacto",[["Teléfono",patient.phone||"—"],["Email",patient.email||"—"],["Dirección",patient.address||"—"],["Ciudad",patient.city||"—"]]],
             ["Previsión",[["Previsión de salud",patient.healthInsurance||"—"]]],
             ["Notas",[[null,patient.notes||"Sin observaciones"]]],
@@ -982,9 +1069,9 @@ export default function PatientDetail() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-slate-500">{patient.appointments.length} citas registradas</p>
-            <Link href={`/agenda?patientId=${id}&newAppt=1`} className="btn-primary text-sm">
+            <a href={`/agenda?patientId=${id}&newAppt=1`} className="btn-primary text-sm">
               <CalendarPlus size={15}/> Nueva Cita
-            </Link>
+            </a>
           </div>
         <div className="card overflow-hidden">
           <table className="w-full text-sm">
@@ -1251,6 +1338,12 @@ export default function PatientDetail() {
               <MessageCircle size={15}/> WhatsApp
             </button>
           )}
+          <button className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+            onClick={sendRxEmail}
+            disabled={rxEmailSending||!rxUserId||rxItems.every(m=>!m.drug.trim())||!patient.email}
+            title={!patient.email?"El paciente no tiene email":undefined}>
+            <Mail size={15}/> {rxEmailSending?"Enviando...":"Email"}
+          </button>
           <button className="flex items-center gap-2 btn-primary" onClick={printRx}
             disabled={!rxUserId || rxItems.every(m=>!m.drug.trim())}>
             <Printer size={15}/> Imprimir Receta
@@ -1417,6 +1510,12 @@ export default function PatientDetail() {
               <MessageCircle size={15}/> WhatsApp
             </button>
           )}
+          <button className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+            onClick={sendCareEmail}
+            disabled={careEmailSending||!cuidadosText.trim()||!patient.email}
+            title={!patient.email?"El paciente no tiene email":undefined}>
+            <Mail size={15}/> {careEmailSending?"Enviando...":"Email"}
+          </button>
           <button className="flex items-center gap-2 btn-primary" onClick={printCuidados} disabled={!cuidadosUserId}>
             <Printer size={15}/> Imprimir instrucciones
           </button>
@@ -1455,6 +1554,225 @@ export default function PatientDetail() {
           </button>
         </div>
       </Modal>
+
+      {/* ===== MODAL DETALLE PRESUPUESTO ===== */}
+      {patient && (() => {
+        const db = budgetDetailId ? patient.budgets.find(b => b.id === budgetDetailId) : null;
+        if (!db) return null;
+        const dbPaid = db.payments.reduce((s,p)=>s+p.amount,0);
+        const dbBalance = db.total - dbPaid;
+        const dbPct = db.total > 0 ? Math.round((dbPaid/db.total)*100) : 0;
+        return (
+          <Modal open={!!budgetDetailId} onClose={()=>setBudgetDetailId(null)} title={`Presupuesto #${String(db.number).padStart(4,"0")}`} size="xl">
+            <div className="p-6 space-y-5 overflow-y-auto max-h-[75vh]">
+              {/* Status + actions */}
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <Badge value={db.status}/>
+                <div className="flex gap-2 flex-wrap">
+                  {db.status==="pending" && (<>
+                    <button onClick={()=>changeBudgetStatus(db.id,"approved")} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 font-medium"><CheckCircle size={13}/> Aprobar</button>
+                    <button onClick={()=>changeBudgetStatus(db.id,"rejected")} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 font-medium"><XCircle size={13}/> Rechazar</button>
+                  </>)}
+                  {db.status==="rejected" && <button onClick={()=>changeBudgetStatus(db.id,"pending")} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 font-medium"><Clock size={13}/> Reabrir</button>}
+                  <button onClick={()=>sendBudgetEmail(db.id)} disabled={emailSending===db.id||!patient.email} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 font-medium disabled:opacity-40"><Mail size={13}/> {emailSending===db.id?"...":"Email"}</button>
+                  <button onClick={()=>sendBudgetWA(db)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 font-medium"><MessageCircle size={13}/> WhatsApp</button>
+                  <button onClick={()=>openBudgetEdit(db)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 font-medium"><Pencil size={13}/> Editar</button>
+                  <button onClick={()=>deleteBudget(db.id)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 font-medium"><Trash2 size={13}/> Eliminar</button>
+                </div>
+              </div>
+              {/* Patient + professional */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-slate-50 rounded-xl p-3">
+                  <p className="text-xs text-slate-500 mb-1">Paciente</p>
+                  <p className="font-semibold text-slate-900">{patient.firstName} {patient.lastName}</p>
+                  <p className="text-xs text-slate-400 font-mono">{patient.rut}</p>
+                  {patient.phone && <p className="text-xs text-slate-500 mt-0.5">{patient.phone}</p>}
+                </div>
+                <div className="bg-slate-50 rounded-xl p-3">
+                  <p className="text-xs text-slate-500 mb-1">Profesional</p>
+                  <p className="font-semibold text-slate-900">{db.user.name}</p>
+                  <p className="text-xs text-slate-400 mt-1">Fecha: {db.date}</p>
+                  {db.validUntil && <p className="text-xs text-slate-400">Válido hasta: {db.validUntil}</p>}
+                </div>
+              </div>
+              {/* Items table */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50"><tr>
+                    <th className="text-left px-4 py-2.5 text-xs text-slate-500">Tratamiento</th>
+                    <th className="text-center px-3 py-2.5 text-xs text-slate-500 hidden sm:table-cell">Diente/Área</th>
+                    <th className="text-center px-3 py-2.5 text-xs text-slate-500">Cant.</th>
+                    <th className="text-right px-3 py-2.5 text-xs text-slate-500 hidden sm:table-cell">P. Unit.</th>
+                    <th className="text-right px-4 py-2.5 text-xs text-slate-500">Total</th>
+                  </tr></thead>
+                  <tbody>{db.items.map(item=>(
+                    <tr key={item.id} className="border-t border-slate-100">
+                      <td className="px-4 py-2.5 text-slate-700">{item.description}</td>
+                      <td className="px-3 py-2.5 text-center text-slate-500 hidden sm:table-cell">{item.tooth||item.area||"—"}</td>
+                      <td className="px-3 py-2.5 text-center text-slate-500">{item.quantity}</td>
+                      <td className="px-3 py-2.5 text-right text-slate-600 hidden sm:table-cell">{fmt(item.unitPrice)}</td>
+                      <td className="px-4 py-2.5 text-right font-semibold">{fmt(item.total)}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+              {/* Totals */}
+              <div className="flex justify-end">
+                <div className="min-w-52 space-y-2">
+                  <div className="flex justify-between text-sm gap-8"><span className="text-slate-500">Subtotal</span><span>{fmt(db.subtotal??db.total)}</span></div>
+                  {db.discount > 0 && <div className="flex justify-between text-sm"><span className="text-slate-500">Descuento</span><span className="text-red-600">-{fmt(db.discount)}</span></div>}
+                  <div className="flex justify-between font-bold text-base border-t border-slate-200 pt-2"><span>Total</span><span>{fmt(db.total)}</span></div>
+                  <div className="w-full bg-slate-100 rounded-full h-2"><div className="bg-emerald-500 h-2 rounded-full" style={{width:`${dbPct}%`}}/></div>
+                  <div className="flex justify-between text-sm text-emerald-700 font-medium"><span>Abonado ({dbPct}%)</span><span>{fmt(dbPaid)}</span></div>
+                  <div className={`flex justify-between text-sm font-bold ${dbBalance>0?"text-red-600":"text-emerald-600"}`}><span>Saldo</span><span>{dbBalance>0?fmt(dbBalance):"Pagado ✓"}</span></div>
+                </div>
+              </div>
+              {/* Payment history */}
+              {db.payments.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Historial de abonos</p>
+                  <div className="space-y-1.5">
+                    {db.payments.map(p=>(
+                      <div key={p.id} className="flex items-center justify-between bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">{METHOD_ICON[p.method]??"💰"}</span>
+                          <div><p className="text-sm font-medium text-slate-800">{fmt(p.amount)}</p><p className="text-xs text-slate-400">{p.date} · <span className="capitalize">{p.method}</span>{p.notes&&<span> · {p.notes}</span>}</p></div>
+                        </div>
+                        <span className="text-emerald-600 font-bold text-sm">+{fmt(p.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Register payment inline */}
+              {dbBalance > 0 && (
+                <div className="border border-primary-200 bg-primary-50 rounded-xl p-4">
+                  <p className="text-xs font-semibold text-primary-700 uppercase tracking-wide mb-3">Registrar abono</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div><label className="label text-xs">Fecha</label><input className="input py-1.5 text-sm" type="date" value={budgetPayForm.date} onChange={e=>setBudgetPayForm(f=>({...f,date:e.target.value}))}/></div>
+                    <div><label className="label text-xs">Método</label>
+                      <select className="select py-1.5 text-sm" value={budgetPayForm.method} onChange={e=>setBudgetPayForm(f=>({...f,method:e.target.value}))}>
+                        <option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="tarjeta">Tarjeta</option><option value="cheque">Cheque</option>
+                      </select>
+                    </div>
+                    <div><label className="label text-xs">Monto ($)</label><input className="input py-1.5 text-sm" type="number" min="0" placeholder={fmt(dbBalance)} value={budgetPayForm.amount} onChange={e=>setBudgetPayForm(f=>({...f,amount:e.target.value}))}/></div>
+                    <div><label className="label text-xs">Notas</label><input className="input py-1.5 text-sm" value={budgetPayForm.notes} onChange={e=>setBudgetPayForm(f=>({...f,notes:e.target.value}))} placeholder="Opcional"/></div>
+                  </div>
+                  <div className="flex justify-end mt-2">
+                    <button onClick={registerBudgetPayment} disabled={budgetPaySaving||!budgetPayForm.amount} className="btn-primary text-sm py-1.5 px-4">
+                      {budgetPaySaving?"Guardando...":"Registrar abono"}
+                    </button>
+                  </div>
+                </div>
+              )}
+              {db.notes && <p className="text-sm text-slate-500 italic border-t border-slate-100 pt-3"><strong className="text-slate-600">Obs:</strong> {db.notes}</p>}
+            </div>
+          </Modal>
+        );
+      })()}
+
+      {/* ===== MODAL CREAR/EDITAR PRESUPUESTO ===== */}
+      {(() => {
+        const bSubtotal = budgetItems.reduce((s,i)=>s+i.total,0);
+        const bTotal = bSubtotal - Number(budgetForm.discount);
+        return (
+          <Modal open={budgetCreateOpen} onClose={()=>setBudgetCreateOpen(false)} title={budgetEditId?"Editar Presupuesto":"Nuevo Presupuesto"} size="xl">
+            <div className="p-6 space-y-4 overflow-y-auto max-h-[75vh]">
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="label">Profesional *</label>
+                  <select className="select" value={budgetForm.userId} onChange={e=>setBudgetForm(f=>({...f,userId:e.target.value}))}>
+                    <option value="">Seleccionar...</option>
+                    {users.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}
+                  </select>
+                </div>
+                <div><label className="label">Estado</label>
+                  <select className="select" value={budgetForm.status} onChange={e=>setBudgetForm(f=>({...f,status:e.target.value}))}>
+                    <option value="pending">Pendiente</option><option value="approved">Aprobado</option><option value="rejected">Rechazado</option>
+                  </select>
+                </div>
+                <div><label className="label">Fecha</label><input className="input" type="date" value={budgetForm.date} onChange={e=>setBudgetForm(f=>({...f,date:e.target.value}))}/></div>
+                <div><label className="label">Válido hasta</label><input className="input" type="date" value={budgetForm.validUntil} onChange={e=>setBudgetForm(f=>({...f,validUntil:e.target.value}))}/></div>
+              </div>
+              {/* Items */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="label mb-0">Tratamientos</label>
+                  <button onClick={()=>setBudgetItems(its=>[...its,{description:"",tooth:"",area:"",quantity:1,unitPrice:0,discount:0,total:0}])} className="text-xs text-primary-600 hover:underline flex items-center gap-1"><Plus size={12}/> Agregar ítem</button>
+                </div>
+                <div className="space-y-2">
+                  {budgetItems.map((item,i)=>(
+                    <div key={i} className="grid grid-cols-12 gap-2 items-start bg-slate-50 rounded-xl p-3">
+                      <div className="col-span-5">
+                        <label className="text-[10px] text-slate-500 uppercase tracking-wide">Descripción *</label>
+                        <input className="input mt-0.5 text-sm py-1.5" value={item.description}
+                          onChange={e=>updateBudgetItem(i,"description",e.target.value)}
+                          list={`treatments-${i}`} placeholder="Escribir o buscar..."/>
+                        <datalist id={`treatments-${i}`}>{treatments.map(t=><option key={t.id} value={t.name}/>)}</datalist>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="text-[10px] text-slate-500 uppercase tracking-wide">Diente</label>
+                        <input className="input mt-0.5 text-sm py-1.5" value={item.tooth} onChange={e=>updateBudgetItem(i,"tooth",e.target.value)} placeholder="18,19..."/>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="text-[10px] text-slate-500 uppercase tracking-wide">P. Unit.</label>
+                        <input className="input mt-0.5 text-sm py-1.5" type="number" min="0" value={item.unitPrice}
+                          onChange={e=>{
+                            updateBudgetItem(i,"unitPrice",parseFloat(e.target.value)||0);
+                            const t = treatments.find(t=>t.name===item.description);
+                            if (!t && item.description) updateBudgetItem(i,"unitPrice",parseFloat(e.target.value)||0);
+                          }}/>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="text-[10px] text-slate-500 uppercase tracking-wide">Total</label>
+                        <input className="input mt-0.5 text-sm py-1.5 bg-slate-100" value={fmt(item.total)} readOnly/>
+                      </div>
+                      <div className="col-span-1 flex items-end justify-center pb-1">
+                        {budgetItems.length > 1 && <button onClick={()=>setBudgetItems(its=>its.filter((_,j)=>j!==i))} className="w-7 h-7 flex items-center justify-center text-slate-300 hover:text-red-500 rounded-lg hover:bg-red-50"><Trash2 size={13}/></button>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="label">Descuento global ($)</label><input className="input" type="number" min="0" value={budgetForm.discount} onChange={e=>setBudgetForm(f=>({...f,discount:parseFloat(e.target.value)||0}))}/></div>
+                <div className="flex flex-col justify-end bg-slate-50 rounded-xl p-3 text-right">
+                  <p className="text-xs text-slate-500">Subtotal: {fmt(bSubtotal)}</p>
+                  {Number(budgetForm.discount)>0 && <p className="text-xs text-red-500">Descuento: -{fmt(Number(budgetForm.discount))}</p>}
+                  <p className="text-lg font-bold text-slate-900">Total: {fmt(bTotal)}</p>
+                </div>
+              </div>
+              <div><label className="label">Notas / Observaciones</label><textarea className="input resize-none" rows={2} value={budgetForm.notes} onChange={e=>setBudgetForm(f=>({...f,notes:e.target.value}))}/></div>
+            </div>
+            <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
+              <button className="btn-secondary" onClick={()=>setBudgetCreateOpen(false)}>Cancelar</button>
+              <button className="btn-primary" onClick={saveBudget} disabled={budgetSaving||!budgetForm.userId||budgetItems.every(i=>!i.description.trim())}>
+                {budgetSaving?"Guardando...":(budgetEditId?"Guardar cambios":"Crear Presupuesto")}
+              </button>
+            </div>
+          </Modal>
+        );
+      })()}
+
+      {/* ===== MODAL EDITAR PAGO ===== */}
+      <Modal open={!!payEditId} onClose={()=>setPayEditId(null)} title="Editar Pago">
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div><label className="label">Fecha</label><input className="input" type="date" value={payEditForm.date} onChange={e=>setPayEditForm(f=>({...f,date:e.target.value}))}/></div>
+            <div><label className="label">Monto ($)</label><input className="input" type="number" min="0" value={payEditForm.amount} onChange={e=>setPayEditForm(f=>({...f,amount:e.target.value}))}/></div>
+            <div><label className="label">Método</label>
+              <select className="select" value={payEditForm.method} onChange={e=>setPayEditForm(f=>({...f,method:e.target.value}))}>
+                <option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="tarjeta">Tarjeta</option><option value="debito">Débito</option><option value="cheque">Cheque</option>
+              </select>
+            </div>
+            <div><label className="label">Notas</label><input className="input" value={payEditForm.notes} onChange={e=>setPayEditForm(f=>({...f,notes:e.target.value}))} placeholder="Opcional"/></div>
+          </div>
+        </div>
+        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
+          <button className="btn-secondary" onClick={()=>setPayEditId(null)}>Cancelar</button>
+          <button className="btn-primary" onClick={savePayEdit} disabled={payEditSaving||!payEditForm.amount}>{payEditSaving?"Guardando...":"Guardar cambios"}</button>
+        </div>
+      </Modal>
+
     </div>
   );
 }

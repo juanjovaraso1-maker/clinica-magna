@@ -168,6 +168,76 @@ export function buildBudgetHtml(cfg: Record<string,string>, data: {
 </body></html>`;
 }
 
+export function buildRxEmailHtml(cfg: Record<string,string>, data: {
+  patientName: string; patientRut: string; professionalName: string;
+  medications: Array<{drug:string;dose:string;freq:string;duration:string;route:string;instructions:string}>;
+  notes: string; date: string;
+}) {
+  const rows = data.medications.map((m,i) => `
+    <tr style="border-bottom:1px solid #f1f5f9">
+      <td style="padding:10px 12px;font-weight:700;color:#1f2937;font-size:13px">${i+1}. ${m.drug}</td>
+      <td style="padding:10px 12px;color:#374151;font-size:12px">${m.dose}${m.route?` (${m.route})`:""}</td>
+      <td style="padding:10px 12px;color:#374151;font-size:12px">${m.freq}</td>
+      <td style="padding:10px 12px;color:#374151;font-size:12px">${m.duration}</td>
+    </tr>
+    ${m.instructions?`<tr style="border-bottom:1px solid #f1f5f9"><td colspan="4" style="padding:2px 12px 10px;color:#6b7280;font-size:11px;font-style:italic">↳ ${m.instructions}</td></tr>`:""}
+  `).join("");
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/></head><body style="margin:0;padding:20px;background:#f8fafc;font-family:Arial,sans-serif">
+  <div style="max-width:600px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+    <div style="background:#3a5a40;padding:20px 28px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <h1 style="color:white;margin:0;font-size:18px;font-weight:700">${cfg.clinic_name ?? "Clínica Magna"}</h1>
+        <p style="color:#a3c4a8;margin:3px 0 0;font-size:12px">${cfg.clinic_slogan ?? "Odontología y Estética Facial"}</p>
+      </div>
+      <div style="text-align:right;color:#a3c4a8;font-size:11px;line-height:1.7">
+        ${cfg.clinic_phone ? `<div>${cfg.clinic_phone}</div>` : ""}
+        ${cfg.clinic_email ? `<div>${cfg.clinic_email}</div>` : ""}
+      </div>
+    </div>
+    <div style="padding:24px 28px">
+      <h2 style="margin:0 0 4px;font-size:20px;color:#1f2937;font-weight:700;text-align:center">℞ RECETA MÉDICA</h2>
+      <p style="text-align:center;font-size:12px;color:#6b7280;margin:0 0 20px">${data.date}</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+        <div style="background:#f0f4f0;border-radius:8px;padding:12px"><p style="margin:0 0 3px;font-size:10px;font-weight:700;color:#3a5a40;text-transform:uppercase">Paciente</p><p style="margin:0;font-weight:600;color:#1f2937">${data.patientName}</p><p style="margin:2px 0 0;font-size:11px;color:#6b7280">${data.patientRut}</p></div>
+        <div style="background:#f0f4f0;border-radius:8px;padding:12px"><p style="margin:0 0 3px;font-size:10px;font-weight:700;color:#3a5a40;text-transform:uppercase">Profesional</p><p style="margin:0;font-weight:600;color:#1f2937">${data.professionalName}</p></div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin-bottom:16px">
+        <thead><tr style="background:#3a5a40"><th style="padding:8px 12px;color:white;font-size:11px;text-align:left">Fármaco</th><th style="padding:8px 12px;color:white;font-size:11px;text-align:left">Dosis/Vía</th><th style="padding:8px 12px;color:white;font-size:11px;text-align:left">Frecuencia</th><th style="padding:8px 12px;color:white;font-size:11px;text-align:left">Duración</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      ${data.notes?`<div style="padding:12px 16px;background:#fffbeb;border-left:4px solid #f59e0b;border-radius:4px;font-size:12px;color:#92400e"><strong>Indicaciones:</strong> ${data.notes}</div>`:""}
+    </div>
+    <div style="background:#f1f5f9;padding:12px 28px;text-align:center;color:#64748b;font-size:11px;border-top:1px solid #e2e8f0">
+      ${cfg.clinic_name ?? "Clínica Magna"} · ${cfg.clinic_phone ?? ""} · ${cfg.clinic_email ?? ""}
+    </div>
+  </div></body></html>`;
+}
+
+export function buildCareEmailHtml(cfg: Record<string,string>, data: {
+  patientName: string; professionalName: string; templateName: string; text: string; date: string;
+}) {
+  const lines = data.text.split("\n").map(l => `<p style="margin:6px 0;color:#374151;font-size:13px">${l}</p>`).join("");
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/></head><body style="margin:0;padding:20px;background:#f8fafc;font-family:Arial,sans-serif">
+  <div style="max-width:600px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+    <div style="background:#3a5a40;padding:20px 28px">
+      <h1 style="color:white;margin:0;font-size:18px;font-weight:700">${cfg.clinic_name ?? "Clínica Magna"}</h1>
+      <p style="color:#a3c4a8;margin:3px 0 0;font-size:12px">${cfg.clinic_slogan ?? "Odontología y Estética Facial"}</p>
+    </div>
+    <div style="padding:24px 28px">
+      <h2 style="margin:0 0 4px;font-size:18px;color:#1f2937;font-weight:700;text-align:center">INSTRUCCIONES DE CUIDADOS</h2>
+      <p style="text-align:center;font-size:13px;font-weight:600;color:#3a5a40;margin:4px 0 16px">${data.templateName}</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+        <div style="background:#f0f4f0;border-radius:8px;padding:12px"><p style="margin:0 0 3px;font-size:10px;font-weight:700;color:#3a5a40;text-transform:uppercase">Paciente</p><p style="margin:0;font-weight:600;color:#1f2937">${data.patientName}</p></div>
+        <div style="background:#f0f4f0;border-radius:8px;padding:12px"><p style="margin:0 0 3px;font-size:10px;font-weight:700;color:#3a5a40;text-transform:uppercase">Profesional</p><p style="margin:0;font-weight:600;color:#1f2937">${data.professionalName}</p><p style="margin:2px 0 0;font-size:11px;color:#6b7280">${data.date}</p></div>
+      </div>
+      <div style="background:#f0f4f0;border-radius:8px;padding:16px 20px;line-height:1.8">${lines}</div>
+    </div>
+    <div style="background:#f1f5f9;padding:12px 28px;text-align:center;color:#64748b;font-size:11px;border-top:1px solid #e2e8f0">
+      ${cfg.clinic_name ?? "Clínica Magna"} · ${cfg.clinic_phone ?? ""} · ${cfg.clinic_email ?? ""}
+    </div>
+  </div></body></html>`;
+}
+
 export function buildBirthdayHtml(cfg: Record<string,string>, patientName: string) {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"/></head><body style="margin:0;padding:20px;background:#f8fafc;font-family:Arial,sans-serif">
   <div style="max-width:520px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08)">

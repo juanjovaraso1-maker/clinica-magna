@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import * as XLSX from "xlsx";
 import {
   TrendingUp, TrendingDown, Users, Calendar, DollarSign,
-  CheckCircle2, ChevronRight, AlertCircle, UserX, RefreshCw, UserPlus,
+  CheckCircle2, ChevronRight, AlertCircle, UserX, RefreshCw, UserPlus, Download,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -90,6 +91,22 @@ export default function Reportes() {
     }
   }, [activeTab]);
 
+  function exportExcel() {
+    if (!data) return;
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.monthlyFinance.map(r=>({ Mes:r.label, Ingresos:r.ingresos, Gastos:r.gastos, Neto:r.ingresos-r.gastos }))), "Financiero");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.monthlyAppointments.map(r=>({ Mes:r.label, "Total Citas":r.citas, Completadas:r.completadas }))), "Citas");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.topTreatments.map(r=>({ Tratamiento:r.name, Cantidad:r.count }))), "Tratamientos");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.debtors.map(r=>({ Paciente:r.name, RUT:r.rut, "N° Presup":r.budgetNumber, Total:r.total, Abonado:r.paid, Saldo:r.balance }))), "Deudores");
+    if (pData) {
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pData.atRisk.map(r=>({ Paciente:r.name, "Última Actividad":r.lastActivity??"Sin actividad", "Días sin actividad":r.daysSince??"-" }))), "Pacientes en riesgo");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pData.ageData.map(r=>({ Rango:r.name, Cantidad:r.value }))), "Edades");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pData.cityData.map(r=>({ Ciudad:r.name, Cantidad:r.value }))), "Ciudades");
+    }
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ Métrica:"Ingresos totales", Valor:data.kpis.totalIncome }, { Métrica:"Gastos totales", Valor:data.kpis.totalExpenses }, { Métrica:"Neto", Valor:data.kpis.net }, { Métrica:"Pacientes activos", Valor:data.kpis.totalPatients }, { Métrica:"Pacientes nuevos (período)", Valor:data.kpis.newPatients }, { Métrica:"Total citas", Valor:data.kpis.totalAppointments }, { Métrica:"Tasa completadas (%)", Valor:data.kpis.completionRate } ]), "Resumen");
+    XLSX.writeFile(wb, `Reportes_ClinicaMagna_${new Date().toISOString().split("T")[0]}.xlsx`);
+  }
+
   if (!data) return (
     <div className="flex items-center justify-center h-64">
       <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin"/>
@@ -107,16 +124,21 @@ export default function Reportes() {
           <h1 className="page-title">Reportes</h1>
           <p className="text-muted">Métricas y análisis de la clínica</p>
         </div>
-        {activeTab === 0 && (
-          <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
-            {PERIODS.map(p => (
-              <button key={p.value} onClick={()=>setPeriod(p.value)}
-                className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${period===p.value?"bg-white text-slate-900 shadow-sm":"text-slate-500 hover:text-slate-700"}`}>
-                {p.label}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {activeTab === 0 && (
+            <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
+              {PERIODS.map(p => (
+                <button key={p.value} onClick={()=>setPeriod(p.value)}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${period===p.value?"bg-white text-slate-900 shadow-sm":"text-slate-500 hover:text-slate-700"}`}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          )}
+          <button onClick={exportExcel} className="btn-secondary text-sm flex items-center gap-2">
+            <Download size={15}/> Exportar Excel
+          </button>
+        </div>
       </div>
 
       {/* Tab switcher */}

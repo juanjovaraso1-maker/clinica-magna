@@ -533,13 +533,25 @@ export default function Agenda() {
             <textarea className="input resize-none" rows={2} value={form.notes} onChange={e=>set("notes",e.target.value)}/>
           </div>
         </div>
-        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3">
-          <div>
+        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
             {selected && (
-              <button onClick={deleteAppt}
-                className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors font-medium">
-                <Trash2 size={14}/> Eliminar cita
-              </button>
+              <>
+                <button onClick={deleteAppt}
+                  className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors font-medium">
+                  <Trash2 size={14}/> Eliminar
+                </button>
+                <button disabled={!selected.patient?.phone||reminderLoading===selected.id+"whatsapp"}
+                  onClick={()=>sendReminder(selected.id,"whatsapp")}
+                  className={`flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg font-medium transition-colors ${selected.patient?.phone?"bg-green-100 text-green-700 hover:bg-green-200":"bg-slate-100 text-slate-400 cursor-not-allowed"}`}>
+                  <MessageCircle size={14}/> {reminderLoading===selected.id+"whatsapp"?"...":"Recordar WA"}
+                </button>
+                <button disabled={!selected.patient?.email||reminderLoading===selected.id+"email"}
+                  onClick={()=>sendReminder(selected.id,"email")}
+                  className={`flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg font-medium transition-colors ${selected.patient?.email?"bg-blue-100 text-blue-700 hover:bg-blue-200":"bg-slate-100 text-slate-400 cursor-not-allowed"}`}>
+                  <Mail size={14}/> {reminderLoading===selected.id+"email"?"...":"Recordar Email"}
+                </button>
+              </>
             )}
           </div>
           <div className="flex gap-3">
