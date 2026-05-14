@@ -10,3 +10,11 @@ export async function POST(req: NextRequest) {
   });
   return NextResponse.json(record);
 }
+
+export async function DELETE(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const patientId = searchParams.get("patientId");
+  if (!patientId) return NextResponse.json({ error: "patientId required" }, { status: 400 });
+  await prisma.clinicalRecord.deleteMany({ where: { patientId } });
+  return NextResponse.json({ ok: true });
+}

@@ -233,12 +233,11 @@ export default function Agenda() {
       </div>
 
       {/* Status legend */}
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-2">
         {Object.entries(STATUS_STYLE).map(([k,s])=>(
-          <div key={k} className="flex items-center gap-1.5 text-xs text-slate-500">
-            <span className={`w-2 h-2 rounded-full ${s.dot}`}/>
+          <span key={k} className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full text-white ${s.solid}`}>
             {s.label}
-          </div>
+          </span>
         ))}
       </div>
 
@@ -293,17 +292,14 @@ export default function Agenda() {
                   const left = `calc(52px + ${colIdx} * (100% - 52px) / ${allColumnsUsers.length} + 2px)`;
                   return (
                     <div key={a.id}
-                      className={`absolute border-l-4 rounded-r-lg px-2 py-1 cursor-pointer hover:brightness-95 transition-all shadow-sm ${uc.light} ${uc.border}`}
+                      className={`absolute rounded-lg px-2 py-1 cursor-pointer hover:brightness-95 transition-all shadow-sm ${STATUS_STYLE[a.status]?.solid ?? "bg-slate-400"}`}
                       style={{top:`${top}px`, height:`${height}px`, left, width:`calc((100% - 52px) / ${allColumnsUsers.length} - 4px)`}}
                       onClick={e=>{e.stopPropagation();openEdit(a);}}>
-                      <div className="flex items-start justify-between gap-1">
-                        <div className="min-w-0 flex-1">
-                          <p className={`text-xs font-bold truncate leading-tight ${uc.text}`}>
-                            {a.patient.firstName} {a.patient.lastName[0]}.
-                          </p>
-                          {height>36&&<p className={`text-xs truncate opacity-70 leading-tight ${uc.text}`}>{a.startTime} · {a.type.split(" ")[0]}</p>}
-                        </div>
-                        <span className={`w-2 h-2 rounded-full flex-shrink-0 mt-0.5 ${STATUS_STYLE[a.status]?.dot ?? "bg-slate-400"}`}/>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold truncate leading-tight text-white">
+                          {a.patient.firstName} {a.patient.lastName[0]}.
+                        </p>
+                        {height>36&&<p className="text-xs truncate opacity-80 leading-tight text-white">{a.startTime} · {a.type.split(" ")[0]}</p>}
                       </div>
                     </div>
                   );
@@ -357,15 +353,15 @@ export default function Agenda() {
                   const uc = userColor(a.user.id);
                   return (
                     <div key={a.id}
-                      className={`absolute left-1 right-1 border-l-4 rounded-r-xl px-2 py-1 cursor-pointer hover:brightness-95 transition-all shadow-sm ${s.bg} ${s.border}`}
+                      className={`absolute left-1 right-1 rounded-xl px-2 py-1 cursor-pointer hover:brightness-95 transition-all shadow-sm ${s.solid}`}
                       style={{top:`${top}px`,height:`${height}px`}}
                       onClick={e=>{e.stopPropagation();openEdit(a);}}>
                       <div className="flex items-start justify-between gap-1">
                         <div className="min-w-0">
-                          <p className={`text-xs font-bold truncate ${s.text}`}>{a.patient.firstName} {a.patient.lastName}</p>
-                          {height>40&&<p className={`text-xs truncate opacity-70 ${s.text}`}>{a.type} · {a.user.name.split(" ")[0]}</p>}
+                          <p className="text-xs font-bold truncate text-white">{a.patient.firstName} {a.patient.lastName}</p>
+                          {height>40&&<p className="text-xs truncate opacity-80 text-white">{a.type} · {a.user.name.split(" ")[0]}</p>}
                         </div>
-                        <span className="text-xs opacity-60 flex-shrink-0 font-medium">{a.startTime}</span>
+                        <span className="text-xs opacity-80 flex-shrink-0 font-medium text-white">{a.startTime}</span>
                       </div>
                     </div>
                   );
@@ -417,11 +413,11 @@ export default function Agenda() {
                 const s = STATUS_STYLE[a.status] ?? STATUS_STYLE.scheduled;
                 return (
                   <div key={a.id}
-                    className={`absolute border-l-4 rounded-r-lg px-1.5 py-0.5 cursor-pointer hover:brightness-95 transition-all shadow-sm ${s.bg} ${s.border} ${s.text}`}
+                    className={`absolute rounded-lg px-1.5 py-0.5 cursor-pointer hover:brightness-95 transition-all shadow-sm ${s.solid}`}
                     style={{top:`${top}px`, height:`${height}px`, left, width:`calc((100% - 52px) / 7 - 4px)`}}
                     onClick={e=>{e.stopPropagation();openEdit(a);}}>
-                    <p className="text-xs font-semibold truncate leading-tight">{a.patient.firstName} {a.patient.lastName[0]}.</p>
-                    {height>36&&<p className="text-xs truncate opacity-75 leading-tight">{a.startTime} · {a.type.split(" ")[0]}</p>}
+                    <p className="text-xs font-semibold truncate leading-tight text-white">{a.patient.firstName} {a.patient.lastName[0]}.</p>
+                    {height>36&&<p className="text-xs truncate opacity-80 leading-tight text-white">{a.startTime} · {a.type.split(" ")[0]}</p>}
                   </div>
                 );
               })}
@@ -445,7 +441,7 @@ export default function Agenda() {
               const uc = userColor(a.user.id);
               return (
                 <div key={a.id} className="px-4 py-3 flex items-center gap-3 hover:bg-slate-50 flex-wrap md:flex-nowrap">
-                  <div className={`w-1 h-10 rounded-full flex-shrink-0 ${s.dot}`}/>
+                  <div className={`w-2.5 h-10 rounded-full flex-shrink-0 ${s.solid}`}/>
                   <div className="w-14 text-center flex-shrink-0">
                     <p className="text-sm font-bold text-slate-900">{a.startTime}</p>
                     <p className="text-xs text-slate-400">{a.endTime}</p>

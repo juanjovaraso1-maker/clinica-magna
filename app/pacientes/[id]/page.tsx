@@ -126,6 +126,8 @@ export default function PatientDetail() {
   const [payEditId, setPayEditId] = useState<string|null>(null);
   const [payEditForm, setPayEditForm] = useState({ date:"", amount:"", method:"efectivo", notes:"" });
   const [payEditSaving, setPayEditSaving] = useState(false);
+  const [budgetDropIdx, setBudgetDropIdx] = useState<number|null>(null);
+  const [deletingPatient, setDeletingPatient] = useState(false);
 
   async function load() {
     const [pr, ur, or_, fr, cr, tr] = await Promise.all([
@@ -443,8 +445,27 @@ export default function PatientDetail() {
 
   async function saveEditPatient() {
     setEditSaving(true);
-    await fetch(`/api/patients/${id}`, { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ ...editForm, birthDate: editForm.birthDate || null }) });
-    setEditPatient(false); load(); setEditSaving(false);
+    const r = await fetch(`/api/patients/${id}`, { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ ...editForm, birthDate: editForm.birthDate || null }) });
+    setEditSaving(false);
+    if (!r.ok) { showToast("❌ Error al guardar datos"); return; }
+    setEditPatient(false); load(); showToast("✅ Datos actualizados");
+  }
+
+  async function deletePatientHard() {
+    if (!patient) return;
+    const ok1 = confirm(`¿Eliminar permanentemente a ${patient.firstName} ${patient.lastName}?\n\nEsto borrará historial clínico, evoluciones, presupuestos, pagos, citas y documentos.\n\nEsta acción es IRREVERSIBLE.`);
+    if (!ok1) return;
+    const typed = window.prompt('Escribe "ELIMINAR" para confirmar:');
+    if (typed !== "ELIMINAR") { showToast("❌ Confirmación incorrecta"); return; }
+    setDeletingPatient(true);
+    const r = await fetch(`/api/patients/${id}?hard=true`, { method:"DELETE" });
+    if (r.ok) { router.push("/pacientes"); } else { showToast("❌ Error al eliminar"); setDeletingPatient(false); }
+  }
+
+  async function deleteClinicalRecord() {
+    if (!confirm("¿Eliminar la ficha clínica? Se borrarán todos los datos médicos del paciente.")) return;
+    await fetch(`/api/clinical-records?patientId=${id}`, { method:"DELETE" });
+    load(); showToast("✅ Ficha clínica eliminada");
   }
 
   async function updateItemStatus(itemId: string, status: string) {
@@ -565,6 +586,9 @@ export default function PatientDetail() {
                   </button>
                   <button onClick={openEditPatient} className="btn-secondary text-xs">
                     <Edit2 size={13}/> Editar
+                  </button>
+                  <button onClick={deletePatientHard} disabled={deletingPatient} className="btn-secondary text-xs text-red-600 hover:bg-red-50 border-red-200">
+                    <Trash2 size={13}/> Eliminar
                   </button>
                 </div>
               </div>
@@ -707,9 +731,16 @@ export default function PatientDetail() {
           <div className="flex items-center justify-between mb-5">
             <h3 className="section-title">Ficha Clínica</h3>
             {!fichaEdit && (
-              <button onClick={openFicha} className="btn-primary text-sm">
-                <Edit2 size={14}/> {patient.clinicalRecord ? "Editar" : "Crear ficha"}
-              </button>
+              <div className="flex gap-2">
+                {patient.clinicalRecord && (
+                  <button onClick={deleteClinicalRecord} className="btn-secondary text-xs text-red-600 hover:bg-red-50 border-red-200">
+                    <Trash2 size={13}/> Eliminar ficha
+                  </button>
+                )}
+                <button onClick={openFicha} className="btn-primary text-sm">
+                  <Edit2 size={14}/> {patient.clinicalRecord ? "Editar" : "Crear ficha"}
+                </button>
+              </div>
             )}
           </div>
 
@@ -1702,12 +1733,35 @@ export default function PatientDetail() {
                 <div className="space-y-2">
                   {budgetItems.map((item,i)=>(
                     <div key={i} className="grid grid-cols-12 gap-2 items-start bg-slate-50 rounded-xl p-3">
-                      <div className="col-span-5">
-                        <label className="text-[10px] text-slate-500 uppercase tracking-wide">Descripción *</label>
+                      <div className="col-span-5 relative">
+                        <label className="text-[10px] text-slate-500 uppercase tracking-wide">Tratamiento *</label>
                         <input className="input mt-0.5 text-sm py-1.5" value={item.description}
                           onChange={e=>updateBudgetItem(i,"description",e.target.value)}
-                          list={`treatments-${i}`} placeholder="Escribir o buscar..."/>
-                        <datalist id={`treatments-${i}`}>{treatments.map(t=><option key={t.id} value={t.name}/>)}</datalist>
+                          onFocus={()=>setBudgetDropIdx(i)}
+                          onBlur={()=>setTimeout(()=>setBudgetDropIdx(null),160)}
+                          placeholder="Escribir o buscar..." autoComplete="off"/>
+                        {budgetDropIdx===i&&(()=>{
+                          const opts=treatments.filter(t=>!item.description.trim()||t.name.toLowerCase().includes(item.description.toLowerCase()));
+                          if(!opts.length)return null;
+                          return(
+                            <div className="absolute z-30 top-full mt-1 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-xl max-h-52 overflow-y-auto">
+                              {opts.map(t=>(
+                                <button key={t.id} type="button"
+                                  onMouseDown={()=>{
+                                    setBudgetItems(its=>its.map((it2,idx)=>idx!==i?it2:{...it2,description:t.name,unitPrice:t.price,total:it2.quantity*t.price*(1-((it2.discount||0)/100))}));
+                                    setBudgetDropIdx(null);
+                                  }}
+                                  className="w-full text-left px-3 py-2 text-sm hover:bg-primary-50 flex items-center justify-between gap-2 border-b border-slate-50 last:border-b-0 transition-colors">
+                                  <div className="min-w-0 flex-1">
+                                    <span className="font-medium text-slate-800">{t.name}</span>
+                                    {t.category&&<span className="ml-2 text-xs text-slate-400">{t.category}</span>}
+                                  </div>
+                                  <span className="text-xs text-primary-600 font-semibold flex-shrink-0">{fmt(t.price)}</span>
+                                </button>
+                              ))}
+                            </div>
+                          );
+                        })()}
                       </div>
                       <div className="col-span-2">
                         <label className="text-[10px] text-slate-500 uppercase tracking-wide">Diente</label>
@@ -1716,11 +1770,7 @@ export default function PatientDetail() {
                       <div className="col-span-2">
                         <label className="text-[10px] text-slate-500 uppercase tracking-wide">P. Unit.</label>
                         <input className="input mt-0.5 text-sm py-1.5" type="number" min="0" value={item.unitPrice}
-                          onChange={e=>{
-                            updateBudgetItem(i,"unitPrice",parseFloat(e.target.value)||0);
-                            const t = treatments.find(t=>t.name===item.description);
-                            if (!t && item.description) updateBudgetItem(i,"unitPrice",parseFloat(e.target.value)||0);
-                          }}/>
+                          onChange={e=>updateBudgetItem(i,"unitPrice",parseFloat(e.target.value)||0)}/>
                       </div>
                       <div className="col-span-2">
                         <label className="text-[10px] text-slate-500 uppercase tracking-wide">Total</label>
