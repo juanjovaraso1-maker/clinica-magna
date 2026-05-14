@@ -312,60 +312,110 @@ export default function PatientDetail() {
     load();
   }
 
+  function buildDocHeader(): string {
+    const name = (clinicCfg.clinic_name || "Clínica Magna").toUpperCase();
+    const sub  = clinicCfg.clinic_subtitle || "Odontología y Estética Facial";
+    const addr = clinicCfg.clinic_address  || "";
+    const phone= clinicCfg.clinic_phone    || "";
+    const mail = clinicCfg.clinic_email    || "";
+    const web  = clinicCfg.clinic_website  || "";
+    const ig   = clinicCfg.clinic_instagram|| "";
+    const l1   = [addr, phone&&`WHATSAPP ${phone}`, mail].filter(Boolean).join("  |  ");
+    const l2   = [web, ig&&`INSTAGRAM ${ig}`].filter(Boolean).join("  |  ");
+    return `<div style="display:flex;align-items:flex-start;gap:14px;padding-bottom:10px;border-bottom:2px solid #1e5f74;margin-bottom:18px">
+      <div style="width:68px;height:58px;flex-shrink:0;background:#1e5f74;display:flex;align-items:center;justify-content:center;border-radius:4px;color:white;font-size:9px;font-weight:bold;text-align:center;line-height:1.4">CLÍNICA<br>MAGNA</div>
+      <div>
+        <div style="font-size:19px;font-weight:bold;color:#1e5f74;letter-spacing:0.5px">${name}</div>
+        <div style="font-size:11px;font-style:italic;color:#2e75b6;margin-top:2px">${sub}</div>
+        ${l1?`<div style="font-size:9px;color:#555;margin-top:3px">${l1}</div>`:""}
+        ${l2?`<div style="font-size:9px;color:#555">${l2}</div>`:""}
+      </div></div>`;
+  }
+
+  function buildDocProfPat(profName:string, extra:{label:string;value:string}[]): string {
+    return `<table style="width:100%;border-collapse:collapse;margin:14px 0">
+      <tr>
+        <td style="width:50%;vertical-align:top;padding-right:20px">
+          <div style="font-size:11px;font-weight:bold;color:#2e75b6;border-bottom:1.5px solid #2e75b6;margin-bottom:6px;padding-bottom:2px">PROFESIONAL</div>
+          <div style="font-size:11px"><b>Nombre:</b> ${profName}</div>
+          <div style="font-size:11px"><b>RUT:</b></div>
+        </td>
+        <td style="width:50%;vertical-align:top">
+          <div style="font-size:11px;font-weight:bold;color:#2e75b6;border-bottom:1.5px solid #2e75b6;margin-bottom:6px;padding-bottom:2px">PACIENTE</div>
+          ${extra.map(e=>`<div style="font-size:11px"><b>${e.label}:</b> ${e.value}</div>`).join("")}
+        </td>
+      </tr></table>`;
+  }
+
+  function buildDocFooter(left:string, right:string): string {
+    return `<table style="width:100%;margin-top:48px;font-size:10px">
+      <tr>
+        <td style="width:45%;text-align:center;border-top:1px solid #555;padding-top:5px">${left}</td>
+        <td style="width:10%"></td>
+        <td style="width:45%;text-align:center;border-top:1px solid #555;padding-top:5px">${right}</td>
+      </tr></table>`;
+  }
+
+  function openDocWindow(title:string, body:string) {
+    const w = window.open("","_blank","width=860,height=1100");
+    if (!w) { alert("Permite ventanas emergentes para imprimir."); return; }
+    w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/><title>${title}</title>
+      <style>@page{margin:14mm;size:A4 portrait}*{box-sizing:border-box}body{font-family:'Times New Roman',Times,serif;font-size:11px;color:#1a1a1a;margin:0}b{font-weight:bold}@media print{.noprint{display:none!important}}</style>
+      </head><body>${body}
+      <button class="noprint" onclick="window.print()" style="position:fixed;top:14px;right:14px;padding:8px 18px;background:#1f4e79;color:white;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-family:sans-serif">🖨 Imprimir / PDF</button>
+      </body></html>`);
+    w.document.close();
+  }
+
   function printRx() {
-    const w = window.open("", "_blank");
-    if (!w || !patient) return;
+    if (!patient) return;
     const professional = users.find(u => u.id === rxUserId);
-    const today = new Date().toLocaleDateString("es-CL", { day:"numeric", month:"long", year:"numeric" });
-    const meds = rxItems.filter(m => m.drug.trim());
-    w.document.write(`<!DOCTYPE html><html><head><title>Receta Médica</title><style>
-      *{box-sizing:border-box;margin:0;padding:0}
-      body{font-family:Arial,sans-serif;max-width:680px;margin:32px auto;color:#1f2937;font-size:13px}
-      .header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;border-bottom:3px solid #588157;margin-bottom:20px}
-      .clinic{font-size:20px;font-weight:bold;color:#3a5a40}
-      .info{font-size:11px;color:#6b7280;line-height:1.7;margin-top:3px}
-      .patient-box{background:#f2f5f0;border:1px solid #c4d5bc;border-radius:8px;padding:12px 16px;margin-bottom:20px;display:flex;gap:24px}
-      .patient-box div{font-size:12px}
-      .patient-box strong{color:#3a5a40}
-      .rx-symbol{font-size:36px;color:#588157;font-weight:bold;margin-bottom:8px}
-      .med-row{padding:10px 0;border-bottom:1px solid #f1f5f9}
-      .med-name{font-size:14px;font-weight:700;color:#1f2937}
-      .med-detail{font-size:12px;color:#6b7280;margin-top:2px}
-      .notes-box{margin-top:16px;padding:10px 12px;border:1px solid #c4d5bc;border-radius:6px;font-size:12px;color:#476847;background:#f2f5f0}
-      .footer{margin-top:40px;display:flex;justify-content:space-between;align-items:flex-end}
-      .signature{text-align:center;min-width:180px}
-      .sig-line{border-top:1px solid #374151;margin-top:40px;padding-top:6px;font-size:12px;color:#374151}
-      .date-box{font-size:12px;color:#6b7280}
-      @media print{body{margin:16px}}
-    </style></head><body>
-    <div class="header">
-      <div><div class="clinic">Clínica Magna</div><div class="info">Sistema Dental</div></div>
-      <div style="text-align:right;font-size:12px;color:#6b7280"><strong style="font-size:14px;color:#1f2937">RECETA MÉDICA</strong><br>${today}</div>
-    </div>
-    <div class="patient-box">
-      <div><strong>Paciente:</strong><br>${patient.firstName} ${patient.lastName}</div>
-      <div><strong>RUT:</strong><br>${patient.rut}</div>
-      ${patient.birthDate ? `<div><strong>Fecha nac.:</strong><br>${new Date(patient.birthDate).toLocaleDateString("es-CL")}</div>` : ""}
-    </div>
-    <div class="rx-symbol">℞</div>
-    <div>
-      ${meds.map((m,i) => `
-        <div class="med-row">
-          <div class="med-name">${i+1}. ${m.drug}${m.dose ? ` — ${m.dose}` : ""}</div>
-          <div class="med-detail">
-            ${[m.freq, m.duration, m.route, m.instructions].filter(Boolean).join(" · ")}
-          </div>
-        </div>`).join("")}
-    </div>
-    ${rxNotes ? `<div class="notes-box"><strong>Indicaciones:</strong> ${rxNotes}</div>` : ""}
-    <div class="footer">
-      <div class="date-box">Santiago, ${today}</div>
-      <div class="signature">
-        <div class="sig-line">${professional ? professional.name : "___________________________"}<br>Médico / Dentista</div>
+    const today = new Date().toLocaleDateString("es-CL",{day:"numeric",month:"long",year:"numeric"});
+    const meds = rxItems.filter(m=>m.drug.trim());
+    const fmtBD = patient.birthDate ? patient.birthDate.split("T")[0] : "";
+    const rows = meds.map((m,i)=>`
+      <tr style="background:${i%2===0?"#fff":"#dce6f1"}">
+        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${i+1}</td>
+        <td style="padding:5px 7px;border:1px solid #bcd2e8;font-size:10px">${m.drug}</td>
+        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${m.dose}</td>
+        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${m.freq}</td>
+        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${m.duration}</td>
+        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${m.instructions}</td>
+      </tr>`).join("");
+    const emptyRows = Array.from({length:Math.max(0,8-meds.length)},(_,i)=>`
+      <tr style="background:${(meds.length+i)%2===0?"#fff":"#dce6f1"}"><td style="padding:5px 7px;border:1px solid #bcd2e8;height:22px"></td><td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td></tr>`).join("");
+    const body = `
+      ${buildDocHeader()}
+      <div style="text-align:center;margin:14px 0 10px">
+        <div style="font-size:17px;font-weight:bold;letter-spacing:1px">RECETA MÉDICA ODONTOLÓGICA</div>
       </div>
-    </div>
-    </body></html>`);
-    w.document.close(); w.print();
+      ${buildDocProfPat(professional?.name||"", [
+        {label:"Nombre",value:`${patient.firstName} ${patient.lastName}`},
+        {label:"RUT / Fecha nac.",value:`${patient.rut}${fmtBD?" / "+fmtBD:""}`},
+        {label:"Fecha",value:today}
+      ])}
+      <div style="font-size:11px;font-weight:bold;color:#2e75b6;margin:10px 0 6px;text-transform:uppercase">Medicamentos Recetados</div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:14px">
+        <thead><tr style="background:#1f4e79;color:white">
+          <th style="padding:6px 7px;border:1px solid #1f4e79;width:5%;font-size:10px">N°</th>
+          <th style="padding:6px 7px;text-align:left;border:1px solid #1f4e79;width:28%;font-size:10px">Medicamento / Principio Activo</th>
+          <th style="padding:6px 7px;border:1px solid #1f4e79;width:14%;font-size:10px">Dosis / Concentración</th>
+          <th style="padding:6px 7px;border:1px solid #1f4e79;width:13%;font-size:10px">Posología</th>
+          <th style="padding:6px 7px;border:1px solid #1f4e79;width:12%;font-size:10px">Duración</th>
+          <th style="padding:6px 7px;border:1px solid #1f4e79;width:28%;font-size:10px">Indicaciones</th>
+        </tr></thead>
+        <tbody>${rows}${emptyRows}</tbody>
+      </table>
+      <div style="margin-bottom:12px">
+        <div style="font-size:11px;font-weight:bold;color:#2e75b6;margin-bottom:5px">DIAGNÓSTICO / INDICACIÓN:</div>
+        <div style="border:1px solid #bcd2e8;min-height:44px;padding:8px;background:#fff;font-size:10px"></div>
+      </div>
+      <div style="margin-bottom:12px">
+        <div style="font-size:11px;font-weight:bold;color:#2e75b6;margin-bottom:5px">OBSERVACIONES:</div>
+        <div style="border:1px solid #bcd2e8;min-height:44px;padding:8px;background:#fff;font-size:10px">${rxNotes||""}</div>
+      </div>
+      ${buildDocFooter("Firma y Timbre <u>Profesional</u>","Número de Registro / SIS")}`;
+    openDocWindow("Receta Médica",body);
   }
 
   async function savePay() {
@@ -383,38 +433,83 @@ export default function PatientDetail() {
   }
 
   function printCuidados() {
-    const w = window.open("", "_blank");
-    if (!w || !patient) return;
+    if (!patient) return;
     const professional = users.find(u => u.id === cuidadosUserId);
-    const today = new Date().toLocaleDateString("es-CL", { day:"numeric", month:"long", year:"numeric" });
-    w.document.write(`<!DOCTYPE html><html><head><title>Instrucciones de Cuidados</title><style>
-      *{box-sizing:border-box;margin:0;padding:0}
-      body{font-family:Arial,sans-serif;max-width:680px;margin:32px auto;color:#1f2937;font-size:13px}
-      .header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;border-bottom:3px solid #588157;margin-bottom:20px}
-      .clinic{font-size:20px;font-weight:bold;color:#3a5a40}
-      .patient-box{background:#f2f5f0;border:1px solid #c4d5bc;border-radius:8px;padding:12px 16px;margin-bottom:20px;display:flex;gap:24px}
-      .title{font-size:18px;font-weight:bold;color:#3a5a40;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #c4d5bc}
-      .instructions{white-space:pre-line;font-size:13px;line-height:2;color:#374151}
-      .footer{margin-top:40px;display:flex;justify-content:space-between;align-items:flex-end}
-      .sig-line{border-top:1px solid #374151;margin-top:40px;padding-top:6px;font-size:12px;color:#374151;text-align:center;min-width:180px}
-      @media print{body{margin:16px}}
-    </style></head><body>
-    <div class="header">
-      <div><div class="clinic">Clínica Magna</div></div>
-      <div style="text-align:right;font-size:12px;color:#6b7280"><strong style="font-size:14px;color:#1f2937">INSTRUCCIONES DE CUIDADOS</strong><br>${today}</div>
-    </div>
-    <div class="patient-box">
-      <div><strong>Paciente:</strong> ${patient.firstName} ${patient.lastName}</div>
-      <div><strong>RUT:</strong> ${patient.rut}</div>
-    </div>
-    <div class="title">${cuidadosTemplate}</div>
-    <div class="instructions">${cuidadosText}</div>
-    <div class="footer">
-      <div style="font-size:12px;color:#6b7280">Santiago, ${today}</div>
-      <div class="sig-line">${professional ? professional.name : "___________________________"}<br>Dentista tratante</div>
-    </div>
-    </body></html>`);
-    w.document.close(); w.print();
+    const today = new Date().toLocaleDateString("es-CL",{day:"numeric",month:"long",year:"numeric"});
+    const lines = cuidadosText.split("\n").filter(l=>l.trim());
+    const bulletHtml = lines.map(l=>`<div style="margin-bottom:5px;font-size:10.5px">${l}</div>`).join("");
+    const body = `
+      ${buildDocHeader()}
+      <div style="text-align:center;margin:14px 0 4px">
+        <div style="font-size:16px;font-weight:bold;letter-spacing:1px">INDICACIONES POST-PROCEDIMIENTO</div>
+        <div style="font-size:10px;font-style:italic;color:#c0392b;margin-top:3px">Léa detenidamente antes de retirarse de la clínica</div>
+      </div>
+      ${buildDocProfPat(professional?.name||"",[
+        {label:"Nombre",value:`${patient.firstName} ${patient.lastName}`},
+        {label:"Fecha",value:today},
+        {label:"Procedimiento realizado",value:cuidadosTemplate}
+      ])}
+      <div style="font-size:11px;font-weight:bold;color:#1e6091;margin:10px 0 7px;text-transform:uppercase;letter-spacing:0.3px">Indicaciones Específicas:</div>
+      <div style="background:#eaf4fb;border:1px solid #9fc5e8;border-radius:4px;padding:12px 14px;line-height:1.7">
+        ${bulletHtml}
+      </div>
+      <div style="margin-top:14px">
+        <div style="font-size:11px;font-weight:bold;color:#1e6091;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px">Observaciones Adicionales:</div>
+        <div style="border:1px solid #9fc5e8;min-height:55px;padding:8px;background:#fff"></div>
+      </div>
+      ${buildDocFooter("Firma y Timbre <u>Profesional</u>","Firma del Paciente o Representante")}`;
+    openDocWindow("Indicaciones",body);
+  }
+
+  function printBudgetDetail(db: Patient["budgets"][0]) {
+    if (!patient) return;
+    const today = new Date().toLocaleDateString("es-CL",{day:"numeric",month:"long",year:"numeric"});
+    const rows = db.items.map((it,i)=>`
+      <tr style="background:${i%2===0?"#fff":"#dce6f1"}">
+        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${i+1}</td>
+        <td style="padding:5px 7px;border:1px solid #bcd2e8;font-size:10px">${it.description}</td>
+        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${it.area||""}</td>
+        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${it.tooth||""}</td>
+        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${it.sessions||1}</td>
+        <td style="padding:5px 7px;text-align:right;border:1px solid #bcd2e8;font-size:10px">${fmt(it.total)}</td>
+      </tr>`).join("");
+    const emptyRows = Array.from({length:Math.max(0,10-db.items.length)},(_,i)=>`
+      <tr style="background:${(db.items.length+i)%2===0?"#fff":"#dce6f1"}"><td style="padding:5px 7px;border:1px solid #bcd2e8;height:22px"></td><td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td></tr>`).join("");
+    const body = `
+      ${buildDocHeader()}
+      <div style="text-align:center;margin:14px 0 10px">
+        <div style="font-size:17px;font-weight:bold;letter-spacing:1px">PRESUPUESTO DENTAL</div>
+        <div style="font-size:10px;font-style:italic;color:#555;margin-top:3px">Válido por 30 días desde la fecha de emisión</div>
+      </div>
+      ${buildDocProfPat(db.user.name,[
+        {label:"Nombre",value:`${patient.firstName} ${patient.lastName}`},
+        {label:"RUT",value:patient.rut},
+        {label:"Fecha",value:db.date}
+      ])}
+      <table style="width:100%;border-collapse:collapse;margin:4px 0 14px">
+        <thead><tr style="background:#1f4e79;color:white">
+          <th style="padding:6px 7px;border:1px solid #1f4e79;width:5%;font-size:10px">N°</th>
+          <th style="padding:6px 7px;text-align:left;border:1px solid #1f4e79;width:33%;font-size:10px">Tratamiento / Descripción</th>
+          <th style="padding:6px 7px;border:1px solid #1f4e79;width:14%;font-size:10px">Categoría</th>
+          <th style="padding:6px 7px;border:1px solid #1f4e79;width:12%;font-size:10px">Diente(s)</th>
+          <th style="padding:6px 7px;border:1px solid #1f4e79;width:10%;font-size:10px">Sesiones</th>
+          <th style="padding:6px 7px;text-align:right;border:1px solid #1f4e79;width:16%;font-size:10px">Precio ($)</th>
+        </tr></thead>
+        <tbody>
+          ${rows}${emptyRows}
+          <tr><td colspan="5" style="padding:6px 7px;text-align:right;font-weight:bold;border:1px solid #bcd2e8;font-size:11px">TOTAL:</td>
+          <td style="padding:6px 7px;text-align:right;font-weight:bold;border:1px solid #bcd2e8;font-size:11px">${fmt(db.total)}</td></tr>
+        </tbody>
+      </table>
+      <div style="border:1px solid #bcd2e8;padding:10px 13px;background:#f0f6ff;border-radius:3px;font-size:9.5px;line-height:1.7">
+        <div style="font-weight:bold;margin-bottom:4px;font-size:10.5px">Condiciones del Presupuesto</div>
+        <div>• Este presupuesto tiene una validez de 30 días desde la fecha de emisión.</div>
+        <div>• Algunos tratamientos están sujetos a diagnóstico definitivo; los costos pueden variar según hallazgos clínicos y/o radiográficos.</div>
+        <div>• Los precios incluyen honorarios profesionales. Insumos especiales, exámenes o derivaciones no están incluidos salvo indicación.</div>
+        <div>• Los tratamientos marcados con (*) requieren evaluación adicional antes de iniciar.</div>
+      </div>
+      ${buildDocFooter("Firma y Timbre <u>Profesional</u>","Firma del Paciente o Representante")}`;
+    openDocWindow(`Presupuesto N°${String(db.number).padStart(4,"0")}`,body);
   }
 
   function openFicha() {
@@ -1605,6 +1700,7 @@ export default function PatientDetail() {
                     <button onClick={()=>changeBudgetStatus(db.id,"rejected")} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 font-medium"><XCircle size={13}/> Rechazar</button>
                   </>)}
                   {db.status==="rejected" && <button onClick={()=>changeBudgetStatus(db.id,"pending")} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 font-medium"><Clock size={13}/> Reabrir</button>}
+                  <button onClick={()=>printBudgetDetail(db)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 font-medium"><Printer size={13}/> PDF</button>
                   <button onClick={()=>sendBudgetEmail(db.id)} disabled={emailSending===db.id||!patient.email} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 font-medium disabled:opacity-40"><Mail size={13}/> {emailSending===db.id?"...":"Email"}</button>
                   <button onClick={()=>sendBudgetWA(db)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 font-medium"><MessageCircle size={13}/> WhatsApp</button>
                   <button onClick={()=>openBudgetEdit(db)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 font-medium"><Pencil size={13}/> Editar</button>
