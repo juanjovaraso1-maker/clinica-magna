@@ -322,7 +322,7 @@ export default function PatientDetail() {
     const ig   = clinicCfg.clinic_instagram|| "";
     const l1   = [addr, phone&&`WHATSAPP ${phone}`, mail].filter(Boolean).join("  |  ");
     const l2   = [web, ig&&`INSTAGRAM ${ig}`].filter(Boolean).join("  |  ");
-    const logoBase = typeof window !== "undefined" ? window.location.origin + "/logo.png" : "/logo.png";
+    const logoBase = typeof window !== "undefined" ? window.location.origin + "/logo.jpg" : "/logo.jpg";
     return `<div style="display:flex;align-items:flex-start;gap:14px;padding-bottom:10px;border-bottom:2px solid #1e5f74;margin-bottom:18px">
       <img src="${logoBase}" style="width:80px;height:70px;object-fit:contain;flex-shrink:0" onerror="this.style.display='none'"/>
       <div>
