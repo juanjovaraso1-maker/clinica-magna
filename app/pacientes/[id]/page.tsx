@@ -154,6 +154,27 @@ export default function PatientDetail() {
     showToast("✅ Presupuesto eliminado");
   }
 
+  // Derive template maps from clinicCfg, fall back to hardcoded constants
+  const activeRxTemplates: Record<string, Array<{drug:string;dose:string;freq:string;duration:string;route:string;instructions:string}>> = (() => {
+    try {
+      if (clinicCfg.rx_templates) {
+        const arr = JSON.parse(clinicCfg.rx_templates) as Array<{name:string;medications:Array<{drug:string;dose:string;freq:string;duration:string;route:string;instructions:string}>}>;
+        if (arr.length > 0) return Object.fromEntries(arr.map(t => [t.name, t.medications]));
+      }
+    } catch { /* ignore parse errors */ }
+    return RX_TEMPLATES;
+  })();
+
+  const activeCareTemplates: Record<string, string> = (() => {
+    try {
+      if (clinicCfg.care_templates) {
+        const arr = JSON.parse(clinicCfg.care_templates) as Array<{name:string;text:string}>;
+        if (arr.length > 0) return Object.fromEntries(arr.map(t => [t.name, t.text]));
+      }
+    } catch { /* ignore parse errors */ }
+    return CARE_TEMPLATES;
+  })();
+
   useEffect(() => { load(); }, [id]);
 
   async function saveEvo() {
@@ -1128,10 +1149,10 @@ export default function PatientDetail() {
               onChange={e=>{
                 const tpl = e.target.value;
                 setRxTemplate(tpl);
-                if(tpl && RX_TEMPLATES[tpl]) setRxItems(RX_TEMPLATES[tpl].map(m=>({...m})));
+                if(tpl && activeRxTemplates[tpl]) setRxItems(activeRxTemplates[tpl].map(m=>({...m})));
               }}>
               <option value="">— Sin plantilla —</option>
-              {Object.keys(RX_TEMPLATES).map(k=><option key={k}>{k}</option>)}
+              {Object.keys(activeRxTemplates).map(k=><option key={k}>{k}</option>)}
             </select>
           </div>
 
@@ -1372,9 +1393,9 @@ export default function PatientDetail() {
             <select className="select flex-1 text-sm" value={cuidadosTemplate}
               onChange={e=>{
                 setCuidadosTemplate(e.target.value);
-                setCuidadosText(CARE_TEMPLATES[e.target.value] ?? "");
+                setCuidadosText(activeCareTemplates[e.target.value] ?? "");
               }}>
-              {Object.keys(CARE_TEMPLATES).map(k=><option key={k}>{k}</option>)}
+              {Object.keys(activeCareTemplates).map(k=><option key={k}>{k}</option>)}
             </select>
           </div>
 
