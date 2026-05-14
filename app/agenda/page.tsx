@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { ChevronLeft, ChevronRight, Plus, MessageCircle, Mail, Check, Users, LayoutGrid, Calendar, Link2, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ChevronLeft, ChevronRight, Plus, MessageCircle, Mail, Check, Users, LayoutGrid, Calendar, Link2, Trash2, ExternalLink } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Badge from "@/components/ui/Badge";
 
@@ -55,6 +56,7 @@ function heightPx(start: string, end: string) { return Math.max((timeToMin(end)-
 const initForm = { patientId:"", userId:"", date:todayStr(), startTime:"09:00", endTime:"10:00", type:"Odontología General", status:"scheduled", box:1, notes:"" };
 
 export default function Agenda() {
+  const router = useRouter();
   const [currentDate, setCurrentDate] = useState(todayStr());
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [patients, setPatients] = useState<Array<{id:string;firstName:string;lastName:string}>>([]);
@@ -550,7 +552,14 @@ export default function Agenda() {
               </>
             )}
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 items-center">
+            {selected?.patient?.id && (
+              <button
+                onClick={()=>{ setOpen(false); router.push(`/pacientes/${selected.patient.id}`); }}
+                className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-primary-50 text-primary-700 hover:bg-primary-100 font-medium transition-colors mr-auto">
+                <ExternalLink size={13}/> Ir a ficha
+              </button>
+            )}
             <button className="btn-secondary" onClick={()=>setOpen(false)}>Cancelar</button>
             <button className="btn-primary" onClick={save} disabled={saving||!form.patientId||!form.userId}>
               {saving?"Guardando...":selected?"Actualizar":"Agendar"}
