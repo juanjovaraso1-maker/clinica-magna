@@ -12,6 +12,70 @@ import Modal from "@/components/ui/Modal";
 import Badge from "@/components/ui/Badge";
 import DentalChart from "@/components/odontogram/DentalChart";
 import FacialChart from "@/components/odontogram/FacialChart";
+import { buildRecetaBody, buildPresupuestoBody, buildIndicacionesBody } from "@/lib/pdf-templates";
+
+// Renders a body HTML string in a hidden A4-width div, captures it with html2canvas,
+// converts to PDF via jsPDF, and returns the PDF as a base64 string.
+async function generatePdfBase64(bodyHtml: string): Promise<string> {
+  const { default: html2canvas } = await import("html2canvas");
+  const { default: jsPDF }       = await import("jspdf");
+
+  const el = document.createElement("div");
+  Object.assign(el.style, {
+    position:   "fixed",
+    left:       "-9999px",
+    top:        "0",
+    width:      "794px",   // A4 at 96 dpi
+    padding:    "53px",    // 14 mm margins
+    boxSizing:  "border-box",
+    background: "#ffffff",
+    fontFamily: "Arial, Helvetica, sans-serif",
+    fontSize:   "11px",
+    color:      "#1a1a1a",
+  });
+  el.innerHTML = bodyHtml;
+  document.body.appendChild(el);
+
+  // Wait for images (logo) to load
+  await Promise.all(
+    Array.from(el.querySelectorAll("img")).map((img) =>
+      img.complete
+        ? Promise.resolve()
+        : new Promise<void>((res) => { img.onload = () => res(); img.onerror = () => res(); })
+    )
+  );
+
+  const canvas = await html2canvas(el, {
+    scale:           2,
+    useCORS:         true,
+    allowTaint:      true,
+    backgroundColor: "#ffffff",
+    logging:         false,
+  });
+  document.body.removeChild(el);
+
+  const imgData  = canvas.toDataURL("image/jpeg", 0.92);
+  const pdf      = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pageW    = pdf.internal.pageSize.getWidth();   // 210 mm
+  const pageH    = pdf.internal.pageSize.getHeight();  // 297 mm
+  const imgH     = (canvas.height / canvas.width) * pageW;
+
+  let remaining = imgH;
+  let offset    = 0;
+
+  pdf.addImage(imgData, "JPEG", 0, offset, pageW, imgH);
+  remaining -= pageH;
+
+  while (remaining > 0) {
+    offset -= pageH;
+    pdf.addPage();
+    pdf.addImage(imgData, "JPEG", 0, offset, pageW, imgH);
+    remaining -= pageH;
+  }
+
+  // output("datauristring") → "data:application/pdf;base64,<base64>"
+  return (pdf.output("datauristring") as string).split(",")[1];
+}
 
 interface BudgetItem { id:string; description:string; tooth:string; area:string; quantity:number; unitPrice:number; discount:number; total:number; status:string; sessions:number }
 interface Patient {
@@ -264,74 +328,92 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
 
   async function doEmailSend() {
     if (!emailDlg.to || !patient) return;
-    const to = emailDlg.to;
+    const to       = emailDlg.to;
     const fullName = `${patient.firstName} ${patient.lastName}`;
-    const today = new Date().toLocaleDateString("es-CL", { day:"numeric", month:"long", year:"numeric" });
-    setEmailDlg(d=>({...d,open:false}));
+    const today    = new Date().toLocaleDateString("es-CL", { day:"numeric", month:"long", year:"numeric" });
+    setEmailDlg(d => ({ ...d, open:false }));
 
     if (emailDlg.type === "rx") {
       setRxPdfSending(true);
-      const professional = users.find(u => u.id === rxUserId);
-      const recetaData = {
-        professionalName: professional?.name || "",
-        professionalRut:  professional?.rut  || "",
-        patientName:  fullName,
-        patientRut:   patient.rut,
-        patientBirthDate: patient.birthDate ? patient.birthDate.split("T")[0] : undefined,
-        date:  today,
-        medications: rxItems.filter(m => m.drug.trim()),
-        notes: rxNotes,
-      };
-      const filename = `Receta_Medica_${patient.firstName}_${patient.lastName}`;
-      const bodyText = `Estimado/a ${fullName}, adjuntamos su receta médica. Saludos, Clínica Magna.`;
-      const r = await fetch("/api/send-document", { method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ type:"receta", data:recetaData, to, subject:"Receta Médica Odontológica", filename, patientName:fullName, bodyText }) });
-      const d = await r.json(); setRxPdfSending(false);
-      showToast(d.ok ? "✅ Receta enviada como PDF" : `❌ ${d.error}`);
+      try {
+        const professional = users.find(u => u.id === rxUserId);
+        const bodyHtml = buildRecetaBody({
+          professionalName: professional?.name ?? "",
+          professionalRut:  professional?.rut  ?? "",
+          patientName:      fullName,
+          patientRut:       patient.rut,
+          patientBirthDate: patient.birthDate ? patient.birthDate.split("T")[0] : undefined,
+          date:        today,
+          medications: rxItems.filter(m => m.drug.trim()),
+          notes:       rxNotes,
+        }, "/LOGO.jpeg");
+        const pdfBase64 = await generatePdfBase64(bodyHtml);
+        const filename  = `Receta_Medica_${patient.firstName}_${patient.lastName}`;
+        const bodyText  = `Estimado/a ${fullName}, adjuntamos su receta médica. Saludos, Clínica Magna.`;
+        const r = await fetch("/api/send-document", {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({ pdfBase64, to, subject:"Receta Médica Odontológica", filename, patientName:fullName, bodyText }),
+        });
+        const d = await r.json();
+        showToast(d.ok ? "✅ Receta enviada como PDF" : `❌ ${d.error}`);
+      } catch (e) { showToast(`❌ Error generando PDF: ${String(e)}`); }
+      setRxPdfSending(false);
 
     } else if (emailDlg.type === "cuidados") {
       setCarePdfSending(true);
-      const professional = users.find(u => u.id === cuidadosUserId);
-      const sections = CARE_SECTIONS[cuidadosTemplate];
-      const isCustom = sections && cuidadosText.trim() && cuidadosText !== activeCareTemplates[cuidadosTemplate];
-      const indicacionesData = {
-        professionalName: professional?.name || "",
-        patientName: fullName,
-        date: today,
-        procedimiento: cuidadosTemplate,
-        sections: sections || { primeras2h: cuidadosText, primeras24h: "", general: "", alarma: "" },
-        observaciones: isCustom ? cuidadosText : undefined,
-      };
-      const filename = `Indicaciones_${cuidadosTemplate}_${patient.firstName}_${patient.lastName}`;
-      const bodyText = `Estimado/a ${fullName}, adjuntamos sus indicaciones post-procedimiento. Saludos, Clínica Magna.`;
-      const r = await fetch("/api/send-document", { method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ type:"indicaciones", data:indicacionesData, to, subject:`Indicaciones ${cuidadosTemplate}`, filename, patientName:fullName, bodyText }) });
-      const d = await r.json(); setCarePdfSending(false);
-      showToast(d.ok ? "✅ Indicaciones enviadas como PDF" : `❌ ${d.error}`);
+      try {
+        const professional = users.find(u => u.id === cuidadosUserId);
+        const sections  = CARE_SECTIONS[cuidadosTemplate];
+        const isCustom  = sections && cuidadosText.trim() && cuidadosText !== activeCareTemplates[cuidadosTemplate];
+        const bodyHtml  = buildIndicacionesBody({
+          professionalName: professional?.name ?? "",
+          patientName:  fullName,
+          date:         today,
+          procedimiento: cuidadosTemplate,
+          sections:     sections ?? { primeras2h: cuidadosText, primeras24h:"", general:"", alarma:"" },
+          observaciones: isCustom ? cuidadosText : undefined,
+        }, "/LOGO.jpeg");
+        const pdfBase64 = await generatePdfBase64(bodyHtml);
+        const filename  = `Indicaciones_${cuidadosTemplate}_${patient.firstName}_${patient.lastName}`;
+        const bodyText  = `Estimado/a ${fullName}, adjuntamos sus indicaciones post-procedimiento. Saludos, Clínica Magna.`;
+        const r = await fetch("/api/send-document", {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({ pdfBase64, to, subject:`Indicaciones ${cuidadosTemplate}`, filename, patientName:fullName, bodyText }),
+        });
+        const d = await r.json();
+        showToast(d.ok ? "✅ Indicaciones enviadas como PDF" : `❌ ${d.error}`);
+      } catch (e) { showToast(`❌ Error generando PDF: ${String(e)}`); }
+      setCarePdfSending(false);
 
     } else if (emailDlg.type === "budget" && emailDlg.budgetObj) {
       const db = emailDlg.budgetObj;
       setBudgetPdfSending(db.id);
-      const numStr = String(db.number).padStart(4, "0");
-      const itemDisc = db.items.reduce((s,it) => s + it.unitPrice * it.quantity * (it.discount||0) / 100, 0);
-      const totalDisc = itemDisc + (db.discount || 0);
-      const presupuestoData = {
-        number: db.number,
-        professionalName: db.user.name,
-        patientName: fullName,
-        patientRut:  patient.rut,
-        date:  db.date,
-        items: db.items,
-        subtotal: db.subtotal,
-        discount: totalDisc > 0 ? totalDisc : undefined,
-        total: db.total,
-      };
-      const filename = `Presupuesto_N${numStr}_${patient.firstName}_${patient.lastName}`;
-      const bodyText = `Estimado/a ${fullName}, adjuntamos su presupuesto dental N°${numStr}. Saludos, Clínica Magna.`;
-      const r = await fetch("/api/send-document", { method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ type:"presupuesto", data:presupuestoData, to, subject:`Presupuesto Dental N°${numStr}`, filename, patientName:fullName, bodyText }) });
-      const d = await r.json(); setBudgetPdfSending(null);
-      showToast(d.ok ? "✅ Presupuesto enviado como PDF" : `❌ ${d.error}`);
+      try {
+        const numStr   = String(db.number).padStart(4, "0");
+        const itemDisc = db.items.reduce((s,it) => s + it.unitPrice * it.quantity * (it.discount||0) / 100, 0);
+        const totalDisc = itemDisc + (db.discount || 0);
+        const bodyHtml = buildPresupuestoBody({
+          number:           db.number,
+          professionalName: db.user.name,
+          patientName:  fullName,
+          patientRut:   patient.rut,
+          date:         db.date,
+          items:        db.items,
+          subtotal:     db.subtotal,
+          discount:     totalDisc > 0 ? totalDisc : undefined,
+          total:        db.total,
+        }, "/LOGO.jpeg");
+        const pdfBase64 = await generatePdfBase64(bodyHtml);
+        const filename  = `Presupuesto_N${numStr}_${patient.firstName}_${patient.lastName}`;
+        const bodyText  = `Estimado/a ${fullName}, adjuntamos su presupuesto dental N°${numStr}. Saludos, Clínica Magna.`;
+        const r = await fetch("/api/send-document", {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({ pdfBase64, to, subject:`Presupuesto Dental N°${numStr}`, filename, patientName:fullName, bodyText }),
+        });
+        const d = await r.json();
+        showToast(d.ok ? "✅ Presupuesto enviado como PDF" : `❌ ${d.error}`);
+      } catch (e) { showToast(`❌ Error generando PDF: ${String(e)}`); }
+      setBudgetPdfSending(null);
     }
   }
 

@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(npx tsc *)",
-      "Bash(npm list *)"
+      "Bash(npm list *)",
+      "Bash(npm install *)",
+      "Bash(npx next *)",
+      "Bash(node -e \"const j = require\\('jspdf'\\); console.log\\(typeof j.jsPDF, typeof j.default\\)\")"
     ]
   }
 }
