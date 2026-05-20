@@ -153,7 +153,7 @@ export default function Dashboard() {
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <p className="text-sm text-slate-400 mb-0.5 capitalize">{todayDate}</p>
-          <h1 className="text-2xl font-bold text-slate-900">{greeting()}, Clínica Magna</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">{greeting()}, Clínica Magna</h1>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Link href="/agenda" className="btn-primary text-sm">
@@ -171,27 +171,27 @@ export default function Dashboard() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="card p-5">
+        <div className="card p-3 sm:p-5">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-xs text-slate-500 uppercase tracking-wide font-medium">Pacientes</p>
-              <p className="text-3xl font-bold text-slate-900 mt-1">{data.totalPatients}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-slate-900 mt-1">{data.totalPatients}</p>
               <p className="text-xs text-emerald-600 mt-1 flex items-center gap-0.5">
                 <ArrowUpRight size={11} /> +{data.newPatientsMonth} este mes
               </p>
             </div>
-            <div className="w-11 h-11 rounded-xl bg-primary-100 flex items-center justify-center">
-              <Users className="w-5 h-5 text-primary-700" />
+            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-primary-100 flex items-center justify-center flex-shrink-0">
+              <Users className="w-4 h-4 sm:w-5 sm:h-5 text-primary-700" />
             </div>
           </div>
         </div>
 
-        <div className="card p-5">
+        <div className="card p-3 sm:p-5">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-xs text-slate-500 uppercase tracking-wide font-medium">Citas Hoy</p>
-              <p className="text-3xl font-bold text-slate-900 mt-1">{data.todayAppointments.length}</p>
-              <div className="flex gap-2 mt-1 flex-wrap">
+              <p className="text-2xl sm:text-3xl font-bold text-slate-900 mt-1">{data.todayAppointments.length}</p>
+              <div className="flex gap-1.5 mt-1 flex-wrap">
                 {data.statusCount.confirmed > 0 && (
                   <span className="text-xs text-primary-600">{data.statusCount.confirmed} conf.</span>
                 )}
@@ -203,48 +203,48 @@ export default function Dashboard() {
                 )}
               </div>
             </div>
-            <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center">
-              <Calendar className="w-5 h-5 text-blue-600" />
+            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+              <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
             </div>
           </div>
         </div>
 
-        <div className="card p-5">
+        <div className="card p-3 sm:p-5">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-xs text-slate-500 uppercase tracking-wide font-medium">Ingresos Mes</p>
-              <p className="text-2xl font-bold text-emerald-700 mt-1">{fmtShort(data.monthIncome)}</p>
+              <p className="text-xl sm:text-2xl font-bold text-emerald-700 mt-1">{fmtShort(data.monthIncome)}</p>
               {incomeTrend !== null ? (
                 <p className={`text-xs mt-1 flex items-center gap-0.5 ${incomeTrend >= 0 ? "text-emerald-600" : "text-red-500"}`}>
                   {incomeTrend >= 0
-                    ? <><ArrowUpRight size={11} />+{incomeTrend}% vs mes ant.</>
-                    : <><ArrowDownRight size={11} />{incomeTrend}% vs mes ant.</>
+                    ? <><ArrowUpRight size={11} />+{incomeTrend}%</>
+                    : <><ArrowDownRight size={11} />{incomeTrend}%</>
                   }
                 </p>
               ) : (
                 <p className="text-xs text-slate-400 mt-1">Neto {fmtShort(net)}</p>
               )}
             </div>
-            <div className="w-11 h-11 rounded-xl bg-emerald-100 flex items-center justify-center">
+            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
               {incomeTrend === null || incomeTrend >= 0
-                ? <TrendingUp className="w-5 h-5 text-emerald-600" />
-                : <TrendingDown className="w-5 h-5 text-red-500" />
+                ? <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
+                : <TrendingDown className="w-4 h-4 sm:w-5 sm:h-5 text-red-500" />
               }
             </div>
           </div>
         </div>
 
-        <div className="card p-5">
+        <div className="card p-3 sm:p-5">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wide font-medium">Deudas Pendientes</p>
-              <p className="text-2xl font-bold text-red-600 mt-1">{fmtShort(data.totalDebt)}</p>
+              <p className="text-xs text-slate-500 uppercase tracking-wide font-medium leading-tight">Deudas</p>
+              <p className="text-xl sm:text-2xl font-bold text-red-600 mt-1">{fmtShort(data.totalDebt)}</p>
               <p className="text-xs text-slate-500 mt-1">
-                {data.debtorCount} {data.debtorCount === 1 ? "paciente" : "pacientes"} · {data.pendingBudgets} presup.
+                {data.debtorCount} pac. · {data.pendingBudgets} presup.
               </p>
             </div>
-            <div className="w-11 h-11 rounded-xl bg-red-100 flex items-center justify-center">
-              <AlertTriangle className="w-5 h-5 text-red-500" />
+            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0">
+              <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-red-500" />
             </div>
           </div>
         </div>
@@ -334,13 +334,13 @@ export default function Dashboard() {
             <div className="divide-y divide-slate-100">
               {data.todayAppointments.map((a) => (
                 <Link key={a.id} href={`/pacientes/${a.patient.id}`}
-                  className="px-5 py-3 flex items-center gap-3 hover:bg-slate-50 transition-colors group"
+                  className="px-3 sm:px-5 py-3 flex items-center gap-2 sm:gap-3 hover:bg-slate-50 transition-colors group"
                 >
-                  <div className="w-14 text-center flex-shrink-0">
-                    <p className="text-sm font-bold text-slate-900">{a.startTime}</p>
+                  <div className="w-12 sm:w-14 text-center flex-shrink-0">
+                    <p className="text-sm font-bold text-slate-900 whitespace-nowrap">{a.startTime}</p>
                     <p className="text-xs text-slate-400">{a.endTime}</p>
                   </div>
-                  <div className="w-7 h-7 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
                     <span className="text-primary-700 text-xs font-bold">{a.box}</span>
                   </div>
                   <div className="flex-1 min-w-0">

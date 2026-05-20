@@ -172,38 +172,38 @@ export default function Agenda() {
       {toast && <div className="fixed top-20 right-4 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg text-sm">{toast}</div>}
 
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="page-title">Agenda</h1>
-          <p className="text-muted capitalize">
-            {new Date(currentDate+"T12:00:00").toLocaleDateString("es-CL",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}
+          <p className="text-muted capitalize text-xs sm:text-sm">
+            {new Date(currentDate+"T12:00:00").toLocaleDateString("es-CL",{weekday:"long",month:"long",day:"numeric"})}
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
           {/* View switcher */}
           <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs">
             <button onClick={()=>setView("multi")} title="Multi-profesional"
-              className={`px-3 py-2 flex items-center gap-1.5 font-medium transition-colors ${view==="multi"?"bg-primary-600 text-white":"bg-white text-slate-600 hover:bg-slate-50"}`}>
-              <Users size={13}/> Multi
+              className={`px-2.5 sm:px-3 py-2 flex items-center gap-1 sm:gap-1.5 font-medium transition-colors ${view==="multi"?"bg-primary-600 text-white":"bg-white text-slate-600 hover:bg-slate-50"}`}>
+              <Users size={13}/> <span className="hidden sm:inline">Multi</span>
             </button>
             <button onClick={()=>setView("day")} title="Vista día"
-              className={`px-3 py-2 flex items-center gap-1.5 font-medium transition-colors ${view==="day"?"bg-primary-600 text-white":"bg-white text-slate-600 hover:bg-slate-50"}`}>
+              className={`px-2.5 sm:px-3 py-2 flex items-center gap-1 sm:gap-1.5 font-medium transition-colors ${view==="day"?"bg-primary-600 text-white":"bg-white text-slate-600 hover:bg-slate-50"}`}>
               <Calendar size={13}/> Día
             </button>
             <button onClick={()=>setView("week")} title="Vista semana"
-              className={`px-3 py-2 flex items-center gap-1.5 font-medium transition-colors ${view==="week"?"bg-primary-600 text-white":"bg-white text-slate-600 hover:bg-slate-50"}`}>
-              <LayoutGrid size={13}/> Semana
+              className={`px-2.5 sm:px-3 py-2 flex items-center gap-1 sm:gap-1.5 font-medium transition-colors ${view==="week"?"bg-primary-600 text-white":"bg-white text-slate-600 hover:bg-slate-50"}`}>
+              <LayoutGrid size={13}/> <span className="hidden sm:inline">Semana</span>
             </button>
           </div>
           {/* Professional filter (week/day) */}
           {view !== "multi" && users.length > 0 && (
-            <select className="select w-auto text-xs py-1.5"
+            <select className="select w-auto text-xs py-1.5 max-w-[130px] sm:max-w-none"
               value={filterUserId} onChange={e=>setFilterUserId(e.target.value)}>
-              <option value="all">Todos los profesionales</option>
-              {users.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}
+              <option value="all">Todos</option>
+              {users.map(u=><option key={u.id} value={u.id}>{u.name.split(" ")[0]}</option>)}
             </select>
           )}
-          <button onClick={()=>openNew()} className="btn-primary text-sm"><Plus size={15}/> Nueva Cita</button>
+          <button onClick={()=>openNew()} className="btn-primary text-xs sm:text-sm px-3 sm:px-4"><Plus size={14}/> <span className="hidden sm:inline">Nueva </span>Cita</button>
         </div>
       </div>
 
@@ -499,8 +499,8 @@ export default function Agenda() {
               {users.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-3 md:col-span-1"><label className="label">Fecha</label><input className="input" type="date" value={form.date} onChange={e=>set("date",e.target.value)}/></div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div><label className="label">Fecha</label><input className="input" type="date" value={form.date} onChange={e=>set("date",e.target.value)}/></div>
             <div><label className="label">Inicio</label><input className="input" type="time" value={form.startTime} onChange={e=>set("startTime",e.target.value)}/></div>
             <div><label className="label">Fin</label><input className="input" type="time" value={form.endTime} onChange={e=>set("endTime",e.target.value)}/></div>
           </div>
@@ -531,37 +531,37 @@ export default function Agenda() {
             <textarea className="input resize-none" rows={2} value={form.notes} onChange={e=>set("notes",e.target.value)}/>
           </div>
         </div>
-        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-2 flex-wrap">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 flex items-center justify-between gap-2 sm:gap-3 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
             {selected && (
               <>
                 <button onClick={deleteAppt}
-                  className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors font-medium">
+                  className="flex items-center gap-1.5 text-xs px-2.5 py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors font-medium">
                   <Trash2 size={14}/> Eliminar
                 </button>
                 <button disabled={!selected.patient?.phone||reminderLoading===selected.id+"whatsapp"}
                   onClick={()=>sendReminder(selected.id,"whatsapp")}
-                  className={`flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg font-medium transition-colors ${selected.patient?.phone?"bg-green-100 text-green-700 hover:bg-green-200":"bg-slate-100 text-slate-400 cursor-not-allowed"}`}>
-                  <MessageCircle size={14}/> {reminderLoading===selected.id+"whatsapp"?"...":"Recordar WA"}
+                  className={`flex items-center gap-1.5 text-xs px-2.5 py-2 rounded-lg font-medium transition-colors ${selected.patient?.phone?"bg-green-100 text-green-700 hover:bg-green-200":"bg-slate-100 text-slate-400 cursor-not-allowed"}`}>
+                  <MessageCircle size={14}/> <span className="hidden sm:inline">Recordar </span>WA
                 </button>
                 <button disabled={!selected.patient?.email||reminderLoading===selected.id+"email"}
                   onClick={()=>sendReminder(selected.id,"email")}
-                  className={`flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg font-medium transition-colors ${selected.patient?.email?"bg-blue-100 text-blue-700 hover:bg-blue-200":"bg-slate-100 text-slate-400 cursor-not-allowed"}`}>
-                  <Mail size={14}/> {reminderLoading===selected.id+"email"?"...":"Recordar Email"}
+                  className={`flex items-center gap-1.5 text-xs px-2.5 py-2 rounded-lg font-medium transition-colors ${selected.patient?.email?"bg-blue-100 text-blue-700 hover:bg-blue-200":"bg-slate-100 text-slate-400 cursor-not-allowed"}`}>
+                  <Mail size={14}/> <span className="hidden sm:inline">Recordar </span>Email
                 </button>
               </>
             )}
           </div>
-          <div className="flex gap-3 items-center">
+          <div className="flex gap-2 sm:gap-3 items-center flex-wrap">
             {selected?.patient?.id && (
               <button
                 onClick={()=>{ setOpen(false); router.push(`/pacientes/${selected.patient.id}`); }}
-                className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-primary-50 text-primary-700 hover:bg-primary-100 font-medium transition-colors mr-auto">
+                className="flex items-center gap-1.5 text-xs px-2.5 py-2 rounded-lg bg-primary-50 text-primary-700 hover:bg-primary-100 font-medium transition-colors">
                 <ExternalLink size={13}/> Ir a ficha
               </button>
             )}
-            <button className="btn-secondary" onClick={()=>setOpen(false)}>Cancelar</button>
-            <button className="btn-primary" onClick={save} disabled={saving||!form.patientId||!form.userId}>
+            <button className="btn-secondary text-xs" onClick={()=>setOpen(false)}>Cancelar</button>
+            <button className="btn-primary text-xs" onClick={save} disabled={saving||!form.patientId||!form.userId}>
               {saving?"Guardando...":selected?"Actualizar":"Agendar"}
             </button>
           </div>

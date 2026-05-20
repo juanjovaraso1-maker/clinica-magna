@@ -357,7 +357,7 @@ export default function Pacientes() {
       {/* Modal nuevo paciente */}
       <Modal open={open} onClose={() => setOpen(false)} title="Nuevo Paciente" size="lg">
         <div className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Nombre *</label>
               <input className="input" value={form.firstName} onChange={(e) => set("firstName", e.target.value)} placeholder="Juan" />
@@ -367,7 +367,7 @@ export default function Pacientes() {
               <input className="input" value={form.lastName} onChange={(e) => set("lastName", e.target.value)} placeholder="González" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">RUT *</label>
               <input className="input" value={form.rut} onChange={(e) => set("rut", formatRut(e.target.value))} placeholder="12.345.678-9" />
@@ -380,7 +380,7 @@ export default function Pacientes() {
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Teléfono</label>
               <input className="input" value={form.phone} onChange={(e) => set("phone", handlePhone(e.target.value))} placeholder="+56987654321" />
@@ -391,7 +391,7 @@ export default function Pacientes() {
               <input className="input" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="correo@email.com" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Fecha de nacimiento</label>
               <input className="input" type="date" value={form.birthDate} onChange={(e) => set("birthDate", e.target.value)} />
@@ -403,7 +403,7 @@ export default function Pacientes() {
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Dirección</label>
               <input className="input" value={form.address} onChange={(e) => set("address", e.target.value)} />

@@ -358,7 +358,7 @@ function PresupuestosContent() {
     <div className="space-y-5 max-w-7xl">
       {toast && <div className="fixed top-20 right-4 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg text-sm">{toast}</div>}
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start sm:items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           {fromPatientId && (
             <button onClick={() => router.back()} className="btn-secondary text-xs">
@@ -396,13 +396,15 @@ function PresupuestosContent() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-1.5 bg-slate-100 p-1 rounded-xl w-fit">
-        {FILTERS.map(({ k, l, count }) => (
-          <button key={k} onClick={() => setFilter(k)}
-            className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${filter === k ? "bg-white text-primary-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
-            {l} {count > 0 && <span className={`ml-1 text-xs ${filter === k ? "text-primary-500" : "text-slate-400"}`}>({count})</span>}
-          </button>
-        ))}
+      <div className="overflow-x-auto">
+        <div className="flex gap-1.5 bg-slate-100 p-1 rounded-xl w-fit min-w-max">
+          {FILTERS.map(({ k, l, count }) => (
+            <button key={k} onClick={() => setFilter(k)}
+              className={`px-3 sm:px-4 py-1.5 text-sm font-medium rounded-lg transition-all whitespace-nowrap ${filter === k ? "bg-white text-primary-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+              {l} {count > 0 && <span className={`ml-1 text-xs ${filter === k ? "text-primary-500" : "text-slate-400"}`}>({count})</span>}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Mobile cards */}
@@ -506,7 +508,7 @@ function PresupuestosContent() {
       {/* Detail modal */}
       {detail && (
         <Modal open={!!detailId} onClose={() => setDetailId(null)} title={`Presupuesto #${String(detail.number).padStart(4, "0")}`} size="xl">
-          <div className="p-6 space-y-5 overflow-y-auto max-h-[75vh]">
+          <div className="p-4 sm:p-6 space-y-5 overflow-y-auto max-h-[75vh]">
             {/* Status + actions */}
             <div className="flex items-center justify-between flex-wrap gap-2">
               {(() => {
@@ -518,7 +520,7 @@ function PresupuestosContent() {
                   </span>
                 );
               })()}
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 {detail.status === "pending" && (
                   <>
                     <button onClick={() => changeStatus(detail.id, "approved")}
@@ -562,7 +564,7 @@ function PresupuestosContent() {
             </div>
 
             {/* Patient + professional info */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="bg-slate-50 rounded-xl p-3">
                 <p className="text-xs text-slate-500 mb-1">Paciente</p>
                 <p className="font-semibold text-slate-900">{detail.patient.firstName} {detail.patient.lastName}</p>
@@ -699,7 +701,7 @@ function PresupuestosContent() {
               </p>
             )}
           </div>
-          <div className="px-6 py-4 border-t border-slate-100 flex justify-end">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 flex justify-end">
             <button className="btn-secondary" onClick={() => setDetailId(null)}>Cerrar</button>
           </div>
         </Modal>
@@ -707,8 +709,8 @@ function PresupuestosContent() {
 
       {/* New/Edit budget modal */}
       <Modal open={open} onClose={() => { setOpen(false); setEditId(null); }} title={editId ? "Editar Presupuesto" : "Nuevo Presupuesto"} size="xl">
-        <div className="p-6 space-y-5 overflow-y-auto max-h-[75vh]">
-          <div className="grid grid-cols-2 gap-4">
+        <div className="p-4 sm:p-6 space-y-5 overflow-y-auto max-h-[75vh]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             {!fromPatientId ? (
               <div>
                 <label className="label">Paciente *</label>
@@ -742,6 +744,7 @@ function PresupuestosContent() {
             </div>
           </div>
 
+
           {/* Items */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -765,75 +768,74 @@ function PresupuestosContent() {
                 </button>
               </div>
             </div>
-            <div className="border border-slate-200 rounded-xl overflow-x-auto">
-              <table className="w-full text-sm min-w-[620px]">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="text-left px-3 py-2 text-xs text-slate-500">Prestación</th>
-                    <th className="text-center px-2 py-2 text-xs text-slate-500 w-20">Diente</th>
-                    <th className="text-center px-2 py-2 text-xs text-slate-500 w-32">Área</th>
-                    <th className="text-center px-2 py-2 text-xs text-slate-500 w-14">Cant.</th>
-                    <th className="text-right px-2 py-2 text-xs text-slate-500 w-28">P. Unit.</th>
-                    <th className="text-right px-2 py-2 text-xs text-slate-500 w-16">Dto.%</th>
-                    <th className="text-right px-3 py-2 text-xs text-slate-500 w-24">Total</th>
-                    <th className="w-8" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item, i) => (
-                    <tr key={i} className="border-t border-slate-100">
-                      <td className="px-2 py-1.5">
-                        <div className="flex gap-1">
-                          <input className="input py-1 text-xs flex-1" value={item.description}
-                            onChange={e => updateItem(i, "description", e.target.value)} placeholder="Descripción..." />
-                          {treatments.length > 0 && (
-                            <select className="input py-1 text-xs w-28" onChange={e => {
-                              const t = treatments.find(t => t.id === e.target.value);
-                              if (t) applyTreatment(i, t); e.target.value = "";
-                            }}>
-                              <option value="">Catálogo</option>
-                              {Object.entries(byCategory).map(([cat, ts]) => (
-                                <optgroup key={cat} label={cat}>
-                                  {ts.map(t => <option key={t.id} value={t.id}>{t.name} ({fmt(t.price)})</option>)}
-                                </optgroup>
-                              ))}
-                            </select>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-2 py-1.5">
-                        <input className="input py-1 text-xs text-center" value={item.tooth}
-                          onChange={e => updateItem(i, "tooth", e.target.value)} placeholder="16" />
-                      </td>
-                      <td className="px-2 py-1.5">
-                        <select className="input py-1 text-xs" value={item.area}
-                          onChange={e => updateItem(i, "area", e.target.value)}>
-                          {AREAS.map(a => <option key={a} value={a}>{a || "—"}</option>)}
+            <div className="space-y-2">
+              {items.map((item, i) => (
+                <div key={i} className="bg-slate-50 rounded-xl p-3 space-y-2">
+                  {/* Descripción + catálogo + eliminar */}
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1 space-y-1.5">
+                      <input className="input py-1.5 text-sm" value={item.description}
+                        onChange={e => updateItem(i, "description", e.target.value)} placeholder="Descripción del tratamiento..." />
+                      {treatments.length > 0 && (
+                        <select className="select py-1.5 text-sm" onChange={e => {
+                          const t = treatments.find(t => t.id === e.target.value);
+                          if (t) applyTreatment(i, t); e.target.value = "";
+                        }}>
+                          <option value="">📋 Seleccionar del catálogo...</option>
+                          {Object.entries(byCategory).map(([cat, ts]) => (
+                            <optgroup key={cat} label={cat}>
+                              {ts.map(t => <option key={t.id} value={t.id}>{t.name} ({fmt(t.price)})</option>)}
+                            </optgroup>
+                          ))}
                         </select>
-                      </td>
-                      <td className="px-2 py-1.5">
-                        <input className="input py-1 text-xs text-center" type="number" min="1" value={item.quantity}
-                          onChange={e => updateItem(i, "quantity", parseInt(e.target.value) || 1)} />
-                      </td>
-                      <td className="px-2 py-1.5">
-                        <input className="input py-1 text-xs text-right" type="number" min="0" value={item.unitPrice}
-                          onChange={e => updateItem(i, "unitPrice", parseFloat(e.target.value) || 0)} />
-                      </td>
-                      <td className="px-2 py-1.5">
-                        <input className="input py-1 text-xs text-right" type="number" min="0" max="100" value={item.discount}
-                          onChange={e => updateItem(i, "discount", parseFloat(e.target.value) || 0)} />
-                      </td>
-                      <td className="px-3 py-1.5 text-right text-sm font-medium">{fmt(item.total)}</td>
-                      <td className="px-2">
-                        <button onClick={() => setItems(its => its.filter((_, idx) => idx !== i))}
-                          className="text-slate-300 hover:text-red-500 transition-colors">
-                          <Trash2 size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      )}
+                    </div>
+                    {items.length > 1 && (
+                      <button onClick={() => setItems(its => its.filter((_, idx) => idx !== i))}
+                        className="mt-1 w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0">
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                  {/* Diente + Área */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs text-slate-500 mb-0.5 block">Diente</label>
+                      <input className="input py-1.5 text-sm text-center" value={item.tooth}
+                        onChange={e => updateItem(i, "tooth", e.target.value)} placeholder="16" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-500 mb-0.5 block">Área</label>
+                      <select className="select py-1.5 text-sm" value={item.area}
+                        onChange={e => updateItem(i, "area", e.target.value)}>
+                        {AREAS.map(a => <option key={a} value={a}>{a || "—"}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  {/* Cantidad + P.Unit + Dto + Total */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs text-slate-500 mb-0.5 block">Cantidad</label>
+                      <input className="input py-1.5 text-sm text-center" type="number" min="1" value={item.quantity}
+                        onChange={e => updateItem(i, "quantity", parseInt(e.target.value) || 1)} />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-500 mb-0.5 block">Precio unit. ($)</label>
+                      <input className="input py-1.5 text-sm text-right" type="number" min="0" value={item.unitPrice}
+                        onChange={e => updateItem(i, "unitPrice", parseFloat(e.target.value) || 0)} />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-500 mb-0.5 block">Descuento (%)</label>
+                      <input className="input py-1.5 text-sm text-right" type="number" min="0" max="100" value={item.discount}
+                        onChange={e => updateItem(i, "discount", parseFloat(e.target.value) || 0)} />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-500 mb-0.5 block">Total</label>
+                      <p className="input bg-white text-right text-sm font-semibold py-1.5 text-slate-800">{fmt(item.total)}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -860,7 +862,7 @@ function PresupuestosContent() {
               onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
           </div>
         </div>
-        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 flex justify-end gap-3">
           <button className="btn-secondary" onClick={() => { setOpen(false); setEditId(null); }}>Cancelar</button>
           <button className="btn-primary" onClick={save}
             disabled={saving || !form.patientId || !form.userId || items.every(i => !i.description)}>

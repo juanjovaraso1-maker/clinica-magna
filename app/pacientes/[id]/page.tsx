@@ -29,6 +29,7 @@ interface Patient {
 const TABS = ["Historial","Ficha Clínica","Odontograma","Estética Facial","Evoluciones","Presupuestos","Pagos","Documentos","Datos","Citas"];
 
 function fmt(n:number) { return new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(n); }
+function fmtShort(n:number) { const abs=Math.abs(n); const sign=n<0?"-":""; if(abs>=1000000) return `${sign}$${(abs/1000000).toFixed(1)}M`; if(abs>=1000) return `${sign}$${Math.round(abs/1000)}K`; return fmt(n); }
 
 const CARE_TEMPLATES: Record<string, string> = {
   "Post-exodoncia": "• Morder el algodón firmemente 30–40 minutos y luego retirarlo sin escupir.\n• Evitar enjuagarse la boca las primeras 24 horas.\n• Aplicar hielo externo (20 min sí / 20 min no) durante las primeras 2–3 horas.\n• No consumir alimentos calientes, picantes ni duros por 24 horas. Dieta blanda 2–3 días.\n• No fumar ni consumir alcohol por al menos 48 horas.\n• Tomar los medicamentos indicados según prescripción.\n• Si presenta sangrado abundante, inflamación intensa o fiebre, contactar a la clínica.",
@@ -39,7 +40,46 @@ const CARE_TEMPLATES: Record<string, string> = {
   "Higiene oral": "• Cepillarse los dientes al menos 3 veces al día (especialmente antes de dormir).\n• Usar seda dental o cepillos interdentales diariamente.\n• Usar enjuague bucal una vez al día.\n• Cambiar el cepillo cada 3 meses.\n• Visitar al dentista cada 6 meses para control y limpieza profesional.",
 };
 
-const RX_TEMPLATES: Record<string, Array<{drug:string;dose:string;freq:string;duration:string;route:string;instructions:string}>> = {
+const CARE_SECTIONS: Record<string,{primeras2h:string;primeras24h:string;general:string;alarma:string}> = {
+  "Post-exodoncia": {
+    primeras2h: "• Morder el algodón firmemente durante 30–40 minutos y retirarlo sin escupir.\n• Aplicar hielo externo envuelto en un paño: 20 min sí / 20 min no.\n• No enjuagarse la boca con fuerza durante las primeras 2 horas.",
+    primeras24h: "• Evitar alimentos calientes, picantes o duros. Preferir dieta blanda y fría.\n• No fumar ni consumir alcohol por al menos 48 horas.\n• Evitar esfuerzo físico y actividades que aumenten la presión arterial.\n• No escupir ni sorberse el labio.",
+    general: "• Tomar los medicamentos recetados según indicación, preferiblemente con las comidas.\n• Mantener higiene oral normal, cepillando con suavidad y evitando la zona de extracción.\n• Si se colocaron puntos, acudir al control indicado para su retiro.\n• Puede enjuagarse suavemente con agua tibia con sal a partir del segundo día.",
+    alarma: "• Sangrado abundante que no cede después de 30 minutos de presión.\n• Dolor intenso que aumenta después de las 48 horas.\n• Inflamación severa o asimetría facial marcada.\n• Fiebre superior a 38 °C.\n• Mal sabor persistente o sensación de pus.\n\n⚠ En caso de presentar alguno de estos síntomas, contáctenos de inmediato.",
+  },
+  "Post-endodoncia": {
+    primeras2h: "• Evitar masticar del lado del diente tratado hasta que el efecto anestésico haya desaparecido completamente.\n• Puede tomar un analgésico preventivo si el profesional lo indica.",
+    primeras24h: "• Es normal sentir sensibilidad o leve molestia al morder durante los primeros días.\n• Tomar los medicamentos indicados según prescripción.\n• Evitar alimentos muy duros o pegajosos sobre el diente tratado.",
+    general: "• Mantener higiene oral normal, cepillando suavemente la zona.\n• No masticar alimentos muy duros con el diente tratado hasta recibir la restauración definitiva.\n• Acudir puntualmente al control indicado por el profesional.\n• Si se realizó medicación intraconducto, no retire la curación provisional.",
+    alarma: "• Dolor intenso y persistente que no mejora con analgésicos.\n• Inflamación de la mejilla o encía.\n• Fiebre superior a 38 °C.\n• Pérdida o fractura de la restauración provisional.\n\n⚠ En caso de presentar alguno de estos síntomas, contáctenos de inmediato.",
+  },
+  "Post-blanqueamiento": {
+    primeras2h: "• Evitar absolutamente el consumo de alimentos o bebidas pigmentantes (café, té, vino tinto, gaseosas oscuras, betarraga).\n• No fumar durante las primeras 2 horas.\n• Es normal sentir sensibilidad dental transitoria que irá disminuyendo.",
+    primeras24h: "• Mantener la restricción de alimentos pigmentantes por al menos 24 horas.\n• Preferir alimentos blancos o de colores claros (pollo, arroz, lácteos, pan de molde).\n• Evitar el alcohol y el tabaco.\n• Si presenta sensibilidad, use pasta dental para dientes sensibles.",
+    general: "• Continuar usando pasta dental para dientes sensibles si es necesario.\n• Mantener higiene oral adecuada: cepillado suave 3 veces al día y seda dental.\n• Para mantener el resultado, reducir el consumo habitual de alimentos pigmentantes.\n• Consulte con su profesional sobre tratamientos de mantenimiento.",
+    alarma: "• Dolor intenso o sensibilidad severa que no mejora después de 72 horas.\n• Irritación persistente de encías o úlceras orales.\n• Manchas blancas que no desaparecen después de 48 horas.\n\n⚠ En caso de presentar alguno de estos síntomas, contáctenos de inmediato.",
+  },
+  "Post-implante": {
+    primeras2h: "• No enjuagarse ni escupir en las primeras 2 horas.\n• Aplicar hielo externo envuelto en un paño: 20 min sí / 20 min no.\n• Reposar con la cabeza levemente elevada. Evitar el esfuerzo físico.",
+    primeras24h: "• Mantener dieta líquida y blanda (sopas tibias, yogur, puré). Evitar alimentos duros o calientes en el área del implante.\n• No fumar ni consumir alcohol. El tabaco es el principal factor de riesgo para el fracaso del implante.\n• Iniciar el tratamiento antibiótico y analgésico según prescripción.\n• Evitar presionar o tocar el implante con la lengua.",
+    general: "• Cepillar el implante con cerdas suaves y pasta no abrasiva, evitando el área las primeras 48 h.\n• Acudir a todos los controles programados; son esenciales para la oseointegración.\n• No fumar durante todo el proceso de integración (mínimo 3 meses).\n• Enjuagarse con clorhexidina según indicación del profesional.",
+    alarma: "• Sangrado abundante que no cede.\n• Dolor muy intenso o en aumento después de las 48 horas.\n• Implante que se mueve o se siente suelto.\n• Inflamación severa con pus o mal olor.\n• Fiebre superior a 38 °C.\n\n⚠ En caso de presentar alguno de estos síntomas, contáctenos de inmediato.",
+  },
+  "Post-cirugía oral": {
+    primeras2h: "• Morder el algodón 30–45 minutos sin retirarlo antes de tiempo.\n• No escupir, no sorberse el labio ni hablar en exceso.\n• Aplicar frío externo: 20 min sí / 20 min no.\n• Reposo con la cabeza levemente elevada.",
+    primeras24h: "• Dieta líquida y fría las primeras 12 horas (helado, jugos, agua fría).\n• Evitar esfuerzo físico, agacharse o cargar peso.\n• No fumar ni consumir alcohol por al menos 72 horas.\n• No tomar aspirina; usar el analgésico indicado.",
+    general: "• Iniciar enjuagues suaves con agua tibia con sal o clorhexidina a partir del día siguiente.\n• Tomar antibióticos y analgésicos según prescripción, completando el ciclo completo.\n• Mantener higiene oral suave, evitando cepillar directamente la zona operada.\n• Si hay puntos, acudir al control indicado para su retiro.",
+    alarma: "• Sangrado abundante que no cede con presión.\n• Fiebre superior a 38 °C.\n• Dolor intenso y en aumento después de las 48 horas.\n• Inflamación severa con pus o secreción de mal olor.\n• Entumecimiento que persiste más de 24 horas.\n\n⚠ En caso de presentar alguno de estos síntomas, contáctenos de inmediato.",
+  },
+  "Higiene oral": {
+    primeras2h: "• Evitar consumir alimentos durante los primeros 30 minutos tras el procedimiento.\n• Puede sentir sensibilidad dental transitoria, que es normal y pasajera.",
+    primeras24h: "• Evitar bebidas muy frías o calientes si presenta sensibilidad.\n• Puede notar ligero sangrado de encías al cepillar; es normal y cede en 24 horas.\n• Cepille con suavidad si siente molestia.",
+    general: "• Cepillar los dientes al menos 3 veces al día (especialmente antes de dormir).\n• Usar seda dental o cepillos interdentales diariamente.\n• Usar enjuague bucal sin alcohol una vez al día.\n• Cambiar el cepillo dental cada 3 meses.\n• Visitar al dentista cada 6 meses para control y limpieza profesional.",
+    alarma: "• Sangrado prolongado de encías que no cede al cepillar.\n• Dolor dental persistente o sensibilidad severa que no mejora en 48 horas.\n• Aparición de aftas, lesiones o manchas en la boca.\n\n⚠ En caso de presentar alguno de estos síntomas, contáctenos de inmediato.",
+  },
+};
+
+const RX_TEMPLATES: Record<string, Array<{drug:string;dose:string;freq:string;duration:string;route:string;instructions:string;qty?:string}>> = {
   "Post-exodoncia": [
     { drug:"Amoxicilina 500 mg", dose:"1 comprimido", freq:"c/8h", duration:"7 días", route:"oral", instructions:"Tomar con alimentos" },
     { drug:"Ibuprofeno 400 mg", dose:"1 comprimido", freq:"c/8h", duration:"3 días", route:"oral", instructions:"Si hay dolor, tomar con alimentos" },
@@ -86,7 +126,8 @@ export default function PatientDetail() {
   const [rxModal, setRxModal] = useState(false);
   const [rxTemplate, setRxTemplate] = useState("");
   const [rxUserId, setRxUserId] = useState("");
-  const [rxItems, setRxItems] = useState([{ drug:"", dose:"", freq:"", duration:"", route:"oral", instructions:"" }]);
+  const [rxItems, setRxItems] = useState([{ drug:"", dose:"", freq:"", duration:"", route:"oral", instructions:"", qty:"" }]);
+  const [emailDlg, setEmailDlg] = useState<{open:boolean;to:string;type:string;budgetObj?:Patient["budgets"][0]}>({open:false,to:"",type:""});
   const [rxNotes, setRxNotes] = useState("");
   const [cuidadosModal, setCuidadosModal] = useState(false);
   const [cuidadosTemplate, setCuidadosTemplate] = useState("Post-exodoncia");
@@ -111,7 +152,6 @@ export default function PatientDetail() {
   const [editSaving, setEditSaving] = useState(false);
   const [clinicCfg, setClinicCfg] = useState<Record<string,string>>({});
   const [toast, setToast] = useState<string|null>(null);
-  const [emailSending, setEmailSending] = useState<string|null>(null);
   const [treatments, setTreatments] = useState<Array<{id:string;name:string;category:string;price:number}>>([]);
   const [budgetDetailId, setBudgetDetailId] = useState<string|null>(null);
   const [budgetPayForm, setBudgetPayForm] = useState({ date:new Date().toISOString().split("T")[0], amount:"", method:"efectivo", notes:"" });
@@ -121,13 +161,14 @@ export default function PatientDetail() {
   const [budgetItems, setBudgetItems] = useState([{ description:"", tooth:"", area:"", quantity:1, unitPrice:0, discount:0, total:0 }]);
   const [budgetEditId, setBudgetEditId] = useState<string|null>(null);
   const [budgetSaving, setBudgetSaving] = useState(false);
-  const [rxEmailSending, setRxEmailSending] = useState(false);
-  const [careEmailSending, setCareEmailSending] = useState(false);
-  const [payEditId, setPayEditId] = useState<string|null>(null);
+const [payEditId, setPayEditId] = useState<string|null>(null);
   const [payEditForm, setPayEditForm] = useState({ date:"", amount:"", method:"efectivo", notes:"" });
   const [payEditSaving, setPayEditSaving] = useState(false);
   const [budgetDropIdx, setBudgetDropIdx] = useState<number|null>(null);
   const [deletingPatient, setDeletingPatient] = useState(false);
+  const [rxPdfSending, setRxPdfSending] = useState(false);
+  const [carePdfSending, setCarePdfSending] = useState(false);
+  const [budgetPdfSending, setBudgetPdfSending] = useState<string|null>(null);
 
   async function load() {
     const [pr, ur, or_, fr, cr, tr] = await Promise.all([
@@ -146,27 +187,6 @@ export default function PatientDetail() {
   }
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 3500); }
-
-  async function sendRxEmail() {
-    if (!patient?.email) { showToast("❌ El paciente no tiene email"); return; }
-    if (!rxUserId || rxItems.every(m=>!m.drug.trim())) { showToast("❌ Selecciona profesional y agrega medicamentos"); return; }
-    setRxEmailSending(true);
-    const professional = users.find(u => u.id === rxUserId);
-    const r = await fetch("/api/send-rx", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ patientName:`${patient.firstName} ${patient.lastName}`, patientRut:patient.rut, patientEmail:patient.email, professionalName:professional?.name??"", medications:rxItems.filter(m=>m.drug.trim()), notes:rxNotes }) });
-    const d = await r.json();
-    setRxEmailSending(false);
-    showToast(d.ok ? "✅ Receta enviada por email" : `❌ ${d.error}`);
-  }
-
-  async function sendCareEmail() {
-    if (!patient?.email) { showToast("❌ El paciente no tiene email"); return; }
-    setCareEmailSending(true);
-    const professional = users.find(u => u.id === cuidadosUserId);
-    const r = await fetch("/api/send-care", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ patientName:`${patient.firstName} ${patient.lastName}`, patientEmail:patient.email, professionalName:professional?.name??"", templateName:cuidadosTemplate, text:cuidadosText }) });
-    const d = await r.json();
-    setCareEmailSending(false);
-    showToast(d.ok ? "✅ Indicaciones enviadas por email" : `❌ ${d.error}`);
-  }
 
   async function changeBudgetStatus(budgetId: string, status: string) {
     await fetch(`/api/budgets/${budgetId}`, { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ status }) });
@@ -238,12 +258,81 @@ export default function PatientDetail() {
     load(); showToast("✅ Pago eliminado");
   }
 
-  async function sendBudgetEmail(budgetId: string) {
-    setEmailSending(budgetId);
-    const r = await fetch("/api/budgets/send-email", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ budgetId }) });
-    const d = await r.json();
-    setEmailSending(null);
-    showToast(d.ok ? "✅ Presupuesto enviado por email" : `❌ ${d.error}`);
+  function openEmailDlg(type: string, budgetObj?: Patient["budgets"][0]) {
+    setEmailDlg({ open:true, to:patient?.email||"", type, budgetObj });
+  }
+
+  async function doEmailSend() {
+    if (!emailDlg.to || !patient) return;
+    const to = emailDlg.to;
+    const fullName = `${patient.firstName} ${patient.lastName}`;
+    const today = new Date().toLocaleDateString("es-CL", { day:"numeric", month:"long", year:"numeric" });
+    setEmailDlg(d=>({...d,open:false}));
+
+    if (emailDlg.type === "rx") {
+      setRxPdfSending(true);
+      const professional = users.find(u => u.id === rxUserId);
+      const recetaData = {
+        professionalName: professional?.name || "",
+        professionalRut:  professional?.rut  || "",
+        patientName:  fullName,
+        patientRut:   patient.rut,
+        patientBirthDate: patient.birthDate ? patient.birthDate.split("T")[0] : undefined,
+        date:  today,
+        medications: rxItems.filter(m => m.drug.trim()),
+        notes: rxNotes,
+      };
+      const filename = `Receta_Medica_${patient.firstName}_${patient.lastName}`;
+      const bodyText = `Estimado/a ${fullName}, adjuntamos su receta médica. Saludos, Clínica Magna.`;
+      const r = await fetch("/api/send-document", { method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ type:"receta", data:recetaData, to, subject:"Receta Médica Odontológica", filename, patientName:fullName, bodyText }) });
+      const d = await r.json(); setRxPdfSending(false);
+      showToast(d.ok ? "✅ Receta enviada como PDF" : `❌ ${d.error}`);
+
+    } else if (emailDlg.type === "cuidados") {
+      setCarePdfSending(true);
+      const professional = users.find(u => u.id === cuidadosUserId);
+      const sections = CARE_SECTIONS[cuidadosTemplate];
+      const isCustom = sections && cuidadosText.trim() && cuidadosText !== activeCareTemplates[cuidadosTemplate];
+      const indicacionesData = {
+        professionalName: professional?.name || "",
+        patientName: fullName,
+        date: today,
+        procedimiento: cuidadosTemplate,
+        sections: sections || { primeras2h: cuidadosText, primeras24h: "", general: "", alarma: "" },
+        observaciones: isCustom ? cuidadosText : undefined,
+      };
+      const filename = `Indicaciones_${cuidadosTemplate}_${patient.firstName}_${patient.lastName}`;
+      const bodyText = `Estimado/a ${fullName}, adjuntamos sus indicaciones post-procedimiento. Saludos, Clínica Magna.`;
+      const r = await fetch("/api/send-document", { method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ type:"indicaciones", data:indicacionesData, to, subject:`Indicaciones ${cuidadosTemplate}`, filename, patientName:fullName, bodyText }) });
+      const d = await r.json(); setCarePdfSending(false);
+      showToast(d.ok ? "✅ Indicaciones enviadas como PDF" : `❌ ${d.error}`);
+
+    } else if (emailDlg.type === "budget" && emailDlg.budgetObj) {
+      const db = emailDlg.budgetObj;
+      setBudgetPdfSending(db.id);
+      const numStr = String(db.number).padStart(4, "0");
+      const itemDisc = db.items.reduce((s,it) => s + it.unitPrice * it.quantity * (it.discount||0) / 100, 0);
+      const totalDisc = itemDisc + (db.discount || 0);
+      const presupuestoData = {
+        number: db.number,
+        professionalName: db.user.name,
+        patientName: fullName,
+        patientRut:  patient.rut,
+        date:  db.date,
+        items: db.items,
+        subtotal: db.subtotal,
+        discount: totalDisc > 0 ? totalDisc : undefined,
+        total: db.total,
+      };
+      const filename = `Presupuesto_N${numStr}_${patient.firstName}_${patient.lastName}`;
+      const bodyText = `Estimado/a ${fullName}, adjuntamos su presupuesto dental N°${numStr}. Saludos, Clínica Magna.`;
+      const r = await fetch("/api/send-document", { method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ type:"presupuesto", data:presupuestoData, to, subject:`Presupuesto Dental N°${numStr}`, filename, patientName:fullName, bodyText }) });
+      const d = await r.json(); setBudgetPdfSending(null);
+      showToast(d.ok ? "✅ Presupuesto enviado como PDF" : `❌ ${d.error}`);
+    }
   }
 
   function sendBudgetWA(b: { number:number; date:string; total:number; items:BudgetItem[] }) {
@@ -264,14 +353,15 @@ export default function PatientDetail() {
   }
 
   // Derive template maps from clinicCfg, fall back to hardcoded constants
-  const activeRxTemplates: Record<string, Array<{drug:string;dose:string;freq:string;duration:string;route:string;instructions:string}>> = (() => {
+  const activeRxTemplates: Record<string, Array<{drug:string;dose:string;freq:string;duration:string;route:string;instructions:string;qty:string}>> = (() => {
+    const withQty = (meds: Array<Record<string,string>>) => meds.map(m=>({qty:"",...m} as any));
     try {
       if (clinicCfg.rx_templates) {
-        const arr = JSON.parse(clinicCfg.rx_templates) as Array<{name:string;medications:Array<{drug:string;dose:string;freq:string;duration:string;route:string;instructions:string}>}>;
-        if (arr.length > 0) return Object.fromEntries(arr.map(t => [t.name, t.medications]));
+        const arr = JSON.parse(clinicCfg.rx_templates) as Array<{name:string;medications:Array<Record<string,string>>}>;
+        if (arr.length > 0) return Object.fromEntries(arr.map(t => [t.name, withQty(t.medications)]));
       }
     } catch { /* ignore parse errors */ }
-    return RX_TEMPLATES;
+    return Object.fromEntries(Object.entries(RX_TEMPLATES).map(([k,v])=>[k,withQty(v)]));
   })();
 
   const activeCareTemplates: Record<string, string> = (() => {
@@ -315,14 +405,14 @@ export default function PatientDetail() {
   function buildDocHeader(): string {
     const name = (clinicCfg.clinic_name || "Clínica Magna").toUpperCase();
     const sub  = clinicCfg.clinic_subtitle || "Odontología y Estética Facial";
-    const addr = clinicCfg.clinic_address  || "";
-    const phone= clinicCfg.clinic_phone    || "";
-    const mail = clinicCfg.clinic_email    || "";
-    const web  = clinicCfg.clinic_website  || "";
-    const ig   = clinicCfg.clinic_instagram|| "";
+    const addr = clinicCfg.clinic_address  || "Badajoz 100 Of. 918, Las Condes";
+    const phone= clinicCfg.clinic_phone    || "+56 9 6279 3952";
+    const mail = clinicCfg.clinic_email    || "administracion@clinicamagna.cl";
+    const web  = clinicCfg.clinic_website  || "www.clinicamagna.cl";
+    const ig   = clinicCfg.clinic_instagram|| "@clinica.magna";
     const l1   = [addr, phone&&`WHATSAPP ${phone}`, mail].filter(Boolean).join("  |  ");
     const l2   = [web, ig&&`INSTAGRAM ${ig}`].filter(Boolean).join("  |  ");
-    const logoBase = typeof window !== "undefined" ? window.location.origin + "/logo.jpg" : "/logo.jpg";
+    const logoBase = typeof window !== "undefined" ? window.location.origin + "/LOGO.jpeg" : "/LOGO.jpeg";
     return `<div style="display:flex;align-items:flex-start;gap:14px;padding-bottom:10px;border-bottom:2px solid #1e5f74;margin-bottom:18px">
       <img src="${logoBase}" style="width:80px;height:70px;object-fit:contain;flex-shrink:0" onerror="this.style.display='none'"/>
       <div>
@@ -369,21 +459,45 @@ export default function PatientDetail() {
     w.document.close();
   }
 
-  function printRx() {
-    if (!patient) return;
+  function buildFullDocHtml(title:string, body:string): string {
+    return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/><title>${title}</title>
+      <style>@page{margin:14mm;size:A4 portrait}*{box-sizing:border-box}body{font-family:'Times New Roman',Times,serif;font-size:11px;color:#1a1a1a;margin:0;padding:14mm}b{font-weight:bold}</style>
+      </head><body>${body}</body></html>`;
+  }
+
+  function emailPdfRx() {
+    if (!rxUserId || rxItems.every(m=>!m.drug.trim())) { showToast("❌ Selecciona profesional y agrega medicamentos"); return; }
+    openEmailDlg("rx");
+  }
+
+  function emailPdfCuidados() {
+    if (!cuidadosText.trim()) { showToast("❌ Agrega instrucciones"); return; }
+    openEmailDlg("cuidados");
+  }
+
+  function emailPdfBudget(db: Patient["budgets"][0]) {
+    openEmailDlg("budget", db);
+  }
+
+  function buildRxDocBody(): string {
+    if (!patient) return "";
     const professional = users.find(u => u.id === rxUserId);
     const today = new Date().toLocaleDateString("es-CL",{day:"numeric",month:"long",year:"numeric"});
     const meds = rxItems.filter(m=>m.drug.trim());
     const fmtBD = patient.birthDate ? patient.birthDate.split("T")[0] : "";
-    const medLines = meds.map((m,i)=>`
-      <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #e2e8f0">
-        <div style="font-size:12px;font-weight:bold;text-transform:uppercase;color:#1a1a1a;margin-bottom:3px">${i+1}-. ${m.drug.toUpperCase()}</div>
-        <div style="font-size:11.5px;text-transform:uppercase;color:#1a1a1a;margin-bottom:3px">
-          ${["TOMAR", m.dose&&m.dose.toUpperCase(), m.freq&&`CADA ${m.freq.toUpperCase()}`, m.duration&&`POR ${m.duration.toUpperCase()}`].filter(Boolean).join(" ")}
-        </div>
-        ${m.instructions?`<div style="font-size:11.5px;text-transform:uppercase;color:#1a1a1a">${m.instructions.toUpperCase()}</div>`:""}
-      </div>`).join("");
-    const body = `
+    const thStyle = `padding:6px 7px;border:1px solid #1f4e79;font-size:10px;text-align:center`;
+    const medRows = meds.map((m,i)=>`
+      <tr style="background:${i%2===0?"#fff":"#f0f6ff"}">
+        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px;font-weight:bold">${i+1}</td>
+        <td style="padding:5px 7px;border:1px solid #bcd2e8;font-size:10px;font-weight:bold;text-transform:uppercase">${m.drug}</td>
+        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${m.dose||""}</td>
+        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${m.freq||""}</td>
+        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${m.duration||""}</td>
+        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${m.qty||""}</td>
+      </tr>
+      ${m.instructions?`<tr style="background:#f8f9fa"><td></td><td colspan="5" style="padding:3px 7px 6px;border:1px solid #bcd2e8;font-size:9.5px;font-style:italic;color:#555">Indicación: ${m.instructions}</td></tr>`:""}
+    `).join("");
+    return `
       ${buildDocHeader()}
       <div style="text-align:center;margin:14px 0 10px">
         <div style="font-size:17px;font-weight:bold;letter-spacing:1px">RECETA MÉDICA ODONTOLÓGICA</div>
@@ -393,8 +507,17 @@ export default function PatientDetail() {
         {label:"RUT / Fecha nac.",value:`${patient.rut}${fmtBD?" / "+fmtBD:""}`},
         {label:"Fecha",value:today}
       ])}
-      <div style="font-size:11px;font-weight:bold;color:#2e75b6;margin:10px 0 8px;text-transform:uppercase;border-bottom:1px solid #2e75b6;padding-bottom:4px">Medicamentos Recetados</div>
-      <div style="margin-bottom:16px">${medLines}</div>
+      <table style="width:100%;border-collapse:collapse;margin:4px 0 14px">
+        <thead><tr style="background:#1f4e79;color:white">
+          <th style="${thStyle};width:5%">N°</th>
+          <th style="${thStyle};text-align:left;width:30%">Medicamento</th>
+          <th style="${thStyle};width:17%">Dosis</th>
+          <th style="${thStyle};width:15%">Posología</th>
+          <th style="${thStyle};width:15%">Duración</th>
+          <th style="${thStyle};width:18%">Cantidad</th>
+        </tr></thead>
+        <tbody>${medRows}</tbody>
+      </table>
       <div style="margin-bottom:12px">
         <div style="font-size:11px;font-weight:bold;color:#2e75b6;margin-bottom:5px">DIAGNÓSTICO / INDICACIÓN:</div>
         <div style="border:1px solid #bcd2e8;min-height:44px;padding:8px;background:#fff;font-size:10px"></div>
@@ -403,8 +526,12 @@ export default function PatientDetail() {
         <div style="font-size:11px;font-weight:bold;color:#2e75b6;margin-bottom:5px">OBSERVACIONES:</div>
         <div style="border:1px solid #bcd2e8;min-height:44px;padding:8px;background:#fff;font-size:10px">${rxNotes||""}</div>
       </div>
-      ${buildDocFooter("Firma y Timbre <u>Profesional</u>","Número de Registro / SIS")}`;
-    openDocWindow("Receta Médica",body);
+      ${buildDocFooter("Firma y Timbre Profesional","Clínica Magna")}`;
+  }
+
+  function printRx() {
+    if (!patient) return;
+    openDocWindow("Receta Médica", buildRxDocBody());
   }
 
   async function savePay() {
@@ -421,13 +548,33 @@ export default function PatientDetail() {
     setPayEvolutionId(""); load(); setPaySaving(false);
   }
 
-  function printCuidados() {
-    if (!patient) return;
+  function buildCuidadosDocBody(): string {
+    if (!patient) return "";
     const professional = users.find(u => u.id === cuidadosUserId);
     const today = new Date().toLocaleDateString("es-CL",{day:"numeric",month:"long",year:"numeric"});
-    const lines = cuidadosText.split("\n").filter(l=>l.trim());
-    const bulletHtml = lines.map(l=>`<div style="margin-bottom:5px;font-size:10.5px">${l}</div>`).join("");
-    const body = `
+    const sections = CARE_SECTIONS[cuidadosTemplate];
+    function renderSection(title:string, emoji:string, text:string, bg:string, border:string) {
+      const lines = text.split("\n").filter(l=>l.trim());
+      const html = lines.map(l=>`<div style="margin-bottom:4px;font-size:10.5px;line-height:1.5">${l}</div>`).join("");
+      return `<div style="margin-bottom:10px">
+        <div style="font-size:10.5px;font-weight:bold;color:#1a1a1a;background:${bg};border-left:3px solid ${border};padding:5px 8px;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px">${emoji} ${title}</div>
+        <div style="padding:0 8px">${html}</div></div>`;
+    }
+    let contentHtml: string;
+    if (sections) {
+      contentHtml = `
+        ${renderSection("Primeras 2 horas","⏱",sections.primeras2h,"#fef3c7","#f59e0b")}
+        ${renderSection("Primeras 24 horas","📅",sections.primeras24h,"#dbeafe","#3b82f6")}
+        ${renderSection("Cuidados generales","✅",sections.general,"#d1fae5","#10b981")}
+        ${renderSection("Señales de alarma","⚠️",sections.alarma,"#fee2e2","#ef4444")}`;
+    } else {
+      const lines = cuidadosText.split("\n").filter(l=>l.trim());
+      contentHtml = `<div style="background:#eaf4fb;border:1px solid #9fc5e8;border-radius:4px;padding:12px 14px;line-height:1.7">
+        ${lines.map(l=>`<div style="margin-bottom:5px;font-size:10.5px">${l}</div>`).join("")}
+      </div>`;
+    }
+    const isCustom = sections && cuidadosText.trim() && cuidadosText !== activeCareTemplates[cuidadosTemplate];
+    return `
       ${buildDocHeader()}
       <div style="text-align:center;margin:14px 0 4px">
         <div style="font-size:16px;font-weight:bold;letter-spacing:1px">INDICACIONES POST-PROCEDIMIENTO</div>
@@ -438,38 +585,46 @@ export default function PatientDetail() {
         {label:"Fecha",value:today},
         {label:"Procedimiento realizado",value:cuidadosTemplate}
       ])}
-      <div style="font-size:11px;font-weight:bold;color:#1e6091;margin:10px 0 7px;text-transform:uppercase;letter-spacing:0.3px">Indicaciones Específicas:</div>
-      <div style="background:#eaf4fb;border:1px solid #9fc5e8;border-radius:4px;padding:12px 14px;line-height:1.7">
-        ${bulletHtml}
-      </div>`;
-    openDocWindow("Indicaciones",body);
+      <div style="font-size:11px;font-weight:bold;color:#1e6091;margin:10px 0 7px;text-transform:uppercase;letter-spacing:0.3px">Indicaciones — ${cuidadosTemplate}:</div>
+      ${contentHtml}
+      ${isCustom?`<div style="margin-top:12px"><div style="font-size:11px;font-weight:bold;color:#555;margin-bottom:5px;text-transform:uppercase">Observaciones adicionales:</div><div style="border:1px solid #bcd2e8;padding:8px;background:#f8fafc;font-size:10.5px;line-height:1.7">${cuidadosText}</div></div>`:""}
+      ${buildDocFooter("Firma Profesional","Clínica Magna")}`;
   }
 
-  function printBudgetDetail(db: Patient["budgets"][0]) {
+  function printCuidados() {
     if (!patient) return;
-    const baseTotal   = db.items.reduce((s,it)=>s+it.unitPrice*it.quantity,0);
-    const itemDisc    = db.items.reduce((s,it)=>s+it.unitPrice*it.quantity*(it.discount||0)/100,0);
-    const globalDisc  = db.discount||0;
-    const totalDisc   = itemDisc+globalDisc;
-    const totalFinal  = db.total;
-    const rows = db.items.map((it,i)=>{
-      const bruto = it.unitPrice*it.quantity;
-      const desc  = bruto*(it.discount||0)/100;
-      return `<tr style="background:${i%2===0?"#fff":"#dce6f1"}">
+    openDocWindow("Indicaciones", buildCuidadosDocBody());
+  }
+
+  function buildBudgetDocBody(db: Patient["budgets"][0]): string {
+    if (!patient) return "";
+    const baseTotal  = db.items.reduce((s,it)=>s+it.unitPrice*it.quantity,0);
+    const itemDisc   = db.items.reduce((s,it)=>s+it.unitPrice*it.quantity*(it.discount||0)/100,0);
+    const totalDisc  = itemDisc+(db.discount||0);
+    const totalFinal = db.total;
+    const thS = `padding:6px 7px;border:1px solid #1f4e79;font-size:10px`;
+    const tdS = `padding:6px 7px;border:1px solid #bcd2e8;font-size:10.5px`;
+    const rows = db.items.map((it,i)=>`
+      <tr style="background:${i%2===0?"#fff":"#dce6f1"}">
+        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px;font-weight:bold">${i+1}</td>
         <td style="padding:5px 7px;border:1px solid #bcd2e8;font-size:10px">${it.description}</td>
-        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${it.tooth||""}</td>
-        <td style="padding:5px 7px;text-align:right;border:1px solid #bcd2e8;font-size:10px">${fmt(bruto)}</td>
-        <td style="padding:5px 7px;text-align:right;border:1px solid #bcd2e8;font-size:10px">${desc>0?fmt(desc):"-"}</td>
-        <td style="padding:5px 7px;text-align:right;border:1px solid #bcd2e8;font-size:10px;font-weight:${desc>0?"bold":"normal"}">${fmt(it.total)}</td>
-      </tr>`;}).join("");
+        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${it.area||"—"}</td>
+        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${it.tooth||"—"}</td>
+        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${it.sessions||it.quantity||1}</td>
+        <td style="padding:5px 7px;text-align:right;border:1px solid #bcd2e8;font-size:10px">${fmt(it.unitPrice*it.quantity)}</td>
+      </tr>`).join("");
     const emptyRows = Array.from({length:Math.max(0,8-db.items.length)},(_,i)=>`
-      <tr style="background:${(db.items.length+i)%2===0?"#fff":"#dce6f1"}"><td style="padding:5px 7px;border:1px solid #bcd2e8;height:22px"></td><td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td></tr>`).join("");
-    const tdSummary = `padding:6px 7px;border:1px solid #bcd2e8;font-size:10.5px`;
-    const body = `
+      <tr style="background:${(db.items.length+i)%2===0?"#fff":"#dce6f1"}">
+        <td style="padding:5px 7px;border:1px solid #bcd2e8;height:22px"></td>
+        <td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td>
+        <td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td>
+        <td style="border:1px solid #bcd2e8"></td>
+      </tr>`).join("");
+    return `
       ${buildDocHeader()}
       <div style="text-align:center;margin:14px 0 10px">
         <div style="font-size:17px;font-weight:bold;letter-spacing:1px">PRESUPUESTO DENTAL</div>
-        <div style="font-size:10px;font-style:italic;color:#555;margin-top:3px">Válido por 30 días desde la fecha de emisión</div>
+        <div style="font-size:10px;font-style:italic;color:#555;margin-top:3px">N° ${String(db.number).padStart(4,"0")} · Válido 30 días · Badajoz 100 Of. 918, Las Condes</div>
       </div>
       ${buildDocProfPat({name:db.user.name},[
         {label:"Nombre",value:`${patient.firstName} ${patient.lastName}`},
@@ -478,17 +633,27 @@ export default function PatientDetail() {
       ])}
       <table style="width:100%;border-collapse:collapse;margin:4px 0 14px">
         <thead><tr style="background:#1f4e79;color:white">
-          <th style="padding:6px 7px;text-align:left;border:1px solid #1f4e79;width:38%;font-size:10px">Tratamiento</th>
-          <th style="padding:6px 7px;border:1px solid #1f4e79;width:12%;font-size:10px">Diente</th>
-          <th style="padding:6px 7px;text-align:right;border:1px solid #1f4e79;width:18%;font-size:10px">Valor</th>
-          <th style="padding:6px 7px;text-align:right;border:1px solid #1f4e79;width:16%;font-size:10px">Descuento</th>
-          <th style="padding:6px 7px;text-align:right;border:1px solid #1f4e79;width:16%;font-size:10px">Valor Total</th>
+          <th style="${thS};text-align:center;width:5%">N°</th>
+          <th style="${thS};text-align:left;width:30%">Tratamiento</th>
+          <th style="${thS};text-align:center;width:18%">Categoría</th>
+          <th style="${thS};text-align:center;width:12%">Diente(s)</th>
+          <th style="${thS};text-align:center;width:11%">Sesiones</th>
+          <th style="${thS};text-align:right;width:24%">Precio</th>
         </tr></thead>
         <tbody>
           ${rows}${emptyRows}
-          <tr style="background:#f0f6ff"><td colspan="4" style="${tdSummary};text-align:right;font-weight:bold">Valor total sin descuento</td><td style="${tdSummary};text-align:right;font-weight:bold">${fmt(baseTotal)}</td></tr>
-          <tr style="background:#f0f6ff"><td colspan="4" style="${tdSummary};text-align:right;font-weight:bold;color:#c0392b">Valor total del descuento</td><td style="${tdSummary};text-align:right;font-weight:bold;color:#c0392b">- ${fmt(totalDisc)}</td></tr>
-          <tr style="background:#1f4e79"><td colspan="4" style="${tdSummary};text-align:right;font-weight:bold;color:white;font-size:12px">TOTAL A PAGAR</td><td style="${tdSummary};text-align:right;font-weight:bold;color:white;font-size:12px">${fmt(totalFinal)}</td></tr>
+          <tr style="background:#f0f6ff">
+            <td colspan="5" style="${tdS};text-align:right;font-weight:bold">Subtotal</td>
+            <td style="${tdS};text-align:right;font-weight:bold">${fmt(baseTotal)}</td>
+          </tr>
+          ${totalDisc>0?`<tr style="background:#f0f6ff">
+            <td colspan="5" style="${tdS};text-align:right;font-weight:bold;color:#c0392b">Descuento</td>
+            <td style="${tdS};text-align:right;font-weight:bold;color:#c0392b">− ${fmt(totalDisc)}</td>
+          </tr>`:""}
+          <tr style="background:#1f4e79">
+            <td colspan="5" style="${tdS};text-align:right;font-weight:bold;color:white;font-size:12px">TOTAL A PAGAR</td>
+            <td style="${tdS};text-align:right;font-weight:bold;color:white;font-size:12px">${fmt(totalFinal)}</td>
+          </tr>
         </tbody>
       </table>
       <div style="border:1px solid #bcd2e8;padding:10px 13px;background:#f0f6ff;border-radius:3px;font-size:9.5px;line-height:1.7">
@@ -498,8 +663,12 @@ export default function PatientDetail() {
         <div>• Los precios incluyen honorarios profesionales. Insumos especiales, exámenes o derivaciones no están incluidos salvo indicación.</div>
         <div>• Los tratamientos marcados con (*) requieren evaluación adicional antes de iniciar.</div>
       </div>
-      ${buildDocFooter("Firma y Timbre <u>Profesional</u>","Firma del Paciente o Representante")}`;
-    openDocWindow(`Presupuesto N°${String(db.number).padStart(4,"0")}`,body);
+      ${buildDocFooter("Firma Profesional","Clínica Magna")}`;
+  }
+
+  function printBudgetDetail(db: Patient["budgets"][0]) {
+    if (!patient) return;
+    openDocWindow(`Presupuesto N°${String(db.number).padStart(4,"0")}`, buildBudgetDocBody(db));
   }
 
   function openFicha() {
@@ -639,8 +808,8 @@ export default function PatientDetail() {
 
       {/* Patient header card */}
       <div className="card overflow-hidden">
-        <div className="p-5">
-          <div className="flex items-start gap-4 flex-wrap md:flex-nowrap">
+        <div className="p-3 sm:p-5">
+          <div className="flex items-start gap-3 sm:gap-4 flex-wrap md:flex-nowrap">
             {/* Avatar */}
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center flex-shrink-0">
               <span className="text-white text-xl font-bold">{patient.firstName[0]}{patient.lastName[0]}</span>
@@ -648,12 +817,12 @@ export default function PatientDetail() {
 
             {/* Main info */}
             <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                 <div>
                   <h1 className="text-xl font-bold text-slate-900">{patient.firstName} {patient.lastName}</h1>
                   <p className="text-slate-500 text-sm font-mono">{patient.rut}{age ? ` · ${age} años` : ""}{patient.gender ? ` · ${patient.gender === "M" ? "Masculino" : "Femenino"}` : ""}</p>
                 </div>
-                <div className="flex gap-2 flex-shrink-0">
+                <div className="flex gap-1.5 sm:gap-2 flex-wrap">
                   <button onClick={()=>{
                     if (!patient) return;
                     // @ts-ignore
@@ -686,22 +855,22 @@ export default function PatientDetail() {
             </div>
 
             {/* KPIs */}
-            <div className="grid grid-cols-4 gap-2 flex-shrink-0 w-full md:w-auto">
-              <div className="bg-slate-50 rounded-xl px-3 py-2 text-center">
-                <p className="text-base font-bold text-slate-900">{patient.appointments.length}</p>
-                <p className="text-xs text-slate-500">Citas</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 flex-shrink-0 w-full md:w-auto">
+              <div className="bg-slate-50 rounded-xl px-2 sm:px-3 py-2 text-center">
+                <p className="text-sm sm:text-base font-bold text-slate-900">{patient.appointments.length}</p>
+                <p className="text-[10px] sm:text-xs text-slate-500">Citas</p>
               </div>
-              <div className="bg-slate-50 rounded-xl px-3 py-2 text-center">
-                <p className="text-base font-bold text-slate-900">{patient.evolutions.length}</p>
-                <p className="text-xs text-slate-500">Evoluc.</p>
+              <div className="bg-slate-50 rounded-xl px-2 sm:px-3 py-2 text-center">
+                <p className="text-sm sm:text-base font-bold text-slate-900">{patient.evolutions.length}</p>
+                <p className="text-[10px] sm:text-xs text-slate-500">Evoluc.</p>
               </div>
-              <div className="bg-emerald-50 rounded-xl px-3 py-2 text-center">
-                <p className="text-base font-bold text-emerald-700">{fmt(paidTotal)}</p>
-                <p className="text-xs text-slate-500">Pagado</p>
+              <div className="bg-emerald-50 rounded-xl px-2 sm:px-3 py-2 text-center">
+                <p className="text-xs sm:text-sm font-bold text-emerald-700 leading-tight">{fmtShort(paidTotal)}</p>
+                <p className="text-[10px] sm:text-xs text-slate-500">Pagado</p>
               </div>
-              <div className={`rounded-xl px-3 py-2 text-center ${saldo > 0 ? "bg-red-50" : "bg-emerald-50"}`}>
-                <p className={`text-base font-bold ${saldo > 0 ? "text-red-600" : "text-emerald-700"}`}>{fmt(saldo)}</p>
-                <p className="text-xs text-slate-500">Saldo</p>
+              <div className={`rounded-xl px-2 sm:px-3 py-2 text-center ${saldo > 0 ? "bg-red-50" : "bg-emerald-50"}`}>
+                <p className={`text-xs sm:text-sm font-bold leading-tight ${saldo > 0 ? "text-red-600" : "text-emerald-700"}`}>{fmtShort(saldo)}</p>
+                <p className="text-[10px] sm:text-xs text-slate-500">Saldo</p>
               </div>
             </div>
           </div>
@@ -726,24 +895,24 @@ export default function PatientDetail() {
         )}
 
         {/* Quick actions */}
-        <div className="border-t border-slate-100 px-5 py-2.5 flex gap-2 flex-wrap bg-slate-50/50">
-          <button onClick={()=>setEvoModal(true)} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-primary-700 hover:bg-primary-50 px-3 py-1.5 rounded-lg transition-colors">
-            <Activity size={13}/> Nueva evolución
+        <div className="border-t border-slate-100 px-3 sm:px-5 py-2 sm:py-2.5 flex gap-1.5 sm:gap-2 flex-wrap bg-slate-50/50">
+          <button onClick={()=>setEvoModal(true)} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-primary-700 hover:bg-primary-50 px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-lg transition-colors">
+            <Activity size={13}/> Evolución
           </button>
-          <button onClick={()=>setRxModal(true)} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-violet-700 hover:bg-violet-50 px-3 py-1.5 rounded-lg transition-colors">
-            <Printer size={13}/> Receta médica
+          <button onClick={()=>setRxModal(true)} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-violet-700 hover:bg-violet-50 px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-lg transition-colors">
+            <Printer size={13}/> Receta
           </button>
-          <button onClick={()=>setCuidadosModal(true)} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-teal-700 hover:bg-teal-50 px-3 py-1.5 rounded-lg transition-colors">
-            <BookOpen size={13}/> Instrucciones cuidados
+          <button onClick={()=>setCuidadosModal(true)} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-teal-700 hover:bg-teal-50 px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-lg transition-colors">
+            <BookOpen size={13}/> Cuidados
           </button>
-          <button onClick={()=>setPayModal(true)} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors">
-            <CreditCard size={13}/> Registrar pago
+          <button onClick={()=>setPayModal(true)} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-lg transition-colors">
+            <CreditCard size={13}/> Pago
           </button>
-          <button onClick={openBudgetCreate} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-amber-700 hover:bg-amber-50 px-3 py-1.5 rounded-lg transition-colors">
-            <FileText size={13}/> Nuevo presupuesto
+          <button onClick={openBudgetCreate} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-amber-700 hover:bg-amber-50 px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-lg transition-colors">
+            <FileText size={13}/> Presupuesto
           </button>
-          <a href={`/agenda?patientId=${id}&newAppt=1`} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors">
-            <CalendarPlus size={13}/> Nueva cita
+          <a href={`/agenda?patientId=${id}&newAppt=1`} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-blue-700 hover:bg-blue-50 px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-lg transition-colors">
+            <CalendarPlus size={13}/> Cita
           </a>
         </div>
       </div>
@@ -944,7 +1113,7 @@ export default function PatientDetail() {
           <div className="flex items-center justify-between flex-wrap gap-2">
             <p className="text-sm text-muted">{patient.evolutions.length} evoluciones registradas</p>
             <div className="flex gap-2">
-              <button onClick={()=>{ setRxUserId(""); setRxItems([{drug:"",dose:"",freq:"",duration:"",route:"oral",instructions:""}]); setRxNotes(""); setRxModal(true); }}
+              <button onClick={()=>{ setRxUserId(""); setRxItems([{drug:"",dose:"",freq:"",duration:"",route:"oral",instructions:"",qty:""}]); setRxNotes(""); setRxModal(true); }}
                 className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-xl bg-violet-50 text-violet-700 hover:bg-violet-100 border border-violet-200 transition-colors">
                 <Printer size={13}/> Receta médica
               </button>
@@ -1003,16 +1172,16 @@ export default function PatientDetail() {
       {tab===5&&(
         <div className="space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="flex gap-3">
-              <div className="bg-slate-50 rounded-xl px-4 py-2 text-center">
+            <div className="flex gap-2 flex-wrap">
+              <div className="bg-slate-50 rounded-xl px-3 py-2 text-center min-w-[80px]">
                 <p className="text-xs text-slate-500">Presupuestado</p>
                 <p className="text-sm font-bold text-slate-900">{fmt(budgetTotal)}</p>
               </div>
-              <div className="bg-emerald-50 rounded-xl px-4 py-2 text-center">
+              <div className="bg-emerald-50 rounded-xl px-3 py-2 text-center min-w-[80px]">
                 <p className="text-xs text-slate-500">Pagado</p>
                 <p className="text-sm font-bold text-emerald-700">{fmt(paidTotal)}</p>
               </div>
-              <div className={`rounded-xl px-4 py-2 text-center ${saldo>0?"bg-red-50":"bg-emerald-50"}`}>
+              <div className={`rounded-xl px-3 py-2 text-center min-w-[80px] ${saldo>0?"bg-red-50":"bg-emerald-50"}`}>
                 <p className="text-xs text-slate-500">Saldo</p>
                 <p className={`text-sm font-bold ${saldo>0?"text-red-600":"text-emerald-700"}`}>{fmt(saldo)}</p>
               </div>
@@ -1053,12 +1222,12 @@ export default function PatientDetail() {
       {tab===6&&(
         <div className="space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="flex gap-3">
-              <div className="bg-emerald-50 rounded-xl px-4 py-2 text-center">
+            <div className="flex gap-2 flex-wrap">
+              <div className="bg-emerald-50 rounded-xl px-3 py-2 text-center min-w-[80px]">
                 <p className="text-xs text-slate-500">Total pagado</p>
                 <p className="text-sm font-bold text-emerald-700">{fmt(paidTotal)}</p>
               </div>
-              <div className={`rounded-xl px-4 py-2 text-center ${saldo>0?"bg-red-50":"bg-emerald-50"}`}>
+              <div className={`rounded-xl px-3 py-2 text-center min-w-[80px] ${saldo>0?"bg-red-50":"bg-emerald-50"}`}>
                 <p className="text-xs text-slate-500">Saldo deudor</p>
                 <p className={`text-sm font-bold ${saldo>0?"text-red-600":"text-emerald-700"}`}>{fmt(saldo)}</p>
               </div>
@@ -1067,15 +1236,15 @@ export default function PatientDetail() {
               <CreditCard size={15}/> Registrar Pago
             </button>
           </div>
-          <div className="card overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="card overflow-x-auto">
+            <table className="w-full text-sm min-w-[420px]">
               <thead className="bg-slate-50 border-b border-slate-100"><tr>
-                <th className="text-left px-5 py-3 text-xs text-slate-500 uppercase tracking-wide">Fecha</th>
-                <th className="text-left px-4 py-3 text-xs text-slate-500 uppercase tracking-wide">Monto</th>
-                <th className="text-left px-4 py-3 text-xs text-slate-500 uppercase tracking-wide">Método</th>
-                <th className="text-left px-4 py-3 text-xs text-slate-500 uppercase tracking-wide hidden md:table-cell">Vinculado a</th>
-                <th className="text-left px-4 py-3 text-xs text-slate-500 uppercase tracking-wide hidden lg:table-cell">Notas</th>
-                <th className="w-16"/>
+                <th className="text-left px-3 sm:px-5 py-3 text-xs text-slate-500 uppercase tracking-wide">Fecha</th>
+                <th className="text-left px-3 sm:px-4 py-3 text-xs text-slate-500 uppercase tracking-wide">Monto</th>
+                <th className="text-left px-3 sm:px-4 py-3 text-xs text-slate-500 uppercase tracking-wide">Método</th>
+                <th className="text-left px-3 sm:px-4 py-3 text-xs text-slate-500 uppercase tracking-wide hidden md:table-cell">Vinculado a</th>
+                <th className="text-left px-3 sm:px-4 py-3 text-xs text-slate-500 uppercase tracking-wide hidden lg:table-cell">Notas</th>
+                <th className="w-12"/>
               </tr></thead>
               <tbody>
                 {patient.payments.length===0 ? (
@@ -1084,15 +1253,15 @@ export default function PatientDetail() {
                   const linkedEvo = p.reference ? patient.evolutions.find(e=>e.id===p.reference) : null;
                   return (
                   <tr key={p.id} className="table-row">
-                    <td className="px-5 py-3 text-slate-600 text-xs">{p.date}</td>
-                    <td className="px-4 py-3 font-bold text-emerald-700">{fmt(p.amount)}</td>
-                    <td className="px-4 py-3 text-slate-600 capitalize">{METHOD_ICON[p.method]??""} {p.method}</td>
-                    <td className="px-4 py-3 text-slate-500 hidden md:table-cell text-xs">
+                    <td className="px-3 sm:px-5 py-3 text-slate-600 text-xs">{p.date}</td>
+                    <td className="px-3 sm:px-4 py-3 font-bold text-emerald-700">{fmt(p.amount)}</td>
+                    <td className="px-3 sm:px-4 py-3 text-slate-600 capitalize">{METHOD_ICON[p.method]??""} {p.method}</td>
+                    <td className="px-3 sm:px-4 py-3 text-slate-500 hidden md:table-cell text-xs">
                       {p.budget ? <span className="font-medium text-amber-700">Presup. #{p.budget.number}</span>
                         : linkedEvo ? <span className="text-violet-700">↳ {linkedEvo.treatment}{linkedEvo.tooth?` D.${linkedEvo.tooth}`:""}</span>
                         : "—"}
                     </td>
-                    <td className="px-4 py-3 text-slate-500 hidden lg:table-cell">{p.notes||"—"}</td>
+                    <td className="px-3 sm:px-4 py-3 text-slate-500 hidden lg:table-cell">{p.notes||"—"}</td>
                     <td className="px-3 py-3">
                       <div className="flex gap-1">
                         <button onClick={()=>openPayEdit(p)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"><Pencil size={12}/></button>
@@ -1106,8 +1275,8 @@ export default function PatientDetail() {
               {patient.payments.length > 0 && (
                 <tfoot className="border-t border-slate-200 bg-slate-50">
                   <tr>
-                    <td colSpan={4} className="px-5 py-2.5 text-xs font-semibold text-slate-600">Total abonado</td>
-                    <td className="px-4 py-2.5 font-bold text-emerald-700 hidden lg:table-cell text-right">{fmt(paidTotal)}</td>
+                    <td colSpan={4} className="px-3 sm:px-5 py-2.5 text-xs font-semibold text-slate-600">Total abonado</td>
+                    <td className="px-3 sm:px-4 py-2.5 font-bold text-emerald-700 hidden lg:table-cell text-right">{fmt(paidTotal)}</td>
                   </tr>
                 </tfoot>
               )}
@@ -1189,25 +1358,25 @@ export default function PatientDetail() {
               <CalendarPlus size={15}/> Nueva Cita
             </a>
           </div>
-        <div className="card overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="card overflow-x-auto">
+          <table className="w-full text-sm min-w-[440px]">
             <thead className="bg-slate-50 border-b border-slate-100"><tr>
-              <th className="text-left px-5 py-3 text-xs text-slate-500 uppercase tracking-wide">Fecha</th>
-              <th className="text-left px-4 py-3 text-xs text-slate-500 uppercase tracking-wide">Hora</th>
-              <th className="text-left px-4 py-3 text-xs text-slate-500 uppercase tracking-wide">Tipo</th>
-              <th className="text-left px-4 py-3 text-xs text-slate-500 uppercase tracking-wide hidden md:table-cell">Profesional</th>
-              <th className="text-left px-4 py-3 text-xs text-slate-500 uppercase tracking-wide">Estado</th>
+              <th className="text-left px-3 sm:px-5 py-3 text-xs text-slate-500 uppercase tracking-wide">Fecha</th>
+              <th className="text-left px-3 sm:px-4 py-3 text-xs text-slate-500 uppercase tracking-wide">Hora</th>
+              <th className="text-left px-3 sm:px-4 py-3 text-xs text-slate-500 uppercase tracking-wide">Tipo</th>
+              <th className="text-left px-3 sm:px-4 py-3 text-xs text-slate-500 uppercase tracking-wide hidden md:table-cell">Profesional</th>
+              <th className="text-left px-3 sm:px-4 py-3 text-xs text-slate-500 uppercase tracking-wide">Estado</th>
             </tr></thead>
             <tbody>
               {patient.appointments.length===0 ? (
                 <tr><td colSpan={5} className="px-5 py-10 text-center text-muted">Sin citas registradas</td></tr>
               ) : patient.appointments.map(a=>(
                 <tr key={a.id} className="table-row">
-                  <td className="px-5 py-3 text-slate-700">{a.date}</td>
-                  <td className="px-4 py-3 text-slate-600">{a.startTime}</td>
-                  <td className="px-4 py-3 text-slate-700">{a.type}</td>
-                  <td className="px-4 py-3 text-slate-500 hidden md:table-cell">{a.user.name}</td>
-                  <td className="px-4 py-3"><Badge value={a.status}/></td>
+                  <td className="px-3 sm:px-5 py-3 text-slate-700 whitespace-nowrap">{a.date}</td>
+                  <td className="px-3 sm:px-4 py-3 text-slate-600 whitespace-nowrap">{a.startTime}</td>
+                  <td className="px-3 sm:px-4 py-3 text-slate-700 max-w-[120px] truncate">{a.type}</td>
+                  <td className="px-3 sm:px-4 py-3 text-slate-500 hidden md:table-cell">{a.user.name}</td>
+                  <td className="px-3 sm:px-4 py-3"><Badge value={a.status}/></td>
                 </tr>
               ))}
             </tbody>
@@ -1218,8 +1387,8 @@ export default function PatientDetail() {
 
       {/* ===== MODAL EVOLUCIÓN ===== */}
       <Modal open={evoModal} onClose={()=>setEvoModal(false)} title="Nueva Evolución">
-        <div className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        <div className="p-4 sm:p-6 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div><label className="label">Fecha</label><input className="input" type="date" value={evoForm.date} onChange={e=>setEvoForm(f=>({...f,date:e.target.value}))}/></div>
             <div>
               <label className="label">Profesional *</label>
@@ -1232,7 +1401,7 @@ export default function PatientDetail() {
           {patient.budgets.filter(b=>b.status!=="rejected").length>0&&(
             <div className="bg-primary-50 rounded-xl p-4 space-y-3">
               <p className="text-xs font-semibold text-primary-700 uppercase tracking-wide">Vincular a presupuesto (opcional)</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="label">Presupuesto</label>
                   <select className="select" value={evoBudgetId} onChange={e=>{ setEvoBudgetId(e.target.value); setEvoBudgetItemId(""); }}>
@@ -1281,32 +1450,34 @@ export default function PatientDetail() {
             </div>
             <div className="space-y-2">
               {evoItems.map((item,i)=>(
-                <div key={i} className="grid grid-cols-12 gap-2 items-start bg-slate-50 rounded-xl p-3">
-                  <div className="col-span-5">
-                    <label className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">Tratamiento *</label>
-                    <input className="input mt-0.5 text-sm py-1.5" value={item.treatment}
-                      onChange={e=>setEvoItems(its=>its.map((x,j)=>j===i?{...x,treatment:e.target.value}:x))}
-                      placeholder="Restauración, limpieza..." />
-                  </div>
-                  <div className="col-span-3">
-                    <label className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">Diente(s)</label>
-                    <input className="input mt-0.5 text-sm py-1.5" value={item.tooth}
-                      onChange={e=>setEvoItems(its=>its.map((x,j)=>j===i?{...x,tooth:e.target.value}:x))}
-                      placeholder="16, 17..." />
-                  </div>
-                  <div className="col-span-3">
-                    <label className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">Costo ($)</label>
-                    <input className="input mt-0.5 text-sm py-1.5" type="number" value={item.cost}
-                      onChange={e=>setEvoItems(its=>its.map((x,j)=>j===i?{...x,cost:e.target.value}:x))}
-                      placeholder="0" />
-                  </div>
-                  <div className="col-span-1 flex items-end justify-center pb-1">
+                <div key={i} className="bg-slate-50 rounded-xl p-3 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1">
+                      <label className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">Tratamiento *</label>
+                      <input className="input mt-0.5" value={item.treatment}
+                        onChange={e=>setEvoItems(its=>its.map((x,j)=>j===i?{...x,treatment:e.target.value}:x))}
+                        placeholder="Restauración, limpieza..." />
+                    </div>
                     {evoItems.length > 1 && (
                       <button onClick={()=>setEvoItems(its=>its.filter((_,j)=>j!==i))}
-                        className="w-7 h-7 flex items-center justify-center text-slate-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50">
+                        className="mt-5 w-8 h-8 flex items-center justify-center text-slate-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50 flex-shrink-0">
                         <X size={13}/>
                       </button>
                     )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">Diente(s)</label>
+                      <input className="input mt-0.5" value={item.tooth}
+                        onChange={e=>setEvoItems(its=>its.map((x,j)=>j===i?{...x,tooth:e.target.value}:x))}
+                        placeholder="16, 17..." />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">Costo ($)</label>
+                      <input className="input mt-0.5" type="number" value={item.cost}
+                        onChange={e=>setEvoItems(its=>its.map((x,j)=>j===i?{...x,cost:e.target.value}:x))}
+                        placeholder="0" />
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1315,8 +1486,8 @@ export default function PatientDetail() {
 
           <div><label className="label">Observaciones</label><textarea className="input resize-none" rows={2} value={evoForm.observations} onChange={e=>setEvoForm(f=>({...f,observations:e.target.value}))}/></div>
         </div>
-        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
-          <p className="text-xs text-slate-400">{evoItems.filter(i=>i.treatment.trim()).length} tratamiento(s) · Total: {fmt(evoItems.reduce((s,i)=>s+parseFloat(i.cost||"0"),0))}</p>
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 flex items-center justify-between gap-3">
+          <p className="text-xs text-slate-400">{evoItems.filter(i=>i.treatment.trim()).length} tratam. · {fmt(evoItems.reduce((s,i)=>s+parseFloat(i.cost||"0"),0))}</p>
           <div className="flex gap-3">
             <button className="btn-secondary" onClick={()=>setEvoModal(false)}>Cancelar</button>
             <button className="btn-primary" onClick={saveEvo} disabled={saving||!evoItems.some(i=>i.treatment.trim())||!evoForm.userId}>
@@ -1328,9 +1499,9 @@ export default function PatientDetail() {
 
       {/* ===== MODAL RECETA MÉDICA ===== */}
       <Modal open={rxModal} onClose={()=>setRxModal(false)} title="Receta Médica" size="lg">
-        <div className="p-6 space-y-4">
+        <div className="p-4 sm:p-6 space-y-4">
           {/* Header info */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-slate-50 rounded-xl p-3">
               <p className="text-xs text-slate-500">Paciente</p>
               <p className="font-semibold text-slate-900">{patient.firstName} {patient.lastName}</p>
@@ -1363,59 +1534,73 @@ export default function PatientDetail() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="label mb-0">Medicamentos</label>
-              <button onClick={()=>setRxItems(i=>[...i,{drug:"",dose:"",freq:"",duration:"",route:"oral",instructions:""}])}
+              <button onClick={()=>setRxItems(i=>[...i,{drug:"",dose:"",freq:"",duration:"",route:"oral",instructions:"",qty:""}])}
                 className="text-xs text-primary-600 hover:underline flex items-center gap-1">
                 <Plus size={12}/> Agregar
               </button>
             </div>
             <div className="space-y-2">
               {rxItems.map((item,i)=>(
-                <div key={i} className="grid grid-cols-12 gap-2 items-start bg-slate-50 rounded-xl p-3">
-                  <div className="col-span-4">
-                    <label className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Fármaco *</label>
-                    <input className="input mt-0.5 text-sm py-1.5" value={item.drug}
-                      onChange={e=>setRxItems(its=>its.map((x,j)=>j===i?{...x,drug:e.target.value}:x))}
-                      placeholder="Amoxicilina 500mg" />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Dosis</label>
-                    <input className="input mt-0.5 text-sm py-1.5" value={item.dose}
-                      onChange={e=>setRxItems(its=>its.map((x,j)=>j===i?{...x,dose:e.target.value}:x))}
-                      placeholder="1 comprimido" />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Frecuencia</label>
-                    <input className="input mt-0.5 text-sm py-1.5" value={item.freq}
-                      onChange={e=>setRxItems(its=>its.map((x,j)=>j===i?{...x,freq:e.target.value}:x))}
-                      placeholder="c/8h" />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Duración</label>
-                    <input className="input mt-0.5 text-sm py-1.5" value={item.duration}
-                      onChange={e=>setRxItems(its=>its.map((x,j)=>j===i?{...x,duration:e.target.value}:x))}
-                      placeholder="7 días" />
-                  </div>
-                  <div className="col-span-1">
-                    <label className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Vía</label>
-                    <select className="input mt-0.5 text-xs py-1.5 pr-1" value={item.route}
-                      onChange={e=>setRxItems(its=>its.map((x,j)=>j===i?{...x,route:e.target.value}:x))}>
-                      <option value="oral">Oral</option>
-                      <option value="topica">Tópica</option>
-                      <option value="inyectable">Inyect.</option>
-                      <option value="sublingual">Sublg.</option>
-                    </select>
-                  </div>
-                  <div className="col-span-1 flex items-end justify-center pb-1">
+                <div key={i} className="bg-slate-50 rounded-xl p-3 space-y-2">
+                  {/* Fármaco (full width) */}
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1">
+                      <label className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Fármaco *</label>
+                      <input className="input mt-0.5" value={item.drug}
+                        onChange={e=>setRxItems(its=>its.map((x,j)=>j===i?{...x,drug:e.target.value}:x))}
+                        placeholder="Amoxicilina 500mg" />
+                    </div>
                     {rxItems.length > 1 && (
                       <button onClick={()=>setRxItems(its=>its.filter((_,j)=>j!==i))}
-                        className="w-7 h-7 flex items-center justify-center text-slate-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50">
-                        <Trash2 size={13}/>
+                        className="mt-5 w-8 h-8 flex items-center justify-center text-slate-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50 flex-shrink-0">
+                        <Trash2 size={14}/>
                       </button>
                     )}
                   </div>
-                  <div className="col-span-11">
+                  {/* Dosis + Frecuencia */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Dosis</label>
+                      <input className="input mt-0.5" value={item.dose}
+                        onChange={e=>setRxItems(its=>its.map((x,j)=>j===i?{...x,dose:e.target.value}:x))}
+                        placeholder="1 comprimido" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Frecuencia</label>
+                      <input className="input mt-0.5" value={item.freq}
+                        onChange={e=>setRxItems(its=>its.map((x,j)=>j===i?{...x,freq:e.target.value}:x))}
+                        placeholder="c/8h" />
+                    </div>
+                  </div>
+                  {/* Duración + Vía */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Duración</label>
+                      <input className="input mt-0.5" value={item.duration}
+                        onChange={e=>setRxItems(its=>its.map((x,j)=>j===i?{...x,duration:e.target.value}:x))}
+                        placeholder="7 días" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Vía</label>
+                      <select className="input mt-0.5" value={item.route}
+                        onChange={e=>setRxItems(its=>its.map((x,j)=>j===i?{...x,route:e.target.value}:x))}>
+                        <option value="oral">Oral</option>
+                        <option value="topica">Tópica</option>
+                        <option value="inyectable">Inyectable</option>
+                        <option value="sublingual">Sublingual</option>
+                      </select>
+                    </div>
+                  </div>
+                  {/* Cantidad + Instrucciones */}
+                  <div>
+                    <label className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Cantidad total</label>
+                    <input className="input mt-0.5" value={item.qty||""}
+                      onChange={e=>setRxItems(its=>its.map((x,j)=>j===i?{...x,qty:e.target.value}:x))}
+                      placeholder="Ej: 21 comprimidos, 1 frasco..." />
+                  </div>
+                  <div>
                     <label className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Instrucciones adicionales</label>
-                    <input className="input mt-0.5 text-sm py-1.5" value={item.instructions}
+                    <input className="input mt-0.5" value={item.instructions}
                       onChange={e=>setRxItems(its=>its.map((x,j)=>j===i?{...x,instructions:e.target.value}:x))}
                       placeholder="Tomar con alimentos, no mezclar con alcohol..." />
                   </div>
@@ -1440,7 +1625,7 @@ export default function PatientDetail() {
             </div>
           )}
         </div>
-        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3 flex-wrap">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 flex justify-end gap-2 sm:gap-3 flex-wrap">
           <button className="btn-secondary" onClick={()=>setRxModal(false)}>Cancelar</button>
           {patient.phone && (
             <button className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
@@ -1454,11 +1639,10 @@ export default function PatientDetail() {
               <MessageCircle size={15}/> WhatsApp
             </button>
           )}
-          <button className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
-            onClick={sendRxEmail}
-            disabled={rxEmailSending||!rxUserId||rxItems.every(m=>!m.drug.trim())||!patient.email}
-            title={!patient.email?"El paciente no tiene email":undefined}>
-            <Mail size={15}/> {rxEmailSending?"Enviando...":"Email"}
+          <button className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition-colors"
+            onClick={emailPdfRx}
+            disabled={rxPdfSending||!rxUserId||rxItems.every(m=>!m.drug.trim())}>
+            <Mail size={15}/> {rxPdfSending?"Enviando...":"Enviar PDF"}
           </button>
           <button className="flex items-center gap-2 btn-primary" onClick={printRx}
             disabled={!rxUserId || rxItems.every(m=>!m.drug.trim())}>
@@ -1470,7 +1654,7 @@ export default function PatientDetail() {
       {/* ===== MODAL PAGO ===== */}
       <Modal open={payModal} onClose={()=>setPayModal(false)} title="Registrar Pago">
         <div className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div><label className="label">Fecha</label><input className="input" type="date" value={payForm.date} onChange={e=>setPayForm(f=>({...f,date:e.target.value}))}/></div>
             <div>
               <label className="label">Presupuesto asociado</label>
@@ -1571,7 +1755,7 @@ export default function PatientDetail() {
             </div>
           </div>
         </div>
-        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 flex justify-end gap-2 sm:gap-3">
           <button className="btn-secondary" onClick={()=>setPayModal(false)}>Cancelar</button>
           <button className="btn-primary" onClick={savePay} disabled={paySaving||!payItems.some(p=>parseFloat(p.amount)>0)}>
             {paySaving?"Guardando...":"Registrar Pago"}
@@ -1582,7 +1766,7 @@ export default function PatientDetail() {
       {/* ===== MODAL INSTRUCCIONES DE CUIDADOS ===== */}
       <Modal open={cuidadosModal} onClose={()=>setCuidadosModal(false)} title="Instrucciones de Cuidados" size="lg">
         <div className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-slate-50 rounded-xl p-3">
               <p className="text-xs text-slate-500">Paciente</p>
               <p className="font-semibold text-slate-900">{patient.firstName} {patient.lastName}</p>
@@ -1614,7 +1798,7 @@ export default function PatientDetail() {
               value={cuidadosText} onChange={e=>setCuidadosText(e.target.value)}/>
           </div>
         </div>
-        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3 flex-wrap">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 flex justify-end gap-2 sm:gap-3 flex-wrap">
           <button className="btn-secondary" onClick={()=>setCuidadosModal(false)}>Cerrar</button>
           {patient.phone && (
             <button className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
@@ -1626,11 +1810,10 @@ export default function PatientDetail() {
               <MessageCircle size={15}/> WhatsApp
             </button>
           )}
-          <button className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
-            onClick={sendCareEmail}
-            disabled={careEmailSending||!cuidadosText.trim()||!patient.email}
-            title={!patient.email?"El paciente no tiene email":undefined}>
-            <Mail size={15}/> {careEmailSending?"Enviando...":"Email"}
+          <button className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition-colors"
+            onClick={emailPdfCuidados}
+            disabled={carePdfSending||!cuidadosText.trim()}>
+            <Mail size={15}/> {carePdfSending?"Enviando...":"Enviar PDF"}
           </button>
           <button className="flex items-center gap-2 btn-primary" onClick={printCuidados} disabled={!cuidadosUserId}>
             <Printer size={15}/> Imprimir instrucciones
@@ -1641,7 +1824,7 @@ export default function PatientDetail() {
       {/* ===== MODAL EDITAR PACIENTE ===== */}
       <Modal open={editPatient} onClose={()=>setEditPatient(false)} title="Editar Datos del Paciente" size="lg">
         <div className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div><label className="label">Nombre</label><input className="input" value={editForm.firstName} onChange={e=>setEditForm(f=>({...f,firstName:e.target.value}))}/></div>
             <div><label className="label">Apellido</label><input className="input" value={editForm.lastName} onChange={e=>setEditForm(f=>({...f,lastName:e.target.value}))}/></div>
             <div><label className="label">Fecha de nacimiento</label><input className="input" type="date" value={editForm.birthDate} onChange={e=>setEditForm(f=>({...f,birthDate:e.target.value}))}/></div>
@@ -1649,7 +1832,7 @@ export default function PatientDetail() {
             <div><label className="label">Email</label><input className="input" type="email" value={editForm.email} onChange={e=>setEditForm(f=>({...f,email:e.target.value}))}/></div>
             <div><label className="label">Dirección</label><input className="input" value={editForm.address} onChange={e=>setEditForm(f=>({...f,address:e.target.value}))}/></div>
             <div><label className="label">Ciudad</label><input className="input" value={editForm.city} onChange={e=>setEditForm(f=>({...f,city:e.target.value}))}/></div>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <label className="label">Previsión de salud</label>
               <select className="select" value={editForm.healthInsurance} onChange={e=>setEditForm(f=>({...f,healthInsurance:e.target.value}))}>
                 <option>FONASA</option>
@@ -1660,10 +1843,10 @@ export default function PatientDetail() {
                 <option>Particular</option>
               </select>
             </div>
-            <div className="col-span-2"><label className="label">Notas</label><textarea className="input resize-none" rows={2} value={editForm.notes} onChange={e=>setEditForm(f=>({...f,notes:e.target.value}))}/></div>
+            <div className="sm:col-span-2"><label className="label">Notas</label><textarea className="input resize-none" rows={2} value={editForm.notes} onChange={e=>setEditForm(f=>({...f,notes:e.target.value}))}/></div>
           </div>
         </div>
-        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 flex justify-end gap-2 sm:gap-3">
           <button className="btn-secondary" onClick={()=>setEditPatient(false)}>Cancelar</button>
           <button className="btn-primary" onClick={saveEditPatient} disabled={editSaving}>
             <Save size={14}/> {editSaving?"Guardando...":"Guardar cambios"}
@@ -1691,14 +1874,14 @@ export default function PatientDetail() {
                   </>)}
                   {db.status==="rejected" && <button onClick={()=>changeBudgetStatus(db.id,"pending")} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 font-medium"><Clock size={13}/> Reabrir</button>}
                   <button onClick={()=>printBudgetDetail(db)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 font-medium"><Printer size={13}/> PDF</button>
-                  <button onClick={()=>sendBudgetEmail(db.id)} disabled={emailSending===db.id||!patient.email} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 font-medium disabled:opacity-40"><Mail size={13}/> {emailSending===db.id?"...":"Email"}</button>
+                  <button onClick={()=>emailPdfBudget(db)} disabled={budgetPdfSending===db.id} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-indigo-100 text-indigo-700 hover:bg-indigo-200 font-medium disabled:opacity-40"><Mail size={13}/> {budgetPdfSending===db.id?"...":"Enviar PDF"}</button>
                   <button onClick={()=>sendBudgetWA(db)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 font-medium"><MessageCircle size={13}/> WhatsApp</button>
                   <button onClick={()=>openBudgetEdit(db)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 font-medium"><Pencil size={13}/> Editar</button>
                   <button onClick={()=>deleteBudget(db.id)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 font-medium"><Trash2 size={13}/> Eliminar</button>
                 </div>
               </div>
               {/* Patient + professional */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="bg-slate-50 rounded-xl p-3">
                   <p className="text-xs text-slate-500 mb-1">Paciente</p>
                   <p className="font-semibold text-slate-900">{patient.firstName} {patient.lastName}</p>
@@ -1794,8 +1977,8 @@ export default function PatientDetail() {
         const bTotal = bSubtotal - Number(budgetForm.discount);
         return (
           <Modal open={budgetCreateOpen} onClose={()=>setBudgetCreateOpen(false)} title={budgetEditId?"Editar Presupuesto":"Nuevo Presupuesto"} size="xl">
-            <div className="p-6 space-y-4 overflow-y-auto max-h-[75vh]">
-              <div className="grid grid-cols-2 gap-4">
+            <div className="p-4 sm:p-6 space-y-4 overflow-y-auto max-h-[75vh]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><label className="label">Profesional *</label>
                   <select className="select" value={budgetForm.userId} onChange={e=>setBudgetForm(f=>({...f,userId:e.target.value}))}>
                     <option value="">Seleccionar...</option>
@@ -1818,58 +2001,67 @@ export default function PatientDetail() {
                 </div>
                 <div className="space-y-2">
                   {budgetItems.map((item,i)=>(
-                    <div key={i} className="grid grid-cols-12 gap-2 items-start bg-slate-50 rounded-xl p-3">
-                      <div className="col-span-5 relative">
-                        <label className="text-[10px] text-slate-500 uppercase tracking-wide">Tratamiento *</label>
-                        <input className="input mt-0.5 text-sm py-1.5" value={item.description}
-                          onChange={e=>updateBudgetItem(i,"description",e.target.value)}
-                          onFocus={()=>setBudgetDropIdx(i)}
-                          onBlur={()=>setTimeout(()=>setBudgetDropIdx(null),160)}
-                          placeholder="Escribir o buscar..." autoComplete="off"/>
-                        {budgetDropIdx===i&&(()=>{
-                          const opts=treatments.filter(t=>!item.description.trim()||t.name.toLowerCase().includes(item.description.toLowerCase()));
-                          if(!opts.length)return null;
-                          return(
-                            <div className="absolute z-30 top-full mt-1 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-xl max-h-52 overflow-y-auto">
-                              {opts.map(t=>(
-                                <button key={t.id} type="button"
-                                  onMouseDown={()=>{
-                                    setBudgetItems(its=>its.map((it2,idx)=>idx!==i?it2:{...it2,description:t.name,unitPrice:t.price,total:it2.quantity*t.price*(1-((it2.discount||0)/100))}));
-                                    setBudgetDropIdx(null);
-                                  }}
-                                  className="w-full text-left px-3 py-2 text-sm hover:bg-primary-50 flex items-center justify-between gap-2 border-b border-slate-50 last:border-b-0 transition-colors">
-                                  <div className="min-w-0 flex-1">
-                                    <span className="font-medium text-slate-800">{t.name}</span>
-                                    {t.category&&<span className="ml-2 text-xs text-slate-400">{t.category}</span>}
-                                  </div>
-                                  <span className="text-xs text-primary-600 font-semibold flex-shrink-0">{fmt(t.price)}</span>
-                                </button>
-                              ))}
-                            </div>
-                          );
-                        })()}
+                    <div key={i} className="bg-slate-50 rounded-xl p-3 space-y-2">
+                      {/* Tratamiento (full width) + Delete */}
+                      <div className="flex items-start gap-2">
+                        <div className="flex-1 relative">
+                          <label className="text-[10px] text-slate-500 uppercase tracking-wide">Tratamiento *</label>
+                          <input className="input mt-0.5" value={item.description}
+                            onChange={e=>updateBudgetItem(i,"description",e.target.value)}
+                            onFocus={()=>setBudgetDropIdx(i)}
+                            onBlur={()=>setTimeout(()=>setBudgetDropIdx(null),160)}
+                            placeholder="Escribir o buscar..." autoComplete="off"/>
+                          {budgetDropIdx===i&&(()=>{
+                            const opts=treatments.filter(t=>!item.description.trim()||t.name.toLowerCase().includes(item.description.toLowerCase()));
+                            if(!opts.length)return null;
+                            return(
+                              <div className="absolute z-30 top-full mt-1 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-xl max-h-52 overflow-y-auto">
+                                {opts.map(t=>(
+                                  <button key={t.id} type="button"
+                                    onMouseDown={()=>{
+                                      setBudgetItems(its=>its.map((it2,idx)=>idx!==i?it2:{...it2,description:t.name,unitPrice:t.price,total:it2.quantity*t.price*(1-((it2.discount||0)/100))}));
+                                      setBudgetDropIdx(null);
+                                    }}
+                                    className="w-full text-left px-3 py-3 sm:py-2 text-sm hover:bg-primary-50 flex items-center justify-between gap-2 border-b border-slate-50 last:border-b-0 transition-colors">
+                                    <div className="min-w-0 flex-1">
+                                      <span className="font-medium text-slate-800">{t.name}</span>
+                                      {t.category&&<span className="ml-2 text-xs text-slate-400">{t.category}</span>}
+                                    </div>
+                                    <span className="text-xs text-primary-600 font-semibold flex-shrink-0">{fmt(t.price)}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                        {budgetItems.length > 1 && (
+                          <button onClick={()=>setBudgetItems(its=>its.filter((_,j)=>j!==i))}
+                            className="mt-5 w-8 h-8 flex items-center justify-center text-slate-300 hover:text-red-500 rounded-lg hover:bg-red-50 flex-shrink-0">
+                            <Trash2 size={14}/>
+                          </button>
+                        )}
                       </div>
-                      <div className="col-span-2">
-                        <label className="text-[10px] text-slate-500 uppercase tracking-wide">Diente</label>
-                        <input className="input mt-0.5 text-sm py-1.5" value={item.tooth} onChange={e=>updateBudgetItem(i,"tooth",e.target.value)} placeholder="18,19..."/>
-                      </div>
-                      <div className="col-span-2">
-                        <label className="text-[10px] text-slate-500 uppercase tracking-wide">P. Unit.</label>
-                        <input className="input mt-0.5 text-sm py-1.5" type="number" min="0" value={item.unitPrice}
-                          onChange={e=>updateBudgetItem(i,"unitPrice",parseFloat(e.target.value)||0)}/>
-                      </div>
-                      <div className="col-span-2">
-                        <label className="text-[10px] text-slate-500 uppercase tracking-wide">Total</label>
-                        <input className="input mt-0.5 text-sm py-1.5 bg-slate-100" value={fmt(item.total)} readOnly/>
-                      </div>
-                      <div className="col-span-1 flex items-end justify-center pb-1">
-                        {budgetItems.length > 1 && <button onClick={()=>setBudgetItems(its=>its.filter((_,j)=>j!==i))} className="w-7 h-7 flex items-center justify-center text-slate-300 hover:text-red-500 rounded-lg hover:bg-red-50"><Trash2 size={13}/></button>}
+                      {/* Diente + Precio + Total */}
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="text-[10px] text-slate-500 uppercase tracking-wide">Diente</label>
+                          <input className="input mt-0.5" value={item.tooth} onChange={e=>updateBudgetItem(i,"tooth",e.target.value)} placeholder="18,19..."/>
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-500 uppercase tracking-wide">Precio unit.</label>
+                          <input className="input mt-0.5" type="number" min="0" value={item.unitPrice}
+                            onChange={e=>updateBudgetItem(i,"unitPrice",parseFloat(e.target.value)||0)}/>
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-500 uppercase tracking-wide">Total</label>
+                          <input className="input mt-0.5 bg-slate-100" value={fmt(item.total)} readOnly/>
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><label className="label">Descuento global ($)</label><input className="input" type="number" min="0" value={budgetForm.discount} onChange={e=>setBudgetForm(f=>({...f,discount:parseFloat(e.target.value)||0}))}/></div>
                 <div className="flex flex-col justify-end bg-slate-50 rounded-xl p-3 text-right">
                   <p className="text-xs text-slate-500">Subtotal: {fmt(bSubtotal)}</p>
@@ -1879,7 +2071,7 @@ export default function PatientDetail() {
               </div>
               <div><label className="label">Notas / Observaciones</label><textarea className="input resize-none" rows={2} value={budgetForm.notes} onChange={e=>setBudgetForm(f=>({...f,notes:e.target.value}))}/></div>
             </div>
-            <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 flex justify-end gap-2 sm:gap-3">
               <button className="btn-secondary" onClick={()=>setBudgetCreateOpen(false)}>Cancelar</button>
               <button className="btn-primary" onClick={saveBudget} disabled={budgetSaving||!budgetForm.userId||budgetItems.every(i=>!i.description.trim())}>
                 {budgetSaving?"Guardando...":(budgetEditId?"Guardar cambios":"Crear Presupuesto")}
@@ -1892,7 +2084,7 @@ export default function PatientDetail() {
       {/* ===== MODAL EDITAR PAGO ===== */}
       <Modal open={!!payEditId} onClose={()=>setPayEditId(null)} title="Editar Pago">
         <div className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div><label className="label">Fecha</label><input className="input" type="date" value={payEditForm.date} onChange={e=>setPayEditForm(f=>({...f,date:e.target.value}))}/></div>
             <div><label className="label">Monto ($)</label><input className="input" type="number" min="0" value={payEditForm.amount} onChange={e=>setPayEditForm(f=>({...f,amount:e.target.value}))}/></div>
             <div><label className="label">Método</label>
@@ -1903,11 +2095,37 @@ export default function PatientDetail() {
             <div><label className="label">Notas</label><input className="input" value={payEditForm.notes} onChange={e=>setPayEditForm(f=>({...f,notes:e.target.value}))} placeholder="Opcional"/></div>
           </div>
         </div>
-        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 flex justify-end gap-2 sm:gap-3">
           <button className="btn-secondary" onClick={()=>setPayEditId(null)}>Cancelar</button>
           <button className="btn-primary" onClick={savePayEdit} disabled={payEditSaving||!payEditForm.amount}>{payEditSaving?"Guardando...":"Guardar cambios"}</button>
         </div>
       </Modal>
+
+      {/* ===== DIÁLOGO: PEDIR EMAIL PARA PDF ===== */}
+      {emailDlg.open && (
+        <div className="fixed inset-0 bg-black/50 z-[300] flex items-center justify-center p-4" onClick={()=>setEmailDlg(d=>({...d,open:false}))}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={e=>e.stopPropagation()}>
+            <h3 className="font-semibold text-slate-900 mb-1 flex items-center gap-2"><Mail size={16} className="text-indigo-600"/> Enviar documento como PDF</h3>
+            <p className="text-sm text-slate-500 mb-4">El PDF se enviará desde <span className="font-medium">administracion@clinicamagna.cl</span></p>
+            <label className="label">Email del destinatario</label>
+            <input
+              className="input mb-4"
+              type="email"
+              placeholder="paciente@email.com"
+              value={emailDlg.to}
+              onChange={e=>setEmailDlg(d=>({...d,to:e.target.value}))}
+              autoFocus
+              onKeyDown={e=>{ if(e.key==="Enter" && emailDlg.to.includes("@")) doEmailSend(); if(e.key==="Escape") setEmailDlg(d=>({...d,open:false})); }}
+            />
+            <div className="flex gap-3 justify-end">
+              <button className="btn-secondary" onClick={()=>setEmailDlg(d=>({...d,open:false}))}>Cancelar</button>
+              <button className="btn-primary" onClick={doEmailSend} disabled={!emailDlg.to.includes("@")}>
+                <Mail size={14}/> Enviar PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
