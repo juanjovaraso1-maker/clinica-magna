@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState, useRef } from "react";
 import { Plus, Upload, Pencil, Trash2, Search, X, Package, Pill, BookOpen, GripVertical } from "lucide-react";
+import { useIsAdmin } from "@/hooks/useRole";
 import Modal from "@/components/ui/Modal";
 
 interface Treatment {
@@ -34,6 +35,7 @@ const initRx = (): RxTemplate => ({ id: uid(), name: "", medications: [initMed()
 const initCare = (): CareTemplate => ({ id: uid(), name: "", text: "" });
 
 export default function Prestaciones() {
+  const isAdmin = useIsAdmin();
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("Todos");
@@ -279,7 +281,7 @@ export default function Prestaciones() {
                       <td className="px-4 py-3 w-20">
                         <div className="flex gap-1">
                           <button onClick={() => openEdit(t)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"><Pencil size={13} /></button>
-                          <button onClick={() => remove(t.id)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={13} /></button>
+                          {isAdmin && <button onClick={() => remove(t.id)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={13} /></button>}
                         </div>
                       </td>
                     </tr>
@@ -336,7 +338,7 @@ export default function Prestaciones() {
                           </div>
                           <div className="flex gap-1 flex-shrink-0">
                             <button onClick={() => openEditBundle(b)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"><Pencil size={13} /></button>
-                            <button onClick={() => deleteBundle(b.id)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={13} /></button>
+                            {isAdmin && <button onClick={() => deleteBundle(b.id)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={13} /></button>}
                           </div>
                         </div>
                       </div>
@@ -374,7 +376,7 @@ export default function Prestaciones() {
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
                       <button onClick={() => openEditRx(t)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"><Pencil size={13} /></button>
-                      <button onClick={() => deleteRx(t.id)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={13} /></button>
+                      {isAdmin && <button onClick={() => deleteRx(t.id)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={13} /></button>}
                     </div>
                   </div>
                   <div className="space-y-1.5">
@@ -422,7 +424,7 @@ export default function Prestaciones() {
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
                       <button onClick={() => openEditCare(t)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"><Pencil size={13} /></button>
-                      <button onClick={() => deleteCare(t.id)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={13} /></button>
+                      {isAdmin && <button onClick={() => deleteCare(t.id)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={13} /></button>}
                     </div>
                   </div>
                   <p className="text-xs text-slate-600 leading-relaxed line-clamp-4 whitespace-pre-line">{t.text}</p>

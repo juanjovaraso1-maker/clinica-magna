@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Plus, MessageCircle, Mail, Check, Users, LayoutGrid, Calendar, Link2, Trash2, ExternalLink } from "lucide-react";
+import { useIsAdmin } from "@/hooks/useRole";
 import Modal from "@/components/ui/Modal";
 import Badge from "@/components/ui/Badge";
 
@@ -56,7 +57,8 @@ function heightPx(start: string, end: string) { return Math.max((timeToMin(end)-
 const initForm = { patientId:"", userId:"", date:todayStr(), startTime:"09:00", endTime:"10:00", type:"Odontología General", status:"scheduled", box:1, notes:"" };
 
 export default function Agenda() {
-  const router = useRouter();
+  const router  = useRouter();
+  const isAdmin = useIsAdmin();
   const [currentDate, setCurrentDate] = useState(todayStr());
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [patients, setPatients] = useState<Array<{id:string;firstName:string;lastName:string}>>([]);
@@ -535,10 +537,12 @@ export default function Agenda() {
           <div className="flex items-center gap-1.5 flex-wrap">
             {selected && (
               <>
-                <button onClick={deleteAppt}
-                  className="flex items-center gap-1.5 text-xs px-2.5 py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors font-medium">
-                  <Trash2 size={14}/> Eliminar
-                </button>
+                {isAdmin && (
+                  <button onClick={deleteAppt}
+                    className="flex items-center gap-1.5 text-xs px-2.5 py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors font-medium">
+                    <Trash2 size={14}/> Eliminar
+                  </button>
+                )}
                 <button disabled={!selected.patient?.phone||reminderLoading===selected.id+"whatsapp"}
                   onClick={()=>sendReminder(selected.id,"whatsapp")}
                   className={`flex items-center gap-1.5 text-xs px-2.5 py-2 rounded-lg font-medium transition-colors ${selected.patient?.phone?"bg-green-100 text-green-700 hover:bg-green-200":"bg-slate-100 text-slate-400 cursor-not-allowed"}`}>

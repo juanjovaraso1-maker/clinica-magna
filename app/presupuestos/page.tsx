@@ -6,6 +6,7 @@ import {
   CheckCircle, XCircle, Clock, CreditCard, ChevronRight,
   AlertCircle, TrendingUp, Mail, MessageCircle,
 } from "lucide-react";
+import { useIsAdmin } from "@/hooks/useRole";
 import Modal from "@/components/ui/Modal";
 import Badge from "@/components/ui/Badge";
 
@@ -50,6 +51,7 @@ const METHOD_ICON: Record<string, string> = { efectivo: "💵", transferencia: "
 
 function PresupuestosContent() {
   const searchParams = useSearchParams();
+  const isAdmin = useIsAdmin();
   const router = useRouter();
   const fromPatientId = searchParams.get("patientId");
 
@@ -556,10 +558,12 @@ function PresupuestosContent() {
                   className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors font-medium">
                   <FileText size={13} /> Editar
                 </button>
-                <button onClick={() => deleteBudget(detail.id)}
-                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors font-medium">
-                  <Trash2 size={13} /> Eliminar
-                </button>
+                {isAdmin && (
+                  <button onClick={() => deleteBudget(detail.id)}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors font-medium">
+                    <Trash2 size={13} /> Eliminar
+                  </button>
+                )}
               </div>
             </div>
 

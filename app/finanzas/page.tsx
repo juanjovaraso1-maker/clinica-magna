@@ -4,6 +4,7 @@ import {
   Plus, TrendingUp, TrendingDown, DollarSign, Download,
   Trash2, Wallet, BarChart3, ChevronDown,
 } from "lucide-react";
+import { useIsAdmin } from "@/hooks/useRole";
 import Modal from "@/components/ui/Modal";
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -73,6 +74,7 @@ function csvExport(payments: Payment[], expenses: Expense[], month: string) {
 }
 
 export default function Finanzas() {
+  const isAdmin = useIsAdmin();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [monthNum, setMonthNum] = useState(String(now.getMonth() + 1).padStart(2, "0"));
@@ -349,9 +351,7 @@ export default function Finanzas() {
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="font-bold text-emerald-700">{fmt(p.amount)}</p>
-                    <button onClick={() => deletePay(p.id)} className="text-slate-300 hover:text-red-500 transition-colors mt-0.5">
-                      <Trash2 size={13} />
-                    </button>
+                    {isAdmin && <button onClick={() => deletePay(p.id)} className="text-slate-300 hover:text-red-500 transition-colors mt-0.5"><Trash2 size={13} /></button>}
                   </div>
                 </div>
               ))}
@@ -391,9 +391,7 @@ export default function Finanzas() {
                       </td>
                       <td className="px-5 py-3 text-right font-bold text-emerald-700">{fmt(p.amount)}</td>
                       <td className="px-3 py-3">
-                        <button onClick={() => deletePay(p.id)} className="text-slate-300 hover:text-red-500 transition-colors">
-                          <Trash2 size={14} />
-                        </button>
+                        {isAdmin && <button onClick={() => deletePay(p.id)} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={14} /></button>}
                       </td>
                     </tr>
                   ))}
@@ -432,9 +430,7 @@ export default function Finanzas() {
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="font-bold text-red-600">{fmt(e.amount)}</p>
-                    <button onClick={() => deleteExp(e.id)} className="text-slate-300 hover:text-red-500 transition-colors mt-0.5">
-                      <Trash2 size={13} />
-                    </button>
+                    {isAdmin && <button onClick={() => deleteExp(e.id)} className="text-slate-300 hover:text-red-500 transition-colors mt-0.5"><Trash2 size={13} /></button>}
                   </div>
                 </div>
               ))}
@@ -474,9 +470,7 @@ export default function Finanzas() {
                       <td className="px-4 py-3 text-slate-500 capitalize hidden lg:table-cell">{e.paymentMethod}</td>
                       <td className="px-5 py-3 text-right font-bold text-red-600">{fmt(e.amount)}</td>
                       <td className="px-3 py-3">
-                        <button onClick={() => deleteExp(e.id)} className="text-slate-300 hover:text-red-500 transition-colors">
-                          <Trash2 size={14} />
-                        </button>
+                        {isAdmin && <button onClick={() => deleteExp(e.id)} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={14} /></button>}
                       </td>
                     </tr>
                   ))}

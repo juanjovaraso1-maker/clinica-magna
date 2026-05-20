@@ -2,9 +2,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
 import {
   LayoutDashboard, Users, Calendar, FileText,
-  TrendingUp, Settings, Stethoscope, ClipboardList, Menu, X, BarChart2, ShieldCheck,
+  TrendingUp, Settings, Stethoscope, ClipboardList,
+  Menu, X, BarChart2, ShieldCheck, LogOut,
 } from "lucide-react";
 
 const nav = [
@@ -19,11 +21,18 @@ const nav = [
 ];
 
 export default function Sidebar() {
-  const pathname = usePathname();
-  const [open, setOpen] = useState(false);
+  const pathname            = usePathname();
+  const [open, setOpen]     = useState(false);
+  const { data: session }   = useSession();
+
+  const userName   = session?.user?.name ?? "Usuario";
+  const role       = (session?.user as any)?.role ?? "DENTIST";
+  const roleLabel  = role === "ADMIN" ? "Administrador" : "Dentista";
+  const initials   = userName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
 
   const SidebarContent = () => (
     <>
+      {/* Header */}
       <div className="px-5 py-5 border-b border-primary-800">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -41,6 +50,7 @@ export default function Sidebar() {
         </div>
       </div>
 
+      {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         <p className="text-primary-400 text-xs font-semibold uppercase tracking-wider px-3 mb-3">Módulos</p>
         {nav.map(({ href, label, icon: Icon }) => {
@@ -60,6 +70,7 @@ export default function Sidebar() {
         })}
       </nav>
 
+      {/* Footer: config + user + logout */}
       <div className="px-3 py-4 border-t border-primary-800 space-y-1">
         <Link href="/configuracion" onClick={() => setOpen(false)}
           className={`flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-xl text-sm font-medium transition-all ${
@@ -71,14 +82,23 @@ export default function Sidebar() {
           <Settings size={20} />
           <span>Configuración</span>
         </Link>
+
+        {/* User row */}
         <div className="flex items-center gap-3 px-3 py-2.5 mt-1">
           <div className="w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center flex-shrink-0">
-            <span className="text-white text-xs font-semibold">CM</span>
+            <span className="text-white text-xs font-semibold">{initials}</span>
           </div>
-          <div className="min-w-0">
-            <p className="text-white text-xs font-medium truncate">Dr. Carlos Magna</p>
-            <p className="text-primary-400 text-xs truncate">Administrador</p>
+          <div className="min-w-0 flex-1">
+            <p className="text-white text-xs font-medium truncate">{userName}</p>
+            <p className="text-primary-400 text-xs truncate">{roleLabel}</p>
           </div>
+          <button
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            title="Cerrar sesión"
+            className="text-primary-400 hover:text-red-400 transition-colors p-1 flex-shrink-0"
+          >
+            <LogOut size={16} />
+          </button>
         </div>
       </div>
     </>
@@ -101,13 +121,10 @@ export default function Sidebar() {
 
       {/* Backdrop móvil */}
       {open && (
-        <div
-          className="md:hidden fixed inset-0 bg-black/60 z-40 backdrop-blur-sm"
-          onClick={() => setOpen(false)}
-        />
+        <div className="md:hidden fixed inset-0 bg-black/60 z-40 backdrop-blur-sm" onClick={() => setOpen(false)} />
       )}
 
-      {/* Sidebar desktop (siempre visible) */}
+      {/* Sidebar desktop */}
       <aside className="hidden md:flex w-60 flex-shrink-0 bg-primary-900 flex-col h-full">
         <SidebarContent />
       </aside>

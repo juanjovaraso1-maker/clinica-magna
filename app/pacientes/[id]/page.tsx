@@ -13,6 +13,7 @@ import Badge from "@/components/ui/Badge";
 import DentalChart from "@/components/odontogram/DentalChart";
 import FacialChart from "@/components/odontogram/FacialChart";
 import { buildRecetaBody, buildPresupuestoBody, buildIndicacionesBody } from "@/lib/pdf-templates";
+import { useIsAdmin } from "@/hooks/useRole";
 
 // Renders a body HTML string in a hidden A4-width div, captures it with html2canvas,
 // converts to PDF via jsPDF, and returns the PDF as a base64 string.
@@ -176,7 +177,8 @@ const initPayItems = () => [{ method:"efectivo", amount:"" }];
 
 export default function PatientDetail() {
   const { id } = useParams<{id:string}>();
-  const router = useRouter();
+  const router  = useRouter();
+  const isAdmin = useIsAdmin();
   const [patient, setPatient] = useState<Patient|null>(null);
   const [tab, setTab] = useState(0);
   const [users, setUsers] = useState<Array<{id:string;name:string;rut?:string}>>([]);
@@ -923,9 +925,11 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                   <button onClick={openEditPatient} className="btn-secondary text-xs">
                     <Edit2 size={13}/> Editar
                   </button>
-                  <button onClick={deletePatientHard} disabled={deletingPatient} className="btn-secondary text-xs text-red-600 hover:bg-red-50 border-red-200">
-                    <Trash2 size={13}/> Eliminar
-                  </button>
+                  {isAdmin && (
+                    <button onClick={deletePatientHard} disabled={deletingPatient} className="btn-secondary text-xs text-red-600 hover:bg-red-50 border-red-200">
+                      <Trash2 size={13}/> Eliminar
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
@@ -1068,7 +1072,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
             <h3 className="section-title">Ficha Clínica</h3>
             {!fichaEdit && (
               <div className="flex gap-2">
-                {patient.clinicalRecord && (
+                {patient.clinicalRecord && isAdmin && (
                   <button onClick={deleteClinicalRecord} className="btn-secondary text-xs text-red-600 hover:bg-red-50 border-red-200">
                     <Trash2 size={13}/> Eliminar ficha
                   </button>
@@ -1222,9 +1226,11 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {e.cost > 0 && <p className="text-sm font-bold text-emerald-700">{fmt(e.cost)}</p>}
-                      <button onClick={()=>deleteEvolution(e.id)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors">
-                        <Trash2 size={13}/>
-                      </button>
+                      {isAdmin && (
+                        <button onClick={()=>deleteEvolution(e.id)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors">
+                          <Trash2 size={13}/>
+                        </button>
+                      )}
                     </div>
                   </div>
                   {e.diagnosis && (
@@ -1347,7 +1353,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                     <td className="px-3 py-3">
                       <div className="flex gap-1">
                         <button onClick={()=>openPayEdit(p)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"><Pencil size={12}/></button>
-                        <button onClick={()=>deletePayment(p.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"><Trash2 size={12}/></button>
+                        {isAdmin && <button onClick={()=>deletePayment(p.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"><Trash2 size={12}/></button>}
                       </div>
                     </td>
                   </tr>
@@ -1398,7 +1404,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                   </div>
                   <div className="flex gap-1">
                     <a href={doc.fileName} target="_blank" className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-primary-600 hover:bg-primary-50"><ExternalLink size={13}/></a>
-                    <button onClick={()=>deleteDoc(doc.id)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50"><Trash2 size={13}/></button>
+                    {isAdmin && <button onClick={()=>deleteDoc(doc.id)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50"><Trash2 size={13}/></button>}
                   </div>
                 </div>
               ))}
@@ -1959,7 +1965,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                   <button onClick={()=>emailPdfBudget(db)} disabled={budgetPdfSending===db.id} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-indigo-100 text-indigo-700 hover:bg-indigo-200 font-medium disabled:opacity-40"><Mail size={13}/> {budgetPdfSending===db.id?"...":"Enviar PDF"}</button>
                   <button onClick={()=>sendBudgetWA(db)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 font-medium"><MessageCircle size={13}/> WhatsApp</button>
                   <button onClick={()=>openBudgetEdit(db)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 font-medium"><Pencil size={13}/> Editar</button>
-                  <button onClick={()=>deleteBudget(db.id)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 font-medium"><Trash2 size={13}/> Eliminar</button>
+                  {isAdmin && <button onClick={()=>deleteBudget(db.id)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 font-medium"><Trash2 size={13}/> Eliminar</button>}
                 </div>
               </div>
               {/* Patient + professional */}
