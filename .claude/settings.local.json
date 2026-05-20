@@ -9,7 +9,8 @@
       "Bash(npx prisma *)",
       "Bash(mkdir \"c:\\\\Users\\\\PC\\\\clinica-magna\\\\app\\\\api\\\\auth\\\\[...nextauth]\" 2>&1; echo done)",
       "Bash(New-Item -ItemType Directory -Force -Path \"c:\\\\Users\\\\PC\\\\clinica-magna\\\\app\\\\api\\\\auth\\\\[...nextauth]\")",
-      "Bash(Out-Null)"
+      "Bash(Out-Null)",
+      "Bash(npx tsx *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\PC\\clinica-magna\\app\\api\\auth"
