@@ -1,8 +1,8 @@
 {
   "crons": [
     {
-      "path": "/api/cron/birthdays",
-      "schedule": "0 9 * * *"
+      "path": "/api/cron/daily-emails",
+      "schedule": "0 12 * * *"
     }
   ]
 }

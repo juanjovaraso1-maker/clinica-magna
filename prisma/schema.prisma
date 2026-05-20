@@ -52,6 +52,7 @@ model Patient {
   documents      PatientDocument[]
   odontogram     OdontogramRecord?
   facialRecord   FacialRecord?
+  reminders      Reminder[]
 }
 
 model Appointment {
@@ -217,4 +218,47 @@ model ClinicConfig {
   id    String @id @default(cuid())
   key   String @unique
   value String
+}
+
+model EmailTemplate {
+  id        String   @id @default(cuid())
+  type      String   @unique
+  subject   String
+  body      String
+  active    Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+}
+
+model EmailCampaign {
+  id              String   @id @default(cuid())
+  subject         String
+  body            String
+  recipientFilter String   @default("all")
+  sentCount       Int      @default(0)
+  sentAt          DateTime @default(now())
+}
+
+model EmailLog {
+  id          String   @id @default(cuid())
+  type        String
+  toEmail     String
+  patientName String
+  subject     String
+  status      String   @default("sent")
+  refId       String?
+  sentAt      DateTime @default(now())
+}
+
+model Reminder {
+  id          String    @id @default(cuid())
+  patientId   String
+  months      Int
+  sendDate    String
+  evolutionId String?
+  sent        Boolean   @default(false)
+  sentAt      DateTime?
+  cancelled   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  patient Patient @relation(fields: [patientId], references: [id])
 }

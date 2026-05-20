@@ -1,9 +1,11 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import {
-  Users, DollarSign, ShieldCheck, Edit2, Check, X, ChevronDown, ChevronUp,
+  Users, DollarSign, Edit2, Check, X, ChevronDown, ChevronUp,
   TrendingUp, UserPlus, Trash2, Eye, EyeOff, KeyRound, Lock,
+  Send, Cake, Bell, ChevronRight,
 } from "lucide-react";
+import Link from "next/link";
 import { useIsAdmin } from "@/hooks/useRole";
 import Modal from "@/components/ui/Modal";
 
@@ -222,7 +224,31 @@ export default function Administracion() {
       {/* Header */}
       <div>
         <h1 className="page-title">Administración</h1>
-        <p className="text-muted">Usuarios, comisiones y liquidaciones</p>
+        <p className="text-muted">Usuarios, email y finanzas</p>
+      </div>
+
+      {/* Email modules */}
+      <div>
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Email y comunicaciones</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {[
+            { href: "/administracion/campanas",     icon: Send,  label: "Campañas",      desc: "Envíos masivos a pacientes",            color: "bg-blue-50 text-blue-600" },
+            { href: "/administracion/cumpleanos",   icon: Cake,  label: "Cumpleaños",    desc: "Email automático el día del cumpleaños", color: "bg-pink-50 text-pink-600" },
+            { href: "/administracion/recordatorios",icon: Bell,  label: "Recordatorios", desc: "Control a 3, 6, 12 o 24 meses",         color: "bg-amber-50 text-amber-600" },
+          ].map(({ href, icon: Icon, label, desc, color }) => (
+            <Link key={href} href={href}
+              className="card p-4 flex items-center gap-4 hover:shadow-md transition-shadow group cursor-pointer">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}>
+                <Icon size={20}/>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-slate-900">{label}</p>
+                <p className="text-xs text-slate-500 truncate">{desc}</p>
+              </div>
+              <ChevronRight size={16} className="text-slate-300 group-hover:text-slate-500 transition-colors flex-shrink-0"/>
+            </Link>
+          ))}
+        </div>
       </div>
 
       {/* Tabs */}

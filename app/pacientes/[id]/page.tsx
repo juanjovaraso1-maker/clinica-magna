@@ -185,6 +185,7 @@ export default function PatientDetail() {
   const [evoModal, setEvoModal] = useState(false);
   const [evoForm, setEvoForm] = useState({ date:new Date().toISOString().split("T")[0], diagnosis:"", observations:"", userId:"" });
   const [evoItems, setEvoItems] = useState([{ treatment:"", tooth:"", cost:"" }]);
+  const [evoReminder, setEvoReminder] = useState(0);
   const [evoBudgetId, setEvoBudgetId] = useState("");
   const [evoBudgetItemId, setEvoBudgetItemId] = useState("");
   const [evoItemStatus, setEvoItemStatus] = useState("in_progress");
@@ -477,6 +478,11 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     setEvoModal(false); setEvoBudgetId(""); setEvoBudgetItemId("");
     setEvoForm({ date:new Date().toISOString().split("T")[0], diagnosis:"", observations:"", userId:"" });
     setEvoItems([{ treatment:"", tooth:"", cost:"" }]);
+    if (evoReminder > 0) {
+      fetch("/api/reminders", { method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ patientId: id, months: evoReminder }) });
+      setEvoReminder(0);
+    }
     load(); setSaving(false);
   }
 
@@ -1573,6 +1579,20 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
           </div>
 
           <div><label className="label">Observaciones</label><textarea className="input resize-none" rows={2} value={evoForm.observations} onChange={e=>setEvoForm(f=>({...f,observations:e.target.value}))}/></div>
+
+          {/* Recordatorio de control */}
+          <div>
+            <label className="label">Programar recordatorio de control</label>
+            <div className="flex gap-2 flex-wrap">
+              {[{v:0,l:"Sin recordatorio"},{v:3,l:"3 meses"},{v:6,l:"6 meses"},{v:12,l:"12 meses"},{v:24,l:"24 meses"}].map(opt=>(
+                <button key={opt.v} type="button"
+                  onClick={()=>setEvoReminder(opt.v)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${evoReminder===opt.v?"bg-primary-600 text-white border-primary-600":"bg-white text-slate-600 border-slate-300 hover:border-primary-400"}`}>
+                  {opt.l}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 flex items-center justify-between gap-3">
           <p className="text-xs text-slate-400">{evoItems.filter(i=>i.treatment.trim()).length} tratam. · {fmt(evoItems.reduce((s,i)=>s+parseFloat(i.cost||"0"),0))}</p>
