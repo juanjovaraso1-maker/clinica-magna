@@ -1480,10 +1480,15 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
       )}
 
       {/* ===== MODAL EVOLUCIÓN ===== */}
-      <Modal open={evoModal} onClose={()=>setEvoModal(false)} title="Nueva Evolución">
-        <div className="p-4 sm:p-6 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div><label className="label">Fecha</label><input className="input" type="date" value={evoForm.date} onChange={e=>setEvoForm(f=>({...f,date:e.target.value}))}/></div>
+      <Modal open={evoModal} onClose={()=>setEvoModal(false)} title="Registrar Evolución">
+        <div className="p-4 sm:p-6 space-y-5">
+
+          {/* ── Fecha y profesional ── */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Fecha</label>
+              <input className="input" type="date" value={evoForm.date} onChange={e=>setEvoForm(f=>({...f,date:e.target.value}))}/>
+            </div>
             <div>
               <label className="label">Profesional *</label>
               <select className="select" value={evoForm.userId} onChange={e=>setEvoForm(f=>({...f,userId:e.target.value}))}>
@@ -1492,28 +1497,82 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
               </select>
             </div>
           </div>
+
+          {/* ── Diagnóstico ── */}
+          <div>
+            <label className="label">Diagnóstico</label>
+            <input className="input" value={evoForm.diagnosis}
+              onChange={e=>setEvoForm(f=>({...f,diagnosis:e.target.value}))}
+              placeholder="Descripción del diagnóstico clínico..."/>
+          </div>
+
+          {/* ── Tratamientos realizados ── */}
+          <div>
+            <div className="flex items-center justify-between mb-2.5">
+              <label className="label mb-0 font-semibold">Tratamientos realizados *</label>
+              <button onClick={()=>setEvoItems(i=>[...i,{treatment:"",tooth:"",cost:""}])}
+                className="flex items-center gap-1.5 text-xs font-medium text-primary-700 bg-primary-50 hover:bg-primary-100 px-2.5 py-1.5 rounded-lg transition-colors border border-primary-200">
+                <Plus size={12}/> Agregar
+              </button>
+            </div>
+            <div className="space-y-2.5">
+              {evoItems.map((item,i)=>(
+                <div key={i} className="border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="bg-slate-50 px-3 py-2.5 flex items-center gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-primary-100 text-primary-700 text-xs font-bold flex items-center justify-center flex-shrink-0">{i+1}</span>
+                    <input className="flex-1 bg-transparent text-sm font-medium text-slate-900 placeholder:text-slate-400 outline-none border-none focus:ring-0 p-0"
+                      value={item.treatment}
+                      onChange={e=>setEvoItems(its=>its.map((x,j)=>j===i?{...x,treatment:e.target.value}:x))}
+                      placeholder="Tratamiento realizado..."/>
+                    {evoItems.length > 1 && (
+                      <button onClick={()=>setEvoItems(its=>its.filter((_,j)=>j!==i))}
+                        className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0">
+                        <X size={12}/>
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 px-3 py-2.5">
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Diente(s)</label>
+                      <input className="input py-1.5 text-sm" value={item.tooth}
+                        onChange={e=>setEvoItems(its=>its.map((x,j)=>j===i?{...x,tooth:e.target.value}:x))}
+                        placeholder="16, 17..."/>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Costo ($)</label>
+                      <input className="input py-1.5 text-sm text-right" type="number" value={item.cost}
+                        onChange={e=>setEvoItems(its=>its.map((x,j)=>j===i?{...x,cost:e.target.value}:x))}
+                        placeholder="0"/>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Vincular a presupuesto ── */}
           {patient.budgets.filter(b=>b.status!=="rejected").length>0&&(
-            <div className="bg-primary-50 rounded-xl p-4 space-y-3">
-              <p className="text-xs font-semibold text-primary-700 uppercase tracking-wide">Vincular a presupuesto (opcional)</p>
+            <div className="border border-primary-200 bg-primary-50/50 rounded-xl p-4 space-y-3">
+              <p className="text-xs font-semibold text-primary-700 uppercase tracking-wide">Vincular a presupuesto <span className="font-normal text-primary-400">(opcional)</span></p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="label">Presupuesto</label>
-                  <select className="select" value={evoBudgetId} onChange={e=>{ setEvoBudgetId(e.target.value); setEvoBudgetItemId(""); }}>
-                    <option value="">Seleccionar...</option>
+                  <label className="label text-xs">Presupuesto</label>
+                  <select className="select text-sm" value={evoBudgetId} onChange={e=>{ setEvoBudgetId(e.target.value); setEvoBudgetItemId(""); }}>
+                    <option value="">Ninguno</option>
                     {patient.budgets.filter(b=>b.status!=="rejected").map(b=>(
                       <option key={b.id} value={b.id}>#{b.number} — {fmt(b.total)}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="label">Ítem</label>
-                  <select className="select" value={evoBudgetItemId} disabled={!evoBudgetId}
+                  <label className="label text-xs">Ítem</label>
+                  <select className="select text-sm" value={evoBudgetItemId} disabled={!evoBudgetId}
                     onChange={e=>{
                       setEvoBudgetItemId(e.target.value);
                       const item = selectedBudgetItems.find(i=>i.id===e.target.value);
                       if(item) setEvoItems(its=>[{ ...its[0], treatment:item.description, tooth:item.tooth||"", cost:String(item.unitPrice) }, ...its.slice(1)]);
                     }}>
-                    <option value="">Seleccionar ítem...</option>
+                    <option value="">Seleccionar...</option>
                     {selectedBudgetItems.map(item=>(
                       <option key={item.id} value={item.id}>{item.description}{item.tooth?` (D.${item.tooth})`:""}</option>
                     ))}
@@ -1522,72 +1581,38 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
               </div>
               {evoBudgetItemId&&(
                 <div>
-                  <label className="label">Marcar ítem como</label>
-                  <select className="select" value={evoItemStatus} onChange={e=>setEvoItemStatus(e.target.value)}>
-                    <option value="in_progress">En progreso</option>
-                    <option value="completed">Completado</option>
-                  </select>
+                  <label className="label text-xs">Marcar ítem como</label>
+                  <div className="flex gap-2">
+                    {[{v:"in_progress",l:"En progreso"},{v:"completed",l:"Completado ✓"}].map(opt=>(
+                      <button key={opt.v} type="button"
+                        onClick={()=>setEvoItemStatus(opt.v)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${evoItemStatus===opt.v?"bg-primary-600 text-white border-primary-600":"bg-white text-slate-600 border-slate-300"}`}>
+                        {opt.l}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
           )}
-          <div><label className="label">Diagnóstico</label><input className="input" value={evoForm.diagnosis} onChange={e=>setEvoForm(f=>({...f,diagnosis:e.target.value}))}/></div>
 
-          {/* Tratamientos — multiple */}
+          {/* ── Observaciones ── */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="label mb-0">Tratamientos realizados *</label>
-              <button onClick={()=>setEvoItems(i=>[...i,{treatment:"",tooth:"",cost:""}])}
-                className="text-xs text-primary-600 hover:underline flex items-center gap-1">
-                <Plus size={12}/> Agregar
-              </button>
-            </div>
-            <div className="space-y-2">
-              {evoItems.map((item,i)=>(
-                <div key={i} className="bg-slate-50 rounded-xl p-3 space-y-2">
-                  <div className="flex items-start gap-2">
-                    <div className="flex-1">
-                      <label className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">Tratamiento *</label>
-                      <input className="input mt-0.5" value={item.treatment}
-                        onChange={e=>setEvoItems(its=>its.map((x,j)=>j===i?{...x,treatment:e.target.value}:x))}
-                        placeholder="Restauración, limpieza..." />
-                    </div>
-                    {evoItems.length > 1 && (
-                      <button onClick={()=>setEvoItems(its=>its.filter((_,j)=>j!==i))}
-                        className="mt-5 w-8 h-8 flex items-center justify-center text-slate-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50 flex-shrink-0">
-                        <X size={13}/>
-                      </button>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">Diente(s)</label>
-                      <input className="input mt-0.5" value={item.tooth}
-                        onChange={e=>setEvoItems(its=>its.map((x,j)=>j===i?{...x,tooth:e.target.value}:x))}
-                        placeholder="16, 17..." />
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">Costo ($)</label>
-                      <input className="input mt-0.5" type="number" value={item.cost}
-                        onChange={e=>setEvoItems(its=>its.map((x,j)=>j===i?{...x,cost:e.target.value}:x))}
-                        placeholder="0" />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <label className="label">Observaciones clínicas</label>
+            <textarea className="input resize-none text-sm leading-relaxed" rows={3}
+              value={evoForm.observations}
+              onChange={e=>setEvoForm(f=>({...f,observations:e.target.value}))}
+              placeholder="Detalles adicionales, indicaciones post-atención, próximos pasos..."/>
           </div>
 
-          <div><label className="label">Observaciones</label><textarea className="input resize-none" rows={2} value={evoForm.observations} onChange={e=>setEvoForm(f=>({...f,observations:e.target.value}))}/></div>
-
-          {/* Recordatorio de control */}
-          <div>
-            <label className="label">Programar recordatorio de control</label>
+          {/* ── Recordatorio de control ── */}
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <label className="text-xs font-semibold text-amber-800 uppercase tracking-wide block mb-2.5">Recordatorio de control</label>
             <div className="flex gap-2 flex-wrap">
               {[{v:0,l:"Sin recordatorio"},{v:3,l:"3 meses"},{v:6,l:"6 meses"},{v:12,l:"12 meses"},{v:24,l:"24 meses"}].map(opt=>(
                 <button key={opt.v} type="button"
                   onClick={()=>setEvoReminder(opt.v)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${evoReminder===opt.v?"bg-primary-600 text-white border-primary-600":"bg-white text-slate-600 border-slate-300 hover:border-primary-400"}`}>
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${evoReminder===opt.v?"bg-amber-600 text-white border-amber-600":"bg-white text-amber-700 border-amber-300 hover:border-amber-500"}`}>
                   {opt.l}
                 </button>
               ))}
@@ -1935,8 +1960,25 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div><label className="label">Nombre</label><input className="input" value={editForm.firstName} onChange={e=>setEditForm(f=>({...f,firstName:e.target.value}))}/></div>
             <div><label className="label">Apellido</label><input className="input" value={editForm.lastName} onChange={e=>setEditForm(f=>({...f,lastName:e.target.value}))}/></div>
-            <div><label className="label">Fecha de nacimiento</label><input className="input" type="date" value={editForm.birthDate} onChange={e=>setEditForm(f=>({...f,birthDate:e.target.value}))}/></div>
-            <div><label className="label">Teléfono</label><input className="input" value={editForm.phone} onChange={e=>setEditForm(f=>({...f,phone:e.target.value}))}/></div>
+            <div>
+              <label className="label">Fecha de nacimiento</label>
+              <input className="input" type="date" value={editForm.birthDate} onChange={e=>setEditForm(f=>({...f,birthDate:e.target.value}))}/>
+              {editForm.birthDate && (
+                <p className="text-xs text-primary-600 font-medium mt-1.5">
+                  {Math.floor((Date.now()-new Date(editForm.birthDate+"T12:00:00").getTime())/(1000*60*60*24*365.25))} años
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="label">Teléfono <span className="text-slate-400 font-normal">(opcional)</span></label>
+              <div className="flex items-center gap-0">
+                <span className="px-3 py-2 bg-slate-100 border border-r-0 border-slate-300 rounded-l-xl text-sm text-slate-600 font-medium select-none">+56</span>
+                <input className="input rounded-l-none flex-1"
+                  value={editForm.phone.replace(/^\+56/, "")}
+                  onChange={e=>setEditForm(f=>({...f,phone:"+56"+e.target.value.replace(/^\+56/,"")}))}
+                  placeholder="9 1234 5678"/>
+              </div>
+            </div>
             <div><label className="label">Email</label><input className="input" type="email" value={editForm.email} onChange={e=>setEditForm(f=>({...f,email:e.target.value}))}/></div>
             <div><label className="label">Dirección</label><input className="input" value={editForm.address} onChange={e=>setEditForm(f=>({...f,address:e.target.value}))}/></div>
             <div><label className="label">Ciudad</label><input className="input" value={editForm.city} onChange={e=>setEditForm(f=>({...f,city:e.target.value}))}/></div>

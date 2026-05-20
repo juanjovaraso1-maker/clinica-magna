@@ -249,6 +249,15 @@ model EmailLog {
   sentAt      DateTime @default(now())
 }
 
+model Convenio {
+  id           String   @id @default(cuid())
+  name         String
+  discount     Float
+  discountType String   @default("pct")
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+}
+
 model Reminder {
   id          String    @id @default(cuid())
   patientId   String

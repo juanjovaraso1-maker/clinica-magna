@@ -11,6 +11,7 @@ import Modal from "@/components/ui/Modal";
 import Badge from "@/components/ui/Badge";
 
 interface Treatment { id: string; name: string; category: string; price: number }
+interface Convenio { id: string; name: string; discount: number; discountType: string; }
 interface BudgetItem {
   description: string; tooth: string; area: string;
   quantity: number; unitPrice: number; discount: number; total: number;
@@ -64,6 +65,8 @@ function PresupuestosContent() {
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [clinicCfg, setClinicCfg] = useState<Record<string, string>>({});
   const [bundles, setBundles] = useState<Array<{ id: string; name: string; category: string; treatmentIds: string[] }>>([]);
+  const [convenios, setConvenios] = useState<Convenio[]>([]);
+  const [discountType, setDiscountType] = useState<"pct"|"fixed">("fixed");
   const [form, setForm] = useState({
     patientId: fromPatientId ?? "", userId: "",
     date: new Date().toISOString().split("T")[0],
@@ -102,9 +105,9 @@ function PresupuestosContent() {
 
   const load = useCallback(async () => {
     const q = filter !== "all" ? `?status=${filter}` : "";
-    const [br, pr, ur, tr, cr] = await Promise.all([
+    const [br, pr, ur, tr, cr, cvr] = await Promise.all([
       fetch(`/api/budgets${q}`), fetch("/api/patients"), fetch("/api/users"),
-      fetch("/api/treatments"), fetch("/api/clinic-config"),
+      fetch("/api/treatments"), fetch("/api/clinic-config"), fetch("/api/convenios"),
     ]);
     if (br.ok) setBudgets(await br.json());
     if (pr.ok) setPatients(await pr.json());
@@ -115,6 +118,7 @@ function PresupuestosContent() {
       setClinicCfg(cfg);
       try { setBundles(JSON.parse(cfg.treatment_bundles ?? "[]")); } catch { setBundles([]); }
     }
+    if (cvr.ok) setConvenios(await cvr.json());
   }, [filter]);
 
   useEffect(() => { load(); }, [load]);
@@ -152,8 +156,25 @@ function PresupuestosContent() {
     }));
   }
 
+  function applyConvenio(cv: Convenio) {
+    if (cv.discountType === "pct") {
+      setItems(its => its.map(item => ({
+        ...item,
+        discount: cv.discount,
+        total: item.quantity * item.unitPrice * (1 - cv.discount / 100),
+      })));
+      setForm(f => ({ ...f, discount: 0 }));
+    } else {
+      setForm(f => ({ ...f, discount: cv.discount }));
+      setDiscountType("fixed");
+    }
+  }
+
   const subtotal = items.reduce((s, i) => s + i.total, 0);
-  const total = subtotal - Number(form.discount);
+  const discountAmount = discountType === "pct"
+    ? subtotal * Number(form.discount) / 100
+    : Number(form.discount);
+  const total = subtotal - discountAmount;
 
   function openEditBudget(b: Budget) {
     setForm({
@@ -177,15 +198,16 @@ function PresupuestosContent() {
 
   async function save() {
     setSaving(true);
+    const payload = { ...form, discount: discountAmount, subtotal, total, items };
     if (editId) {
       await fetch(`/api/budgets/${editId}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, subtotal, total, items }),
+        body: JSON.stringify(payload),
       });
     } else {
       await fetch("/api/budgets", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, subtotal, total, items }),
+        body: JSON.stringify(payload),
       });
     }
     setSaving(false);
@@ -714,7 +736,9 @@ function PresupuestosContent() {
       {/* New/Edit budget modal */}
       <Modal open={open} onClose={() => { setOpen(false); setEditId(null); }} title={editId ? "Editar Presupuesto" : "Nuevo Presupuesto"} size="xl">
         <div className="p-4 sm:p-6 space-y-5 overflow-y-auto max-h-[75vh]">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+
+          {/* ── Paciente + Profesional + Fechas ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {!fromPatientId ? (
               <div>
                 <label className="label">Paciente *</label>
@@ -748,122 +772,185 @@ function PresupuestosContent() {
             </div>
           </div>
 
+          {/* ── Convenio ── */}
+          {convenios.length > 0 && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex items-center gap-3 flex-wrap">
+              <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wide flex-shrink-0">Convenio</span>
+              <select className="select flex-1 py-1.5 text-sm border-emerald-300 focus:ring-emerald-500 bg-white"
+                defaultValue=""
+                onChange={e => {
+                  const cv = convenios.find(c => c.id === e.target.value);
+                  if (cv) applyConvenio(cv);
+                  e.target.value = "";
+                }}>
+                <option value="">Seleccionar convenio para aplicar descuento...</option>
+                {convenios.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} — {c.discountType === "pct" ? `${c.discount}%` : fmt(c.discount)} descuento
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
-          {/* Items */}
+          {/* ── Ítems ── */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="label mb-0">Tratamientos</label>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-semibold text-slate-700">Tratamientos</p>
               <div className="flex items-center gap-2">
                 {bundles.length > 0 && (
-                  <select className="text-xs border border-primary-200 rounded-lg px-2 py-1 text-primary-700 bg-primary-50 focus:outline-none"
+                  <select className="text-xs border border-primary-200 rounded-lg px-2 py-1.5 text-primary-700 bg-primary-50 focus:outline-none"
                     defaultValue=""
                     onChange={e => {
                       const b = bundles.find(x => x.id === e.target.value);
                       if (b) applyBundle(b);
                       e.target.value = "";
                     }}>
-                    <option value="" disabled>📦 Usar paquete...</option>
+                    <option value="" disabled>📦 Paquete...</option>
                     {bundles.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
                 )}
                 <button onClick={() => setItems(i => [...i, initItem()])}
-                  className="text-xs text-primary-600 hover:underline flex items-center gap-1">
-                  <Plus size={12} /> Agregar ítem
+                  className="flex items-center gap-1.5 text-xs font-medium text-primary-700 bg-primary-50 hover:bg-primary-100 px-3 py-1.5 rounded-lg transition-colors border border-primary-200">
+                  <Plus size={13} /> Agregar ítem
                 </button>
               </div>
             </div>
-            <div className="space-y-2">
+
+            <div className="space-y-3">
               {items.map((item, i) => (
-                <div key={i} className="bg-slate-50 rounded-xl p-3 space-y-2">
-                  {/* Descripción + catálogo + eliminar */}
-                  <div className="flex items-start gap-2">
-                    <div className="flex-1 space-y-1.5">
-                      <input className="input py-1.5 text-sm" value={item.description}
-                        onChange={e => updateItem(i, "description", e.target.value)} placeholder="Descripción del tratamiento..." />
-                      {treatments.length > 0 && (
-                        <select className="select py-1.5 text-sm" onChange={e => {
-                          const t = treatments.find(t => t.id === e.target.value);
-                          if (t) applyTreatment(i, t); e.target.value = "";
-                        }}>
-                          <option value="">📋 Seleccionar del catálogo...</option>
-                          {Object.entries(byCategory).map(([cat, ts]) => (
-                            <optgroup key={cat} label={cat}>
-                              {ts.map(t => <option key={t.id} value={t.id}>{t.name} ({fmt(t.price)})</option>)}
-                            </optgroup>
-                          ))}
-                        </select>
-                      )}
+                <div key={i} className="border border-slate-200 rounded-xl overflow-hidden">
+                  {/* Item header */}
+                  <div className="bg-slate-50 px-4 py-2.5 flex items-center gap-3">
+                    <span className="w-6 h-6 rounded-full bg-primary-100 text-primary-700 text-xs font-bold flex items-center justify-center flex-shrink-0">{i+1}</span>
+                    <div className="flex-1 min-w-0">
+                      <input className="w-full bg-transparent text-sm font-medium text-slate-900 placeholder:text-slate-400 outline-none border-none focus:ring-0 p-0"
+                        value={item.description}
+                        onChange={e => updateItem(i, "description", e.target.value)}
+                        placeholder="Descripción del tratamiento..." />
                     </div>
                     {items.length > 1 && (
                       <button onClick={() => setItems(its => its.filter((_, idx) => idx !== i))}
-                        className="mt-1 w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0">
-                        <Trash2 size={14} />
+                        className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0">
+                        <Trash2 size={13} />
                       </button>
                     )}
                   </div>
-                  {/* Diente + Área */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-xs text-slate-500 mb-0.5 block">Diente</label>
-                      <input className="input py-1.5 text-sm text-center" value={item.tooth}
-                        onChange={e => updateItem(i, "tooth", e.target.value)} placeholder="16" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-slate-500 mb-0.5 block">Área</label>
-                      <select className="select py-1.5 text-sm" value={item.area}
-                        onChange={e => updateItem(i, "area", e.target.value)}>
-                        {AREAS.map(a => <option key={a} value={a}>{a || "—"}</option>)}
+
+                  {/* Item body */}
+                  <div className="px-4 py-3 space-y-2.5">
+                    {/* Catálogo */}
+                    {treatments.length > 0 && (
+                      <select className="select text-xs py-1.5 text-slate-500" onChange={e => {
+                        const t = treatments.find(t => t.id === e.target.value);
+                        if (t) applyTreatment(i, t); e.target.value = "";
+                      }}>
+                        <option value="">📋 Seleccionar del catálogo...</option>
+                        {Object.entries(byCategory).map(([cat, ts]) => (
+                          <optgroup key={cat} label={cat}>
+                            {ts.map(t => <option key={t.id} value={t.id}>{t.name} — {fmt(t.price)}</option>)}
+                          </optgroup>
+                        ))}
                       </select>
+                    )}
+
+                    {/* Diente + Área */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Diente</label>
+                        <input className="input py-1.5 text-sm text-center" value={item.tooth}
+                          onChange={e => updateItem(i, "tooth", e.target.value)} placeholder="16, 17..." />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Área</label>
+                        <select className="select py-1.5 text-sm" value={item.area}
+                          onChange={e => updateItem(i, "area", e.target.value)}>
+                          {AREAS.map(a => <option key={a} value={a}>{a || "—"}</option>)}
+                        </select>
+                      </div>
                     </div>
-                  </div>
-                  {/* Cantidad + P.Unit + Dto + Total */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-xs text-slate-500 mb-0.5 block">Cantidad</label>
-                      <input className="input py-1.5 text-sm text-center" type="number" min="1" value={item.quantity}
-                        onChange={e => updateItem(i, "quantity", parseInt(e.target.value) || 1)} />
+
+                    {/* Cantidad + Precio + Descuento + Total */}
+                    <div className="grid grid-cols-4 gap-2 items-end">
+                      <div>
+                        <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Cant.</label>
+                        <input className="input py-1.5 text-sm text-center" type="number" min="1" value={item.quantity}
+                          onChange={e => updateItem(i, "quantity", parseInt(e.target.value) || 1)} />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1 block">P. Unit ($)</label>
+                        <input className="input py-1.5 text-sm text-right" type="number" min="0" value={item.unitPrice}
+                          onChange={e => updateItem(i, "unitPrice", parseFloat(e.target.value) || 0)} />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Dto. (%)</label>
+                        <input className="input py-1.5 text-sm text-right" type="number" min="0" max="100" value={item.discount}
+                          onChange={e => updateItem(i, "discount", parseFloat(e.target.value) || 0)} />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Total</label>
+                        <div className={`input py-1.5 text-sm text-right font-bold ${item.discount > 0 ? "text-primary-700" : "text-slate-800"} bg-slate-50`}>
+                          {fmt(item.total)}
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <label className="text-xs text-slate-500 mb-0.5 block">Precio unit. ($)</label>
-                      <input className="input py-1.5 text-sm text-right" type="number" min="0" value={item.unitPrice}
-                        onChange={e => updateItem(i, "unitPrice", parseFloat(e.target.value) || 0)} />
-                    </div>
-                    <div>
-                      <label className="text-xs text-slate-500 mb-0.5 block">Descuento (%)</label>
-                      <input className="input py-1.5 text-sm text-right" type="number" min="0" max="100" value={item.discount}
-                        onChange={e => updateItem(i, "discount", parseFloat(e.target.value) || 0)} />
-                    </div>
-                    <div>
-                      <label className="text-xs text-slate-500 mb-0.5 block">Total</label>
-                      <p className="input bg-white text-right text-sm font-semibold py-1.5 text-slate-800">{fmt(item.total)}</p>
-                    </div>
+
+                    {/* Show discount breakdown */}
+                    {item.discount > 0 && (
+                      <p className="text-xs text-slate-400">
+                        Precio original: <span className="line-through">{fmt(item.quantity * item.unitPrice)}</span>
+                        {" "}— Descuento {item.discount}%: <span className="text-red-500">-{fmt(item.quantity * item.unitPrice * item.discount / 100)}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
+          {/* ── Totales ── */}
           <div className="flex justify-end">
-            <div className="space-y-2 min-w-48 text-sm">
-              <div className="flex justify-between gap-8">
-                <span className="text-slate-500">Subtotal</span>
-                <span className="font-medium">{fmt(subtotal)}</span>
+            <div className="w-full sm:w-72 bg-slate-50 rounded-xl p-4 space-y-2.5 text-sm border border-slate-200">
+              <div className="flex justify-between text-slate-600">
+                <span>Subtotal</span><span className="font-medium">{fmt(subtotal)}</span>
               </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-slate-500">Descuento ($)</span>
-                <input className="input py-1 text-right w-32" type="number" min="0" value={form.discount}
-                  onChange={e => setForm(f => ({ ...f, discount: parseFloat(e.target.value) || 0 }))} />
+
+              {/* Descuento global con tipo */}
+              <div className="flex items-center gap-2">
+                <span className="text-slate-600 flex-shrink-0">Descuento</span>
+                <div className="flex items-center flex-1 gap-1.5 justify-end">
+                  {/* Type toggle */}
+                  <div className="flex rounded-lg overflow-hidden border border-slate-300 text-xs">
+                    <button type="button"
+                      onClick={() => setDiscountType("pct")}
+                      className={`px-2 py-1 font-semibold transition-colors ${discountType === "pct" ? "bg-primary-600 text-white" : "bg-white text-slate-600"}`}>%</button>
+                    <button type="button"
+                      onClick={() => setDiscountType("fixed")}
+                      className={`px-2 py-1 font-semibold transition-colors ${discountType === "fixed" ? "bg-primary-600 text-white" : "bg-white text-slate-600"}`}>$</button>
+                  </div>
+                  <input className="input py-1 text-right w-24 text-sm" type="number" min="0"
+                    value={form.discount}
+                    onChange={e => setForm(f => ({ ...f, discount: parseFloat(e.target.value) || 0 }))} />
+                </div>
               </div>
-              <div className="flex justify-between font-bold border-t border-slate-200 pt-2">
+
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-red-600 text-xs">
+                  <span>Ahorro</span><span>-{fmt(discountAmount)}</span>
+                </div>
+              )}
+
+              <div className="flex justify-between font-bold text-base border-t border-slate-300 pt-2.5 text-slate-900">
                 <span>Total</span><span>{fmt(total)}</span>
               </div>
             </div>
           </div>
 
+          {/* ── Observaciones ── */}
           <div>
             <label className="label">Observaciones</label>
             <textarea className="input resize-none" rows={2} value={form.notes}
-              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Notas adicionales..." />
           </div>
         </div>
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 flex justify-end gap-3">

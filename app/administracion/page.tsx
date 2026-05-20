@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import {
   Users, DollarSign, Edit2, Check, X, ChevronDown, ChevronUp,
   TrendingUp, UserPlus, Trash2, Eye, EyeOff, KeyRound, Lock,
-  Send, Cake, Bell, ChevronRight,
+  Send, Cake, Bell, ChevronRight, Handshake,
 } from "lucide-react";
 import Link from "next/link";
 import { useIsAdmin } from "@/hooks/useRole";
@@ -230,11 +230,12 @@ export default function Administracion() {
       {/* Email modules */}
       <div>
         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Email y comunicaciones</p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {[
-            { href: "/administracion/campanas",     icon: Send,  label: "Campañas",      desc: "Envíos masivos a pacientes",            color: "bg-blue-50 text-blue-600" },
-            { href: "/administracion/cumpleanos",   icon: Cake,  label: "Cumpleaños",    desc: "Email automático el día del cumpleaños", color: "bg-pink-50 text-pink-600" },
-            { href: "/administracion/recordatorios",icon: Bell,  label: "Recordatorios", desc: "Control a 3, 6, 12 o 24 meses",         color: "bg-amber-50 text-amber-600" },
+            { href: "/administracion/campanas",     icon: Send,       label: "Campañas",      desc: "Envíos masivos a pacientes",            color: "bg-blue-50 text-blue-600" },
+            { href: "/administracion/cumpleanos",   icon: Cake,       label: "Cumpleaños",    desc: "Email automático el día del cumpleaños", color: "bg-pink-50 text-pink-600" },
+            { href: "/administracion/recordatorios",icon: Bell,       label: "Recordatorios", desc: "Control a 3, 6, 12 o 24 meses",         color: "bg-amber-50 text-amber-600" },
+            { href: "/administracion/convenios",    icon: Handshake,  label: "Convenios",     desc: "Descuentos automáticos en presupuestos",color: "bg-emerald-50 text-emerald-600" },
           ].map(({ href, icon: Icon, label, desc, color }) => (
             <Link key={href} href={href}
               className="card p-4 flex items-center gap-4 hover:shadow-md transition-shadow group cursor-pointer">

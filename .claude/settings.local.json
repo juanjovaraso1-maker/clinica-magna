@@ -13,12 +13,14 @@
       "Bash(npx tsx *)",
       "Bash(node -e \"const p = require\\('./node_modules/nodemailer/package.json'\\); console.log\\(p.version\\)\")",
       "Bash(mkdir \"c:\\\\Users\\\\PC\\\\clinica-magna\\\\app\\\\api\\\\email-templates\\\\[type]\" 2>nul; echo done)",
-      "Bash(mkdir \"c:\\\\Users\\\\PC\\\\clinica-magna\\\\app\\\\api\\\\reminders\\\\[id]\" 2>nul; echo done)"
+      "Bash(mkdir \"c:\\\\Users\\\\PC\\\\clinica-magna\\\\app\\\\api\\\\reminders\\\\[id]\" 2>nul; echo done)",
+      "Bash(mkdir \"c:\\\\Users\\\\PC\\\\clinica-magna\\\\app\\\\api\\\\convenios\\\\[id]\" 2>nul; echo done)"
     ],
     "additionalDirectories": [
       "c:\\Users\\PC\\clinica-magna\\app\\api\\auth",
       "c:\\Users\\PC\\clinica-magna\\app\\api\\email-templates",
-      "c:\\Users\\PC\\clinica-magna\\app\\api\\reminders"
+      "c:\\Users\\PC\\clinica-magna\\app\\api\\reminders",
+      "c:\\Users\\PC\\clinica-magna\\app\\api\\convenios"
     ]
   }
 }
