@@ -939,8 +939,8 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         <div className="p-3 sm:p-5">
           <div className="flex items-start gap-3 sm:gap-4 flex-wrap md:flex-nowrap">
             {/* Avatar */}
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center flex-shrink-0">
-              <span className="text-white text-xl font-bold">{patient.firstName[0]}{patient.lastName[0]}</span>
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary-600 to-primary-900 flex items-center justify-center flex-shrink-0 shadow-lg ring-4 ring-white">
+              <span className="text-white text-2xl font-bold tracking-tight">{patient.firstName[0]}{patient.lastName[0]}</span>
             </div>
 
             {/* Main info */}
@@ -1032,41 +1032,41 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         )}
 
         {/* Quick actions */}
-        <div className="border-t border-slate-100 px-3 sm:px-5 py-2 sm:py-2.5 flex gap-1.5 sm:gap-2 flex-wrap bg-slate-50/50">
-          <button onClick={()=>openEvoModal()} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-primary-700 hover:bg-primary-50 px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-lg transition-colors">
-            <Activity size={13}/> Evolución
+        <div className="border-t border-slate-100 px-3 sm:px-5 py-3 flex gap-2 flex-wrap bg-slate-50/30">
+          <button onClick={()=>openEvoModal()} className="inline-flex items-center gap-1.5 text-xs font-semibold bg-primary-50 text-primary-800 hover:bg-primary-100 border border-primary-100 px-3 py-1.5 rounded-full transition-all hover:shadow-sm">
+            <Activity size={12}/> Evolución
           </button>
-          <button onClick={()=>setRxModal(true)} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-violet-700 hover:bg-violet-50 px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-lg transition-colors">
-            <Printer size={13}/> Receta
+          <button onClick={()=>setRxModal(true)} className="inline-flex items-center gap-1.5 text-xs font-semibold bg-violet-50 text-violet-700 hover:bg-violet-100 border border-violet-100 px-3 py-1.5 rounded-full transition-all hover:shadow-sm">
+            <Printer size={12}/> Receta
           </button>
-          <button onClick={()=>setCuidadosModal(true)} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-teal-700 hover:bg-teal-50 px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-lg transition-colors">
-            <BookOpen size={13}/> Cuidados
+          <button onClick={()=>setCuidadosModal(true)} className="inline-flex items-center gap-1.5 text-xs font-semibold bg-teal-50 text-teal-700 hover:bg-teal-100 border border-teal-100 px-3 py-1.5 rounded-full transition-all hover:shadow-sm">
+            <BookOpen size={12}/> Cuidados
           </button>
           <button onClick={()=>{ setRxDocUserId(""); setRxDocItems([{type:"",zone:""}]); setRxDocIndication(""); setRxDocObservations(""); setRxDocModal(true); }}
-            className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-sky-700 hover:bg-sky-50 px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-lg transition-colors">
-            <FileText size={13}/> Solicitud Rx
+            className="inline-flex items-center gap-1.5 text-xs font-semibold bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-100 px-3 py-1.5 rounded-full transition-all hover:shadow-sm">
+            <FileText size={12}/> Solicitud Rx
           </button>
-          <button onClick={()=>setPayModal(true)} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-lg transition-colors">
-            <CreditCard size={13}/> Pago
+          <button onClick={()=>setPayModal(true)} className="inline-flex items-center gap-1.5 text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-100 px-3 py-1.5 rounded-full transition-all hover:shadow-sm">
+            <CreditCard size={12}/> Pago
           </button>
-          <button onClick={openBudgetCreate} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-amber-700 hover:bg-amber-50 px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-lg transition-colors">
-            <FileText size={13}/> Presupuesto
+          <button onClick={openBudgetCreate} className="inline-flex items-center gap-1.5 text-xs font-semibold bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-100 px-3 py-1.5 rounded-full transition-all hover:shadow-sm">
+            <FileText size={12}/> Presupuesto
           </button>
-          <a href={`/agenda?patientId=${id}&newAppt=1`} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-blue-700 hover:bg-blue-50 px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-lg transition-colors">
-            <CalendarPlus size={13}/> Cita
+          <a href={`/agenda?patientId=${id}&newAppt=1`} className="inline-flex items-center gap-1.5 text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-100 px-3 py-1.5 rounded-full transition-all hover:shadow-sm">
+            <CalendarPlus size={12}/> Cita
           </a>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-slate-200 overflow-x-auto -mb-1">
-        <nav className="flex -mb-px min-w-max">
+      <div className="border-b border-slate-200 overflow-x-auto -mb-1 bg-white rounded-t-xl">
+        <nav className="flex -mb-px min-w-max px-1">
           {TABS.map((t,i)=>(
             <button key={t} onClick={()=>setTab(i)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${tab===i ? "border-primary-600 text-primary-700 bg-primary-50/40" : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300"}`}>
+              className={`px-4 py-3 text-sm font-semibold border-b-2 transition-all duration-200 whitespace-nowrap ${tab===i ? "border-primary-600 text-primary-800" : "border-transparent text-slate-400 hover:text-slate-700 hover:border-slate-200"}`}>
               {t}
               {t==="Historial" && timeline.length > 0 && (
-                <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${tab===i?"bg-primary-100 text-primary-700":"bg-slate-100 text-slate-500"}`}>{timeline.length}</span>
+                <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full font-bold ${tab===i?"bg-primary-100 text-primary-700":"bg-slate-100 text-slate-400"}`}>{timeline.length}</span>
               )}
             </button>
           ))}

@@ -171,80 +171,80 @@ export default function Dashboard() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="card p-3 sm:p-5">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wide font-medium">Pacientes</p>
-              <p className="text-2xl sm:text-3xl font-bold text-slate-900 mt-1">{data.totalPatients}</p>
-              <p className="text-xs text-emerald-600 mt-1 flex items-center gap-0.5">
-                <ArrowUpRight size={11} /> +{data.newPatientsMonth} este mes
+        <div className="card p-4 sm:p-5 bg-gradient-to-br from-white to-primary-50/40 border-primary-100/60 hover:shadow-card-hover transition-shadow">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Pacientes</p>
+              <p className="text-2xl sm:text-3xl font-bold text-slate-900 mt-1.5 tracking-tight">{data.totalPatients}</p>
+              <p className="text-xs text-emerald-600 mt-1.5 flex items-center gap-0.5 font-medium">
+                <ArrowUpRight size={12} /> +{data.newPatientsMonth} este mes
               </p>
             </div>
-            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-primary-100 flex items-center justify-center flex-shrink-0">
-              <Users className="w-4 h-4 sm:w-5 sm:h-5 text-primary-700" />
+            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-primary-100 flex items-center justify-center flex-shrink-0 shadow-sm">
+              <Users className="w-5 h-5 sm:w-6 sm:h-6 text-primary-700" />
             </div>
           </div>
         </div>
 
-        <div className="card p-3 sm:p-5">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wide font-medium">Citas Hoy</p>
-              <p className="text-2xl sm:text-3xl font-bold text-slate-900 mt-1">{data.todayAppointments.length}</p>
-              <div className="flex gap-1.5 mt-1 flex-wrap">
+        <div className="card p-4 sm:p-5 bg-gradient-to-br from-white to-blue-50/40 border-blue-100/60 hover:shadow-card-hover transition-shadow">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Citas Hoy</p>
+              <p className="text-2xl sm:text-3xl font-bold text-slate-900 mt-1.5 tracking-tight">{data.todayAppointments.length}</p>
+              <div className="flex gap-1.5 mt-1.5 flex-wrap">
                 {data.statusCount.confirmed > 0 && (
-                  <span className="text-xs text-primary-600">{data.statusCount.confirmed} conf.</span>
+                  <span className="text-xs text-blue-600 font-medium">{data.statusCount.confirmed} conf.</span>
                 )}
                 {data.statusCount.completed > 0 && (
                   <span className="text-xs text-slate-400">{data.statusCount.completed} compl.</span>
                 )}
                 {data.statusCount.scheduled > 0 && (
-                  <span className="text-xs text-blue-500">{data.statusCount.scheduled} agend.</span>
+                  <span className="text-xs text-primary-600 font-medium">{data.statusCount.scheduled} agend.</span>
                 )}
               </div>
             </div>
-            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
-              <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-blue-100 flex items-center justify-center flex-shrink-0 shadow-sm">
+              <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
             </div>
           </div>
         </div>
 
-        <div className="card p-3 sm:p-5">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wide font-medium">Ingresos Mes</p>
-              <p className="text-xl sm:text-2xl font-bold text-emerald-700 mt-1">{fmtShort(data.monthIncome)}</p>
+        <div className="card p-4 sm:p-5 bg-gradient-to-br from-white to-emerald-50/40 border-emerald-100/60 hover:shadow-card-hover transition-shadow">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Ingresos Mes</p>
+              <p className="text-xl sm:text-2xl font-bold text-emerald-700 mt-1.5 tracking-tight">{fmtShort(data.monthIncome)}</p>
               {incomeTrend !== null ? (
-                <p className={`text-xs mt-1 flex items-center gap-0.5 ${incomeTrend >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                <p className={`text-xs mt-1.5 flex items-center gap-0.5 font-medium ${incomeTrend >= 0 ? "text-emerald-600" : "text-red-500"}`}>
                   {incomeTrend >= 0
-                    ? <><ArrowUpRight size={11} />+{incomeTrend}%</>
-                    : <><ArrowDownRight size={11} />{incomeTrend}%</>
+                    ? <><ArrowUpRight size={12} />+{incomeTrend}%</>
+                    : <><ArrowDownRight size={12} />{incomeTrend}%</>
                   }
                 </p>
               ) : (
-                <p className="text-xs text-slate-400 mt-1">Neto {fmtShort(net)}</p>
+                <p className="text-xs text-slate-400 mt-1.5">Neto {fmtShort(net)}</p>
               )}
             </div>
-            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-emerald-100 flex items-center justify-center flex-shrink-0 shadow-sm">
               {incomeTrend === null || incomeTrend >= 0
-                ? <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
-                : <TrendingDown className="w-4 h-4 sm:w-5 sm:h-5 text-red-500" />
+                ? <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600" />
+                : <TrendingDown className="w-5 h-5 sm:w-6 sm:h-6 text-red-500" />
               }
             </div>
           </div>
         </div>
 
-        <div className="card p-3 sm:p-5">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wide font-medium leading-tight">Deudas</p>
-              <p className="text-xl sm:text-2xl font-bold text-red-600 mt-1">{fmtShort(data.totalDebt)}</p>
-              <p className="text-xs text-slate-500 mt-1">
+        <div className="card p-4 sm:p-5 bg-gradient-to-br from-white to-red-50/30 border-red-100/60 hover:shadow-card-hover transition-shadow">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Deudas</p>
+              <p className="text-xl sm:text-2xl font-bold text-red-600 mt-1.5 tracking-tight">{fmtShort(data.totalDebt)}</p>
+              <p className="text-xs text-slate-400 mt-1.5 font-medium">
                 {data.debtorCount} pac. · {data.pendingBudgets} presup.
               </p>
             </div>
-            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0">
-              <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-red-500" />
+            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-red-100 flex items-center justify-center flex-shrink-0 shadow-sm">
+              <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-red-500" />
             </div>
           </div>
         </div>
@@ -266,15 +266,15 @@ export default function Dashboard() {
             <AreaChart data={data.monthlyChart} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="incomeGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#588157" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#588157" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#3a6439" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#3a6439" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
               <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickFormatter={fmtShort} width={48} />
               <Tooltip content={<CustomTooltipIncome />} />
-              <Area type="monotone" dataKey="income" stroke="#588157" strokeWidth={2.5} fill="url(#incomeGrad)" dot={{ fill: "#588157", r: 3 }} activeDot={{ r: 5 }} />
+              <Area type="monotone" dataKey="income" stroke="#3a6439" strokeWidth={2.5} fill="url(#incomeGrad)" dot={{ fill: "#3a6439", strokeWidth: 0, r: 3.5 }} activeDot={{ r: 6, fill: "#3a6439", strokeWidth: 2, stroke: "#fff" }} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -295,8 +295,8 @@ export default function Dashboard() {
               <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} width={20} />
               <Tooltip content={<CustomTooltipWeek />} />
-              <Bar dataKey="citas" fill="#c4d5bc" radius={[4, 4, 0, 0]} maxBarSize={24} />
-              <Bar dataKey="completadas" fill="#588157" radius={[4, 4, 0, 0]} maxBarSize={24} />
+              <Bar dataKey="citas" fill="#bad5b6" radius={[6, 6, 0, 0]} maxBarSize={22} />
+              <Bar dataKey="completadas" fill="#3a6439" radius={[6, 6, 0, 0]} maxBarSize={22} />
             </BarChart>
           </ResponsiveContainer>
           <div className="flex gap-4 mt-2 justify-center">

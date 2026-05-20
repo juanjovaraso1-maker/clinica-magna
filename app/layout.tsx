@@ -15,7 +15,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body className="bg-slate-50">
+      <body className="bg-[#FAFAFA]">
         <SessionWrapper>{children}</SessionWrapper>
       </body>
     </html>
