@@ -10,7 +10,8 @@
       "Bash(mkdir \"c:\\\\Users\\\\PC\\\\clinica-magna\\\\app\\\\api\\\\auth\\\\[...nextauth]\" 2>&1; echo done)",
       "Bash(New-Item -ItemType Directory -Force -Path \"c:\\\\Users\\\\PC\\\\clinica-magna\\\\app\\\\api\\\\auth\\\\[...nextauth]\")",
       "Bash(Out-Null)",
-      "Bash(npx tsx *)"
+      "Bash(npx tsx *)",
+      "Bash(node -e \"const p = require\\('./node_modules/nodemailer/package.json'\\); console.log\\(p.version\\)\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\PC\\clinica-magna\\app\\api\\auth"
