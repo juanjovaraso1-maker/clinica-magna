@@ -239,14 +239,16 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
   const [rxPdfSending, setRxPdfSending] = useState(false);
   const [carePdfSending, setCarePdfSending] = useState(false);
   const [budgetPdfSending, setBudgetPdfSending] = useState<string|null>(null);
+  const [convenios, setConvenios] = useState<Array<{id:string;name:string;discount:number;discountType:string}>>([]);
 
   async function load() {
-    const [pr, ur, or_, fr, cr, tr] = await Promise.all([
+    const [pr, ur, or_, fr, cr, tr, cvr] = await Promise.all([
       fetch(`/api/patients/${id}`), fetch("/api/users"),
       fetch(`/api/odontogram?patientId=${id}`),
       fetch(`/api/facial?patientId=${id}`),
       fetch("/api/clinic-config"),
       fetch("/api/treatments"),
+      fetch("/api/convenios"),
     ]);
     if (pr.ok) setPatient(await pr.json());
     if (ur.ok) setUsers(await ur.json());
@@ -254,6 +256,20 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     if (fr.ok) setFacial(await fr.json());
     if (cr.ok) setClinicCfg(await cr.json());
     if (tr.ok) setTreatments(await tr.json());
+    if (cvr.ok) setConvenios(await cvr.json());
+  }
+
+  function applyConvenioBudget(cv: {discount:number;discountType:string}) {
+    if (cv.discountType === "pct") {
+      setBudgetItems(its => its.map(item => ({
+        ...item,
+        discount: cv.discount,
+        total: item.quantity * item.unitPrice * (1 - cv.discount / 100),
+      })));
+      setBudgetForm(f => ({ ...f, discount: 0 }));
+    } else {
+      setBudgetForm(f => ({ ...f, discount: cv.discount }));
+    }
   }
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 3500); }
@@ -468,7 +484,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     if (!patient) return;
     const selections: Record<string,{selected:boolean;newStatus:string}> = {};
     patient.budgets.filter(b => b.status !== "rejected").forEach(b => {
-      b.items.filter(i => i.status !== "completed").forEach(item => {
+      (b.items ?? []).filter(i => i.status !== "completed").forEach(item => {
         selections[item.id] = { selected:false, newStatus: item.status || "in_progress" };
       });
     });
@@ -965,6 +981,13 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                 {patient.email && <a href={`mailto:${patient.email}`} className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-primary-600"><Mail size={13} className="text-slate-400"/>{patient.email}</a>}
                 {(patient.address||patient.city) && <span className="flex items-center gap-1.5 text-sm text-slate-600"><MapPin size={13} className="text-slate-400"/>{[patient.address,patient.city].filter(Boolean).join(", ")}</span>}
                 {patient.healthInsurance && <span className="flex items-center gap-1.5 text-sm text-slate-600"><Heart size={13} className="text-slate-400"/>{patient.healthInsurance}</span>}
+                {patient.birthDate && (
+                  <span className="flex items-center gap-1.5 text-sm text-slate-600">
+                    <Calendar size={13} className="text-slate-400"/>
+                    {new Date(patient.birthDate.split("T")[0]+"T12:00:00").toLocaleDateString("es-CL")}
+                    {age ? <span className="text-primary-600 font-semibold ml-1">· {age} años</span> : null}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -1018,6 +1041,10 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
           </button>
           <button onClick={()=>setCuidadosModal(true)} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-teal-700 hover:bg-teal-50 px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-lg transition-colors">
             <BookOpen size={13}/> Cuidados
+          </button>
+          <button onClick={()=>{ setRxDocUserId(""); setRxDocItems([{type:"",zone:""}]); setRxDocIndication(""); setRxDocObservations(""); setRxDocModal(true); }}
+            className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-sky-700 hover:bg-sky-50 px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-lg transition-colors">
+            <FileText size={13}/> Solicitud Rx
           </button>
           <button onClick={()=>setPayModal(true)} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-lg transition-colors">
             <CreditCard size={13}/> Pago
@@ -1227,10 +1254,6 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
           <div className="flex items-center justify-between flex-wrap gap-2">
             <p className="text-sm text-muted">{patient.evolutions.length} evoluciones registradas</p>
             <div className="flex gap-2 flex-wrap">
-              <button onClick={()=>{ setRxDocUserId(""); setRxDocItems([{type:"",zone:""}]); setRxDocIndication(""); setRxDocObservations(""); setRxDocModal(true); }}
-                className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-xl bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200 transition-colors">
-                <FileText size={13}/> Solicitud Rx
-              </button>
               <button onClick={()=>{ setRxUserId(""); setRxItems([{drug:"",dose:"",freq:"",duration:"",route:"oral",instructions:"",qty:""}]); setRxNotes(""); setRxModal(true); }}
                 className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-xl bg-violet-50 text-violet-700 hover:bg-violet-100 border border-violet-200 transition-colors">
                 <Printer size={13}/> Receta médica
@@ -2267,11 +2290,14 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
       {/* ===== MODAL CREAR/EDITAR PRESUPUESTO ===== */}
       {(() => {
         const bSubtotal = budgetItems.reduce((s,i)=>s+i.total,0);
-        const bTotal = bSubtotal - Number(budgetForm.discount);
+        const bDiscountAmount = Number(budgetForm.discount);
+        const bTotal = bSubtotal - bDiscountAmount;
         return (
           <Modal open={budgetCreateOpen} onClose={()=>setBudgetCreateOpen(false)} title={budgetEditId?"Editar Presupuesto":"Nuevo Presupuesto"} size="xl">
-            <div className="p-4 sm:p-6 space-y-4 overflow-y-auto max-h-[75vh]">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="p-4 sm:p-6 space-y-5 overflow-y-auto max-h-[75vh]">
+
+              {/* ── Profesional + Fechas ── */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><label className="label">Profesional *</label>
                   <select className="select" value={budgetForm.userId} onChange={e=>setBudgetForm(f=>({...f,userId:e.target.value}))}>
                     <option value="">Seleccionar...</option>
@@ -2286,24 +2312,52 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                 <div><label className="label">Fecha</label><input className="input" type="date" value={budgetForm.date} onChange={e=>setBudgetForm(f=>({...f,date:e.target.value}))}/></div>
                 <div><label className="label">Válido hasta</label><input className="input" type="date" value={budgetForm.validUntil} onChange={e=>setBudgetForm(f=>({...f,validUntil:e.target.value}))}/></div>
               </div>
-              {/* Items */}
+
+              {/* ── Convenio ── */}
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex items-center gap-3 flex-wrap">
+                <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wide flex-shrink-0">Convenio</span>
+                {convenios.length === 0 ? (
+                  <span className="text-xs text-emerald-600 italic">Sin convenios — <a href="/administracion/convenios" className="underline">crear en Administración</a></span>
+                ) : (
+                  <select className="select flex-1 py-1.5 text-sm bg-white border-emerald-300"
+                    defaultValue=""
+                    onChange={e=>{
+                      const cv = convenios.find(c=>c.id===e.target.value);
+                      if(cv) applyConvenioBudget(cv);
+                      e.target.value="";
+                    }}>
+                    <option value="">Seleccionar convenio para aplicar descuento...</option>
+                    {convenios.map(c=>(
+                      <option key={c.id} value={c.id}>
+                        {c.name} — {c.discountType==="pct"?`${c.discount}%`:fmt(c.discount)} descuento
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* ── Ítems ── */}
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="label mb-0">Tratamientos</label>
-                  <button onClick={()=>setBudgetItems(its=>[...its,{description:"",tooth:"",area:"",quantity:1,unitPrice:0,discount:0,total:0}])} className="text-xs text-primary-600 hover:underline flex items-center gap-1"><Plus size={12}/> Agregar ítem</button>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-semibold text-slate-700">Tratamientos</p>
+                  <button onClick={()=>setBudgetItems(its=>[...its,{description:"",tooth:"",area:"",quantity:1,unitPrice:0,discount:0,total:0}])}
+                    className="flex items-center gap-1.5 text-xs font-medium text-primary-700 bg-primary-50 hover:bg-primary-100 px-3 py-1.5 rounded-lg transition-colors border border-primary-200">
+                    <Plus size={13}/> Agregar ítem
+                  </button>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {budgetItems.map((item,i)=>(
-                    <div key={i} className="bg-slate-50 rounded-xl p-3 space-y-2">
-                      {/* Tratamiento (full width) + Delete */}
-                      <div className="flex items-start gap-2">
-                        <div className="flex-1 relative">
-                          <label className="text-[10px] text-slate-500 uppercase tracking-wide">Tratamiento *</label>
-                          <input className="input mt-0.5" value={item.description}
+                    <div key={i} className="border border-slate-200 rounded-xl overflow-hidden">
+                      {/* Item header */}
+                      <div className="bg-slate-50 px-4 py-2.5 flex items-center gap-3">
+                        <span className="w-6 h-6 rounded-full bg-primary-100 text-primary-700 text-xs font-bold flex items-center justify-center flex-shrink-0">{i+1}</span>
+                        <div className="flex-1 relative min-w-0">
+                          <input className="w-full bg-transparent text-sm font-medium text-slate-900 placeholder:text-slate-400 outline-none border-none focus:ring-0 p-0"
+                            value={item.description}
                             onChange={e=>updateBudgetItem(i,"description",e.target.value)}
                             onFocus={()=>setBudgetDropIdx(i)}
                             onBlur={()=>setTimeout(()=>setBudgetDropIdx(null),160)}
-                            placeholder="Escribir o buscar..." autoComplete="off"/>
+                            placeholder="Tratamiento..." autoComplete="off"/>
                           {budgetDropIdx===i&&(()=>{
                             const opts=treatments.filter(t=>!item.description.trim()||t.name.toLowerCase().includes(item.description.toLowerCase()));
                             if(!opts.length)return null;
@@ -2315,11 +2369,8 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                                       setBudgetItems(its=>its.map((it2,idx)=>idx!==i?it2:{...it2,description:t.name,unitPrice:t.price,total:it2.quantity*t.price*(1-((it2.discount||0)/100))}));
                                       setBudgetDropIdx(null);
                                     }}
-                                    className="w-full text-left px-3 py-3 sm:py-2 text-sm hover:bg-primary-50 flex items-center justify-between gap-2 border-b border-slate-50 last:border-b-0 transition-colors">
-                                    <div className="min-w-0 flex-1">
-                                      <span className="font-medium text-slate-800">{t.name}</span>
-                                      {t.category&&<span className="ml-2 text-xs text-slate-400">{t.category}</span>}
-                                    </div>
+                                    className="w-full text-left px-3 py-2 text-sm hover:bg-primary-50 flex items-center justify-between gap-2 border-b border-slate-50 last:border-0">
+                                    <span className="font-medium text-slate-800">{t.name}</span>
                                     <span className="text-xs text-primary-600 font-semibold flex-shrink-0">{fmt(t.price)}</span>
                                   </button>
                                 ))}
@@ -2329,40 +2380,84 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                         </div>
                         {budgetItems.length > 1 && (
                           <button onClick={()=>setBudgetItems(its=>its.filter((_,j)=>j!==i))}
-                            className="mt-5 w-8 h-8 flex items-center justify-center text-slate-300 hover:text-red-500 rounded-lg hover:bg-red-50 flex-shrink-0">
-                            <Trash2 size={14}/>
+                            className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0">
+                            <Trash2 size={13}/>
                           </button>
                         )}
                       </div>
-                      {/* Diente + Precio + Total */}
-                      <div className="grid grid-cols-3 gap-2">
-                        <div>
-                          <label className="text-[10px] text-slate-500 uppercase tracking-wide">Diente</label>
-                          <input className="input mt-0.5" value={item.tooth} onChange={e=>updateBudgetItem(i,"tooth",e.target.value)} placeholder="18,19..."/>
+                      {/* Item body */}
+                      <div className="px-4 py-3 space-y-2.5">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Diente</label>
+                            <input className="input py-1.5 text-sm text-center" value={item.tooth} onChange={e=>updateBudgetItem(i,"tooth",e.target.value)} placeholder="16, 17..."/>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Área</label>
+                            <select className="select py-1.5 text-sm" value={item.area} onChange={e=>updateBudgetItem(i,"area",e.target.value)}>
+                              {["","Maxilar superior","Maxilar inferior","Ambos maxilares","Anterior superior","Anterior inferior","Posterior superior","Posterior inferior"].map(a=><option key={a} value={a}>{a||"—"}</option>)}
+                            </select>
+                          </div>
                         </div>
-                        <div>
-                          <label className="text-[10px] text-slate-500 uppercase tracking-wide">Precio unit.</label>
-                          <input className="input mt-0.5" type="number" min="0" value={item.unitPrice}
-                            onChange={e=>updateBudgetItem(i,"unitPrice",parseFloat(e.target.value)||0)}/>
+                        <div className="grid grid-cols-4 gap-2 items-end">
+                          <div>
+                            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Cant.</label>
+                            <input className="input py-1.5 text-sm text-center" type="number" min="1" value={item.quantity}
+                              onChange={e=>updateBudgetItem(i,"quantity",parseInt(e.target.value)||1)}/>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1 block">P. Unit ($)</label>
+                            <input className="input py-1.5 text-sm text-right" type="number" min="0" value={item.unitPrice}
+                              onChange={e=>updateBudgetItem(i,"unitPrice",parseFloat(e.target.value)||0)}/>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Dto. (%)</label>
+                            <input className="input py-1.5 text-sm text-right" type="number" min="0" max="100" value={item.discount}
+                              onChange={e=>updateBudgetItem(i,"discount",parseFloat(e.target.value)||0)}/>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Total</label>
+                            <div className={`input py-1.5 text-sm text-right font-bold bg-slate-50 ${item.discount>0?"text-primary-700":"text-slate-800"}`}>
+                              {fmt(item.total)}
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <label className="text-[10px] text-slate-500 uppercase tracking-wide">Total</label>
-                          <input className="input mt-0.5 bg-slate-100" value={fmt(item.total)} readOnly/>
-                        </div>
+                        {item.discount > 0 && (
+                          <p className="text-xs text-slate-400">
+                            Original: <span className="line-through">{fmt(item.quantity*item.unitPrice)}</span>
+                            {" "}— Ahorro {item.discount}%: <span className="text-red-500">-{fmt(item.quantity*item.unitPrice*item.discount/100)}</span>
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div><label className="label">Descuento global ($)</label><input className="input" type="number" min="0" value={budgetForm.discount} onChange={e=>setBudgetForm(f=>({...f,discount:parseFloat(e.target.value)||0}))}/></div>
-                <div className="flex flex-col justify-end bg-slate-50 rounded-xl p-3 text-right">
-                  <p className="text-xs text-slate-500">Subtotal: {fmt(bSubtotal)}</p>
-                  {Number(budgetForm.discount)>0 && <p className="text-xs text-red-500">Descuento: -{fmt(Number(budgetForm.discount))}</p>}
-                  <p className="text-lg font-bold text-slate-900">Total: {fmt(bTotal)}</p>
+
+              {/* ── Totales ── */}
+              <div className="flex justify-end">
+                <div className="w-full sm:w-72 bg-slate-50 rounded-xl p-4 space-y-2.5 text-sm border border-slate-200">
+                  <div className="flex justify-between text-slate-600">
+                    <span>Subtotal</span><span className="font-medium">{fmt(bSubtotal)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-600 flex-shrink-0">Descuento ($)</span>
+                    <input className="input py-1 text-right ml-auto w-28 text-sm" type="number" min="0"
+                      value={budgetForm.discount}
+                      onChange={e=>setBudgetForm(f=>({...f,discount:parseFloat(e.target.value)||0}))}/>
+                  </div>
+                  {bDiscountAmount > 0 && (
+                    <div className="flex justify-between text-red-600 text-xs">
+                      <span>Ahorro</span><span>-{fmt(bDiscountAmount)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-bold text-base border-t border-slate-300 pt-2.5 text-slate-900">
+                    <span>Total</span><span>{fmt(bTotal)}</span>
+                  </div>
                 </div>
               </div>
-              <div><label className="label">Notas / Observaciones</label><textarea className="input resize-none" rows={2} value={budgetForm.notes} onChange={e=>setBudgetForm(f=>({...f,notes:e.target.value}))}/></div>
+
+              <div><label className="label">Observaciones</label><textarea className="input resize-none" rows={2} value={budgetForm.notes} onChange={e=>setBudgetForm(f=>({...f,notes:e.target.value}))} placeholder="Notas adicionales..."/></div>
             </div>
             <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 flex justify-end gap-2 sm:gap-3">
               <button className="btn-secondary" onClick={()=>setBudgetCreateOpen(false)}>Cancelar</button>
