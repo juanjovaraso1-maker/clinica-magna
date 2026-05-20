@@ -12,7 +12,7 @@ import Modal from "@/components/ui/Modal";
 import Badge from "@/components/ui/Badge";
 import DentalChart from "@/components/odontogram/DentalChart";
 import FacialChart from "@/components/odontogram/FacialChart";
-import { buildRecetaBody, buildPresupuestoBody, buildIndicacionesBody } from "@/lib/pdf-templates";
+import { buildRecetaBody, buildPresupuestoBody, buildIndicacionesBody, buildRadiografiaBody } from "@/lib/pdf-templates";
 import { useIsAdmin } from "@/hooks/useRole";
 
 // Renders a body HTML string in a hidden A4-width div, captures it with html2canvas,
@@ -184,11 +184,14 @@ export default function PatientDetail() {
   const [users, setUsers] = useState<Array<{id:string;name:string;rut?:string}>>([]);
   const [evoModal, setEvoModal] = useState(false);
   const [evoForm, setEvoForm] = useState({ date:new Date().toISOString().split("T")[0], diagnosis:"", observations:"", userId:"" });
-  const [evoItems, setEvoItems] = useState([{ treatment:"", tooth:"", cost:"" }]);
+  const [evoBudgetSelections, setEvoBudgetSelections] = useState<Record<string,{selected:boolean;newStatus:string}>>({});
   const [evoReminder, setEvoReminder] = useState(0);
-  const [evoBudgetId, setEvoBudgetId] = useState("");
-  const [evoBudgetItemId, setEvoBudgetItemId] = useState("");
-  const [evoItemStatus, setEvoItemStatus] = useState("in_progress");
+  const [rxDocModal, setRxDocModal] = useState(false);
+  const [rxDocUserId, setRxDocUserId] = useState("");
+  const [rxDocItems, setRxDocItems] = useState([{ type:"", zone:"" }]);
+  const [rxDocIndication, setRxDocIndication] = useState("");
+  const [rxDocObservations, setRxDocObservations] = useState("");
+  const [rxDocPdfSending, setRxDocPdfSending] = useState(false);
   const [saving, setSaving] = useState(false);
   const [rxModal, setRxModal] = useState(false);
   const [rxTemplate, setRxTemplate] = useState("");
@@ -461,23 +464,40 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
 
   useEffect(() => { load(); }, [id]);
 
-  async function saveEvo() {
-    const validItems = evoItems.filter(i => i.treatment.trim());
-    if (!validItems.length || !evoForm.userId) return;
-    setSaving(true);
-    await Promise.all(validItems.map(item =>
-      fetch("/api/evolutions", { method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ patientId:id, date:evoForm.date, diagnosis:evoForm.diagnosis,
-          treatment:item.treatment, tooth:item.tooth, observations:evoForm.observations,
-          cost:parseFloat(item.cost)||0, userId:evoForm.userId }) })
-    ));
-    if (evoBudgetItemId) {
-      await fetch(`/api/budget-items/${evoBudgetItemId}`, { method:"PUT", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({ status: evoItemStatus }) });
-    }
-    setEvoModal(false); setEvoBudgetId(""); setEvoBudgetItemId("");
+  function openEvoModal() {
+    if (!patient) return;
+    const selections: Record<string,{selected:boolean;newStatus:string}> = {};
+    patient.budgets.filter(b => b.status !== "rejected").forEach(b => {
+      b.items.filter(i => i.status !== "completed").forEach(item => {
+        selections[item.id] = { selected:false, newStatus: item.status || "in_progress" };
+      });
+    });
+    setEvoBudgetSelections(selections);
     setEvoForm({ date:new Date().toISOString().split("T")[0], diagnosis:"", observations:"", userId:"" });
-    setEvoItems([{ treatment:"", tooth:"", cost:"" }]);
+    setEvoReminder(0);
+    openEvoModal();
+  }
+
+  async function saveEvo() {
+    const selectedEntries = Object.entries(evoBudgetSelections).filter(([,v]) => v.selected);
+    if (!selectedEntries.length || !evoForm.userId) return;
+    setSaving(true);
+    const allItems = patient!.budgets.flatMap(b => b.items);
+    await Promise.all(selectedEntries.map(([itemId]) => {
+      const item = allItems.find(i => i.id === itemId);
+      if (!item) return Promise.resolve();
+      return fetch("/api/evolutions", { method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ patientId:id, date:evoForm.date, diagnosis:evoForm.diagnosis,
+          treatment:item.description, tooth:item.tooth||"", observations:evoForm.observations,
+          cost:item.total, userId:evoForm.userId }) });
+    }));
+    await Promise.all(selectedEntries.map(([itemId, sel]) =>
+      fetch(`/api/budget-items/${itemId}`, { method:"PUT", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ status: sel.newStatus }) })
+    ));
+    setEvoModal(false);
+    setEvoBudgetSelections({});
+    setEvoForm({ date:new Date().toISOString().split("T")[0], diagnosis:"", observations:"", userId:"" });
     if (evoReminder > 0) {
       fetch("/api/reminders", { method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({ patientId: id, months: evoReminder }) });
@@ -855,7 +875,9 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
   const activeItemsTotal = patient.budgets.filter(b=>b.status!=="rejected").reduce((s,b)=>s+b.items.filter(i=>i.status!=="pending").reduce((is,i)=>is+i.total,0),0);
   const saldo = activeItemsTotal - paidTotal;
   const docIcons: Record<string,string> = { radiografia:"🦷", examen:"🧪", consentimiento:"📄", foto:"📷", other:"📎" };
-  const selectedBudgetItems = evoBudgetId ? (patient.budgets.find(b=>b.id===evoBudgetId)?.items ?? []) : [];
+  const allActiveBudgetItems = patient.budgets
+    .filter(b => b.status !== "rejected")
+    .flatMap(b => b.items.filter(i => i.status !== "completed").map(i => ({ ...i, budgetNumber: b.number, budgetId: b.id })));
   const hasAlerts = patient.clinicalRecord?.allergies || patient.clinicalRecord?.currentMedications;
 
   // Build unified timeline
@@ -988,7 +1010,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
 
         {/* Quick actions */}
         <div className="border-t border-slate-100 px-3 sm:px-5 py-2 sm:py-2.5 flex gap-1.5 sm:gap-2 flex-wrap bg-slate-50/50">
-          <button onClick={()=>setEvoModal(true)} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-primary-700 hover:bg-primary-50 px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-lg transition-colors">
+          <button onClick={()=>openEvoModal()} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-primary-700 hover:bg-primary-50 px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-lg transition-colors">
             <Activity size={13}/> Evolución
           </button>
           <button onClick={()=>setRxModal(true)} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-violet-700 hover:bg-violet-50 px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-lg transition-colors">
@@ -1204,12 +1226,16 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         <div className="space-y-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <p className="text-sm text-muted">{patient.evolutions.length} evoluciones registradas</p>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <button onClick={()=>{ setRxDocUserId(""); setRxDocItems([{type:"",zone:""}]); setRxDocIndication(""); setRxDocObservations(""); setRxDocModal(true); }}
+                className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-xl bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200 transition-colors">
+                <FileText size={13}/> Solicitud Rx
+              </button>
               <button onClick={()=>{ setRxUserId(""); setRxItems([{drug:"",dose:"",freq:"",duration:"",route:"oral",instructions:"",qty:""}]); setRxNotes(""); setRxModal(true); }}
                 className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-xl bg-violet-50 text-violet-700 hover:bg-violet-100 border border-violet-200 transition-colors">
                 <Printer size={13}/> Receta médica
               </button>
-              <button onClick={()=>setEvoModal(true)} className="btn-primary text-sm">
+              <button onClick={()=>openEvoModal()} className="btn-primary text-sm">
                 <Plus size={14}/> Nueva Evolución
               </button>
             </div>
@@ -1218,7 +1244,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
             <div className="card py-12 text-center">
               <ClipboardList size={32} className="mx-auto mb-3 text-slate-300"/>
               <p className="text-muted">Sin evoluciones registradas</p>
-              <button onClick={()=>setEvoModal(true)} className="btn-primary text-sm mt-4"><Plus size={14}/> Primera evolución</button>
+              <button onClick={()=>openEvoModal()} className="btn-primary text-sm mt-4"><Plus size={14}/> Primera evolución</button>
             </div>
           ) : (
             <div className="space-y-2">
@@ -1481,7 +1507,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
 
       {/* ===== MODAL EVOLUCIÓN ===== */}
       <Modal open={evoModal} onClose={()=>setEvoModal(false)} title="Registrar Evolución">
-        <div className="p-4 sm:p-6 space-y-5">
+        <div className="p-4 sm:p-6 space-y-5 overflow-y-auto max-h-[75vh]">
 
           {/* ── Fecha y profesional ── */}
           <div className="grid grid-cols-2 gap-3">
@@ -1506,95 +1532,53 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
               placeholder="Descripción del diagnóstico clínico..."/>
           </div>
 
-          {/* ── Tratamientos realizados ── */}
+          {/* ── Tratamientos desde presupuesto ── */}
           <div>
-            <div className="flex items-center justify-between mb-2.5">
-              <label className="label mb-0 font-semibold">Tratamientos realizados *</label>
-              <button onClick={()=>setEvoItems(i=>[...i,{treatment:"",tooth:"",cost:""}])}
-                className="flex items-center gap-1.5 text-xs font-medium text-primary-700 bg-primary-50 hover:bg-primary-100 px-2.5 py-1.5 rounded-lg transition-colors border border-primary-200">
-                <Plus size={12}/> Agregar
-              </button>
-            </div>
-            <div className="space-y-2.5">
-              {evoItems.map((item,i)=>(
-                <div key={i} className="border border-slate-200 rounded-xl overflow-hidden">
-                  <div className="bg-slate-50 px-3 py-2.5 flex items-center gap-2.5">
-                    <span className="w-5 h-5 rounded-full bg-primary-100 text-primary-700 text-xs font-bold flex items-center justify-center flex-shrink-0">{i+1}</span>
-                    <input className="flex-1 bg-transparent text-sm font-medium text-slate-900 placeholder:text-slate-400 outline-none border-none focus:ring-0 p-0"
-                      value={item.treatment}
-                      onChange={e=>setEvoItems(its=>its.map((x,j)=>j===i?{...x,treatment:e.target.value}:x))}
-                      placeholder="Tratamiento realizado..."/>
-                    {evoItems.length > 1 && (
-                      <button onClick={()=>setEvoItems(its=>its.filter((_,j)=>j!==i))}
-                        className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0">
-                        <X size={12}/>
-                      </button>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 px-3 py-2.5">
-                    <div>
-                      <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Diente(s)</label>
-                      <input className="input py-1.5 text-sm" value={item.tooth}
-                        onChange={e=>setEvoItems(its=>its.map((x,j)=>j===i?{...x,tooth:e.target.value}:x))}
-                        placeholder="16, 17..."/>
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Costo ($)</label>
-                      <input className="input py-1.5 text-sm text-right" type="number" value={item.cost}
-                        onChange={e=>setEvoItems(its=>its.map((x,j)=>j===i?{...x,cost:e.target.value}:x))}
-                        placeholder="0"/>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* ── Vincular a presupuesto ── */}
-          {patient.budgets.filter(b=>b.status!=="rejected").length>0&&(
-            <div className="border border-primary-200 bg-primary-50/50 rounded-xl p-4 space-y-3">
-              <p className="text-xs font-semibold text-primary-700 uppercase tracking-wide">Vincular a presupuesto <span className="font-normal text-primary-400">(opcional)</span></p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="label text-xs">Presupuesto</label>
-                  <select className="select text-sm" value={evoBudgetId} onChange={e=>{ setEvoBudgetId(e.target.value); setEvoBudgetItemId(""); }}>
-                    <option value="">Ninguno</option>
-                    {patient.budgets.filter(b=>b.status!=="rejected").map(b=>(
-                      <option key={b.id} value={b.id}>#{b.number} — {fmt(b.total)}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="label text-xs">Ítem</label>
-                  <select className="select text-sm" value={evoBudgetItemId} disabled={!evoBudgetId}
-                    onChange={e=>{
-                      setEvoBudgetItemId(e.target.value);
-                      const item = selectedBudgetItems.find(i=>i.id===e.target.value);
-                      if(item) setEvoItems(its=>[{ ...its[0], treatment:item.description, tooth:item.tooth||"", cost:String(item.unitPrice) }, ...its.slice(1)]);
-                    }}>
-                    <option value="">Seleccionar...</option>
-                    {selectedBudgetItems.map(item=>(
-                      <option key={item.id} value={item.id}>{item.description}{item.tooth?` (D.${item.tooth})`:""}</option>
-                    ))}
-                  </select>
-                </div>
+            <label className="label font-semibold mb-2.5 block">Tratamientos a registrar *</label>
+            {allActiveBudgetItems.length === 0 ? (
+              <div className="border border-slate-200 rounded-xl bg-slate-50 p-5 text-center">
+                <p className="text-sm text-slate-500 mb-2">No hay tratamientos presupuestados pendientes.</p>
+                <button type="button" onClick={()=>{ setEvoModal(false); openBudgetCreate(); }}
+                  className="text-xs text-primary-600 underline hover:text-primary-800">
+                  Crear un presupuesto primero
+                </button>
               </div>
-              {evoBudgetItemId&&(
-                <div>
-                  <label className="label text-xs">Marcar ítem como</label>
-                  <div className="flex gap-2">
-                    {[{v:"in_progress",l:"En progreso"},{v:"completed",l:"Completado ✓"}].map(opt=>(
-                      <button key={opt.v} type="button"
-                        onClick={()=>setEvoItemStatus(opt.v)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${evoItemStatus===opt.v?"bg-primary-600 text-white border-primary-600":"bg-white text-slate-600 border-slate-300"}`}>
-                        {opt.l}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+            ) : (
+              <div className="space-y-2">
+                {allActiveBudgetItems.map(item => {
+                  const sel = evoBudgetSelections[item.id] ?? { selected:false, newStatus:item.status||"in_progress" };
+                  return (
+                    <div key={item.id} className={`border rounded-xl overflow-hidden transition-colors ${sel.selected?"border-primary-300 bg-primary-50/40":"border-slate-200 bg-white"}`}>
+                      <label className="px-3 py-2.5 flex items-center gap-2.5 cursor-pointer">
+                        <input type="checkbox" checked={sel.selected}
+                          onChange={e=>setEvoBudgetSelections(s=>({...s,[item.id]:{...(s[item.id]??{selected:false,newStatus:item.status||"in_progress"}),selected:e.target.checked}}))}
+                          className="w-4 h-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"/>
+                        <span className="text-xs text-slate-400 font-mono flex-shrink-0">#{item.budgetNumber}</span>
+                        <span className="flex-1 text-sm font-medium text-slate-900">{item.description}</span>
+                        {item.tooth && <span className="text-xs text-slate-400 flex-shrink-0">D.{item.tooth}</span>}
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${ITEM_STATUS[item.status||"pending"]?.color}`}>
+                          {ITEM_STATUS[item.status||"pending"]?.label}
+                        </span>
+                      </label>
+                      {sel.selected && (
+                        <div className="px-3 pb-2.5 flex items-center gap-2 border-t border-slate-100">
+                          <span className="text-xs text-slate-500 flex-shrink-0">Marcar como:</span>
+                          {[{v:"in_progress",l:"En proceso"},{v:"completed",l:"Terminado ✓"}].map(opt=>(
+                            <button key={opt.v} type="button"
+                              onClick={()=>setEvoBudgetSelections(s=>({...s,[item.id]:{...(s[item.id]??{selected:true,newStatus:"in_progress"}),newStatus:opt.v}}))}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${sel.newStatus===opt.v?"bg-primary-600 text-white border-primary-600":"bg-white text-slate-600 border-slate-300 hover:border-slate-400"}`}>
+                              {opt.l}
+                            </button>
+                          ))}
+                          <span className="ml-auto text-xs text-slate-400">{fmt(item.total)}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           {/* ── Observaciones ── */}
           <div>
@@ -1620,11 +1604,152 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
           </div>
         </div>
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 flex items-center justify-between gap-3">
-          <p className="text-xs text-slate-400">{evoItems.filter(i=>i.treatment.trim()).length} tratam. · {fmt(evoItems.reduce((s,i)=>s+parseFloat(i.cost||"0"),0))}</p>
+          <p className="text-xs text-slate-400">
+            {Object.values(evoBudgetSelections).filter(v=>v.selected).length} tratam. seleccionados
+          </p>
           <div className="flex gap-3">
             <button className="btn-secondary" onClick={()=>setEvoModal(false)}>Cancelar</button>
-            <button className="btn-primary" onClick={saveEvo} disabled={saving||!evoItems.some(i=>i.treatment.trim())||!evoForm.userId}>
+            <button className="btn-primary" onClick={saveEvo}
+              disabled={saving||!Object.values(evoBudgetSelections).some(v=>v.selected)||!evoForm.userId}>
               {saving?"Guardando...":"Guardar evolución"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ===== MODAL SOLICITUD RADIOGRAFÍA ===== */}
+      <Modal open={rxDocModal} onClose={()=>setRxDocModal(false)} title="Solicitud de Radiografía / Scanner" size="lg">
+        <div className="p-4 sm:p-6 space-y-4 overflow-y-auto max-h-[75vh]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-slate-50 rounded-xl p-3">
+              <p className="text-xs text-slate-500">Paciente</p>
+              <p className="font-semibold text-slate-900">{patient.firstName} {patient.lastName}</p>
+              <p className="text-xs text-slate-400 font-mono">{patient.rut}</p>
+            </div>
+            <div>
+              <label className="label text-xs">Profesional *</label>
+              <select className="select" value={rxDocUserId} onChange={e=>setRxDocUserId(e.target.value)}>
+                <option value="">Seleccionar...</option>
+                {users.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Exámenes */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="label font-semibold mb-0">Exámenes solicitados</label>
+              <button type="button" onClick={()=>setRxDocItems(i=>[...i,{type:"",zone:""}])}
+                className="flex items-center gap-1.5 text-xs font-medium text-sky-700 bg-sky-50 hover:bg-sky-100 px-2.5 py-1.5 rounded-lg transition-colors border border-sky-200">
+                <Plus size={12}/> Agregar
+              </button>
+            </div>
+            <div className="border border-slate-200 rounded-xl overflow-hidden">
+              <div className="grid grid-cols-12 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-100">
+                <div className="col-span-1">N°</div>
+                <div className="col-span-6">Tipo de Examen</div>
+                <div className="col-span-5">Zona / Diente</div>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {rxDocItems.map((item,i)=>(
+                  <div key={i} className="grid grid-cols-12 items-center px-3 py-2 gap-2">
+                    <span className="col-span-1 text-xs font-bold text-slate-400">{i+1}</span>
+                    <div className="col-span-6">
+                      <input className="input py-1.5 text-sm" value={item.type}
+                        onChange={e=>setRxDocItems(its=>its.map((x,j)=>j===i?{...x,type:e.target.value}:x))}
+                        placeholder="Rx periapical, Panorámica, TAC, Scanner..."/>
+                    </div>
+                    <div className="col-span-4">
+                      <input className="input py-1.5 text-sm" value={item.zone}
+                        onChange={e=>setRxDocItems(its=>its.map((x,j)=>j===i?{...x,zone:e.target.value}:x))}
+                        placeholder="Diente 16, sector posterior..."/>
+                    </div>
+                    {rxDocItems.length > 1 && (
+                      <button onClick={()=>setRxDocItems(its=>its.filter((_,j)=>j!==i))}
+                        className="col-span-1 w-6 h-6 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors">
+                        <X size={12}/>
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="label">Indicación clínica</label>
+            <textarea className="input resize-none text-sm" rows={2} value={rxDocIndication}
+              onChange={e=>setRxDocIndication(e.target.value)}
+              placeholder="Diagnóstico o motivo de la solicitud..."/>
+          </div>
+          <div>
+            <label className="label">Observaciones</label>
+            <textarea className="input resize-none text-sm" rows={2} value={rxDocObservations}
+              onChange={e=>setRxDocObservations(e.target.value)}
+              placeholder="Indicaciones especiales para el técnico..."/>
+          </div>
+        </div>
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 flex justify-between items-center gap-3 flex-wrap">
+          <button className="btn-secondary" onClick={()=>setRxDocModal(false)}>Cancelar</button>
+          <div className="flex gap-2">
+            <button disabled={rxDocPdfSending||!rxDocUserId} onClick={async()=>{
+              setRxDocPdfSending(true);
+              try {
+                const professional = users.find(u=>u.id===rxDocUserId);
+                const today = new Date().toLocaleDateString("es-CL",{day:"numeric",month:"long",year:"numeric"});
+                const fullName = `${patient.firstName} ${patient.lastName}`;
+                const bodyHtml = buildRadiografiaBody({
+                  professionalName: professional?.name??"",
+                  professionalRut:  professional?.rut??"",
+                  patientName: fullName,
+                  patientRut:  patient.rut,
+                  patientBirthDate: patient.birthDate?patient.birthDate.split("T")[0]:undefined,
+                  date: today,
+                  items: rxDocItems.filter(i=>i.type.trim()),
+                  indication: rxDocIndication,
+                  observations: rxDocObservations,
+                }, "/LOGO.jpeg");
+                setRxDocModal(false);
+                const win = window.open("","_blank","width=860,height=1100");
+                if(win){ win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/><title>Solicitud Rx</title><style>@page{margin:14mm;size:A4 portrait}*{box-sizing:border-box}body{font-family:'Times New Roman',Times,serif;font-size:11px;color:#1a1a1a;margin:0}b{font-weight:bold}@media print{.noprint{display:none!important}}</style></head><body>${bodyHtml}<button class="noprint" onclick="window.print()" style="position:fixed;top:14px;right:14px;padding:8px 18px;background:#1f4e79;color:white;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-family:sans-serif">🖨 Imprimir / PDF</button></body></html>`); win.document.close(); }
+              } catch(e){ showToast(`❌ Error: ${String(e)}`); }
+              setRxDocPdfSending(false);
+            }}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 font-medium disabled:opacity-40">
+              <Printer size={13}/> {rxDocPdfSending?"Generando...":"Imprimir / PDF"}
+            </button>
+            <button disabled={rxDocPdfSending||!rxDocUserId||!patient.email} onClick={async()=>{
+              if(!patient.email){ showToast("❌ El paciente no tiene email"); return; }
+              setRxDocPdfSending(true);
+              try {
+                const professional = users.find(u=>u.id===rxDocUserId);
+                const today = new Date().toLocaleDateString("es-CL",{day:"numeric",month:"long",year:"numeric"});
+                const fullName = `${patient.firstName} ${patient.lastName}`;
+                const bodyHtml = buildRadiografiaBody({
+                  professionalName: professional?.name??"",
+                  professionalRut:  professional?.rut??"",
+                  patientName: fullName,
+                  patientRut:  patient.rut,
+                  patientBirthDate: patient.birthDate?patient.birthDate.split("T")[0]:undefined,
+                  date: today,
+                  items: rxDocItems.filter(i=>i.type.trim()),
+                  indication: rxDocIndication,
+                  observations: rxDocObservations,
+                }, "/LOGO.jpeg");
+                const pdfBase64 = await generatePdfBase64(bodyHtml);
+                const filename  = `SolicitudRx_${patient.firstName}_${patient.lastName}`;
+                const bodyText  = `Estimado/a ${fullName}, adjuntamos su solicitud de radiografía/scanner. Saludos, Clínica Magna.`;
+                const r = await fetch("/api/send-document", { method:"POST", headers:{"Content-Type":"application/json"},
+                  body: JSON.stringify({ pdfBase64, to:patient.email, subject:"Solicitud de Radiografía / Scanner", filename, patientName:fullName, bodyText }) });
+                const d = await r.json();
+                showToast(d.ok?"✅ Solicitud enviada por email":`❌ ${d.error}`);
+                setRxDocModal(false);
+              } catch(e){ showToast(`❌ Error: ${String(e)}`); }
+              setRxDocPdfSending(false);
+            }}
+              title={!patient.email?"El paciente no tiene email":undefined}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 font-medium disabled:opacity-40 disabled:cursor-not-allowed">
+              <Mail size={13}/> Enviar por email
             </button>
           </div>
         </div>
@@ -2051,16 +2176,34 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                   <thead className="bg-slate-50"><tr>
                     <th className="text-left px-4 py-2.5 text-xs text-slate-500">Tratamiento</th>
                     <th className="text-center px-3 py-2.5 text-xs text-slate-500 hidden sm:table-cell">Diente/Área</th>
-                    <th className="text-center px-3 py-2.5 text-xs text-slate-500">Cant.</th>
-                    <th className="text-right px-3 py-2.5 text-xs text-slate-500 hidden sm:table-cell">P. Unit.</th>
+                    <th className="text-center px-3 py-2.5 text-xs text-slate-500">Estado</th>
                     <th className="text-right px-4 py-2.5 text-xs text-slate-500">Total</th>
                   </tr></thead>
                   <tbody>{db.items.map(item=>(
                     <tr key={item.id} className="border-t border-slate-100">
                       <td className="px-4 py-2.5 text-slate-700">{item.description}</td>
                       <td className="px-3 py-2.5 text-center text-slate-500 hidden sm:table-cell">{item.tooth||item.area||"—"}</td>
-                      <td className="px-3 py-2.5 text-center text-slate-500">{item.quantity}</td>
-                      <td className="px-3 py-2.5 text-right text-slate-600 hidden sm:table-cell">{fmt(item.unitPrice)}</td>
+                      <td className="px-3 py-2.5 text-center">
+                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ITEM_STATUS[item.status||"pending"]?.color}`}>
+                            {ITEM_STATUS[item.status||"pending"]?.label}
+                          </span>
+                          {item.status === "completed" && (
+                            <button onClick={()=>updateItemStatus(item.id,"in_progress")}
+                              title="Revertir a En proceso"
+                              className="text-xs px-1.5 py-0.5 rounded border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors flex-shrink-0">
+                              Reactivar
+                            </button>
+                          )}
+                          {item.status !== "completed" && (
+                            <button onClick={()=>updateItemStatus(item.id,"completed")}
+                              title="Marcar como Terminado"
+                              className="text-xs px-1.5 py-0.5 rounded border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors flex-shrink-0">
+                              Terminado
+                            </button>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-4 py-2.5 text-right font-semibold">{fmt(item.total)}</td>
                     </tr>
                   ))}</tbody>

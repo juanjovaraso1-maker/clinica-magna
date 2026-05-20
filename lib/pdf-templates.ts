@@ -293,3 +293,69 @@ export function buildIndicacionesBody(data: IndicacionesData, logoSrc?: string):
 export function buildIndicacionesHTML(data: IndicacionesData, logoSrc?: string): string {
   return wrapHtml("Indicaciones Post-Procedimiento", buildIndicacionesBody(data, logoSrc));
 }
+
+// ── SOLICITUD DE RADIOGRAFÍA / SCANNER ───────────────────────
+
+export interface RxDocItem { type: string; zone: string; }
+export interface RadiografiaData {
+  professionalName: string; professionalRut?: string;
+  patientName: string; patientRut?: string; patientBirthDate?: string;
+  date: string;
+  items: RxDocItem[];
+  indication?: string;
+  observations?: string;
+}
+
+export function buildRadiografiaBody(data: RadiografiaData, logoSrc?: string): string {
+  const TH = `padding:6px 7px;border:1px solid #1f4e79;font-size:10px;text-align:center;background:#1f4e79;color:white;font-weight:bold`;
+  const rows = data.items.map((it, i) => `
+    <tr style="background:${i % 2 === 0 ? "#fff" : "#f0f6ff"}">
+      <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px;font-weight:bold">${i + 1}</td>
+      <td style="padding:5px 7px;border:1px solid #bcd2e8;font-size:10.5px;font-weight:bold;text-transform:uppercase">${it.type || ""}</td>
+      <td style="padding:5px 7px;border:1px solid #bcd2e8;font-size:10.5px">${it.zone || ""}</td>
+    </tr>
+  `).join("");
+
+  const emptyRows = Array.from({ length: Math.max(0, 5 - data.items.length) }, (_, i) => `
+    <tr style="background:${(data.items.length + i) % 2 === 0 ? "#fff" : "#f0f6ff"}">
+      <td style="padding:5px 7px;border:1px solid #bcd2e8;height:22px;text-align:center;font-size:10px;color:#ccc">${data.items.length + i + 1}</td>
+      <td style="border:1px solid #bcd2e8"></td>
+      <td style="border:1px solid #bcd2e8"></td>
+    </tr>
+  `).join("");
+
+  return `
+    ${clinicHeader(logoSrc)}
+    <div style="text-align:center;margin:14px 0 10px">
+      <div style="font-size:17px;font-weight:bold;letter-spacing:1px">SOLICITUD DE RADIOGRAFÍA / SCANNER</div>
+    </div>
+    ${profPatTable(
+      { name: data.professionalName, rut: data.professionalRut },
+      { name: data.patientName, rut: data.patientRut, date: data.date,
+        extra: data.patientBirthDate ? [{ label: "Fecha nac.", value: data.patientBirthDate }] : [] }
+    )}
+    <table style="width:100%;border-collapse:collapse;margin:4px 0 14px">
+      <thead><tr>
+        <th style="${TH};width:5%">N°</th>
+        <th style="${TH};text-align:left;width:55%">Tipo de Examen Solicitado</th>
+        <th style="${TH};text-align:left;width:40%">Zona / Diente</th>
+      </tr></thead>
+      <tbody>${rows}${emptyRows}</tbody>
+    </table>
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:bold;color:#2e75b6;margin-bottom:5px">INDICACIÓN CLÍNICA:</div>
+      <div style="border:1px solid #bcd2e8;min-height:50px;padding:8px;background:#fff;font-size:10.5px">${data.indication ?? ""}</div>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:bold;color:#2e75b6;margin-bottom:5px">OBSERVACIONES:</div>
+      <div style="border:1px solid #bcd2e8;min-height:40px;padding:8px;background:#fff;font-size:10.5px">${data.observations ?? ""}</div>
+    </div>
+    ${docFooter("Firma y Timbre Profesional", "Clínica Magna")}
+    <div style="margin-top:16px;text-align:center;font-size:9px;color:#888;border-top:1px solid #eee;padding-top:8px">
+      Clínica Magna &nbsp;|&nbsp; Solicitud de Radiografía/Scanner &nbsp;|&nbsp; ${CLINIC.address}
+    </div>`;
+}
+
+export function buildRadiografiaHTML(data: RadiografiaData, logoSrc?: string): string {
+  return wrapHtml("Solicitud de Radiografía / Scanner", buildRadiografiaBody(data, logoSrc));
+}

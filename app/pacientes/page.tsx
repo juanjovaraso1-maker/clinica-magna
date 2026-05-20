@@ -399,6 +399,11 @@ export default function Pacientes() {
             <div>
               <label className="label">Fecha de nacimiento</label>
               <input className="input" type="date" value={form.birthDate} onChange={(e) => set("birthDate", e.target.value)} />
+              {form.birthDate && (
+                <p className="text-xs text-primary-600 font-medium mt-1.5">
+                  {Math.floor((Date.now() - new Date(form.birthDate + "T12:00:00").getTime()) / (1000 * 60 * 60 * 24 * 365.25))} años
+                </p>
+              )}
             </div>
             <div>
               <label className="label">Previsión de salud</label>

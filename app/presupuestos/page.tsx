@@ -773,9 +773,11 @@ function PresupuestosContent() {
           </div>
 
           {/* ── Convenio ── */}
-          {convenios.length > 0 && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex items-center gap-3 flex-wrap">
-              <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wide flex-shrink-0">Convenio</span>
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex items-center gap-3 flex-wrap">
+            <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wide flex-shrink-0">Convenio</span>
+            {convenios.length === 0 ? (
+              <span className="text-xs text-emerald-600 italic">Sin convenios creados — <a href="/administracion/convenios" className="underline hover:text-emerald-800">crear uno en Administración</a></span>
+            ) : (
               <select className="select flex-1 py-1.5 text-sm border-emerald-300 focus:ring-emerald-500 bg-white"
                 defaultValue=""
                 onChange={e => {
@@ -790,8 +792,8 @@ function PresupuestosContent() {
                   </option>
                 ))}
               </select>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* ── Ítems ── */}
           <div>
