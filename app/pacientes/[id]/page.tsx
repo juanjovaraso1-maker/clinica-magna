@@ -491,7 +491,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     setEvoBudgetSelections(selections);
     setEvoForm({ date:new Date().toISOString().split("T")[0], diagnosis:"", observations:"", userId:"" });
     setEvoReminder(0);
-    openEvoModal();
+    setEvoModal(true);
   }
 
   async function saveEvo() {
