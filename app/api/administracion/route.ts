@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   const endDate   = new Date(year, mon, 0).toISOString().split("T")[0]; // last day of month
 
   const [users, commissionsRow, evolutions] = await Promise.all([
-    prisma.user.findMany({ orderBy: { name: "asc" } }),
+    prisma.user.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.clinicConfig.findUnique({ where: { key: "doctor_commissions" } }),
     prisma.evolution.findMany({
       where: { date: { gte: startDate, lte: endDate } },

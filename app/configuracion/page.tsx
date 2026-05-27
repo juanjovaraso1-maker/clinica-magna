@@ -243,7 +243,7 @@ export default function Configuracion() {
           {/* User cards grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {users.map(u => {
-              const role = ROLE_META[u.role] ?? ROLE_META.dentist;
+              const role = ROLE_META[u.role] ?? ROLE_META.DENTIST;
               return (
                 <div key={u.id} className={`card p-4 flex gap-4 items-start ${!u.active ? "opacity-60" : ""}`}>
                   <div className={`w-12 h-12 rounded-xl ${role.avatarBg} flex items-center justify-center flex-shrink-0`}>
@@ -473,13 +473,13 @@ export default function Configuracion() {
         <div className="p-6 space-y-4">
           {/* Preview card */}
           {form.name && (
-            <div className={`flex items-center gap-3 p-3 rounded-xl ${(ROLE_META[form.role] ?? ROLE_META.dentist).bg}`}>
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${(ROLE_META[form.role] ?? ROLE_META.dentist).avatarBg}`}>
+            <div className={`flex items-center gap-3 p-3 rounded-xl ${(ROLE_META[form.role] ?? ROLE_META.DENTIST).bg}`}>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${(ROLE_META[form.role] ?? ROLE_META.DENTIST).avatarBg}`}>
                 <span className="text-white text-sm font-bold">{initials(form.name)}</span>
               </div>
               <div>
                 <p className="font-semibold text-slate-900 text-sm">{form.name}</p>
-                <p className="text-xs text-slate-500">{(ROLE_META[form.role] ?? ROLE_META.dentist).label}{form.specialty ? ` · ${form.specialty}` : ""}</p>
+                <p className="text-xs text-slate-500">{(ROLE_META[form.role] ?? ROLE_META.DENTIST).label}{form.specialty ? ` · ${form.specialty}` : ""}</p>
               </div>
             </div>
           )}
