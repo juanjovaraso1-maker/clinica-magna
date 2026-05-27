@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import {
   CheckCircle2, XCircle, Stethoscope, Clock, Calendar,
   User, MapPin, Phone, CalendarPlus, ArrowLeft, AlertCircle,
@@ -66,6 +66,8 @@ function downloadICS(appt: Appointment) {
 
 export default function ConfirmarCita() {
   const { token } = useParams<{ token: string }>();
+  const searchParams = useSearchParams();
+  const action = searchParams.get("action"); // "confirm" | "cancel" | "reject" | null
   const [status, setStatus] = useState<PageStatus>("loading");
   const [step, setStep] = useState<Step>("view");
   const [appt, setAppt] = useState<Appointment | null>(null);
@@ -79,13 +81,37 @@ export default function ConfirmarCita() {
         const data = await r.json();
         if (data.error) { setStatus("error"); return; }
         setAppt(data.appointment);
-        setStatus(data.status);
+
+        // If already processed, just show the final state
+        if (data.status !== "pending") {
+          setStatus(data.status);
+          return;
+        }
+
+        // Pending: check action from URL to decide what to do
+        if (action === "confirm") {
+          // Auto-confirm without requiring a second click
+          const r2 = await fetch("/api/appointments/confirm", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token, action: "confirm" }),
+          });
+          const d2 = await r2.json();
+          setAppt(d2.appointment);
+          setStatus(d2.status === "already" ? "already" : "confirmed");
+        } else if (action === "cancel" || action === "reject") {
+          // Jump straight to the cancel form
+          setStatus("pending");
+          setStep("cancel-prompt");
+        } else {
+          setStatus("pending");
+        }
       } catch {
         setStatus("error");
       }
     }
     load();
-  }, [token]);
+  }, [token, action]);
 
   async function confirm() {
     setActing(true);

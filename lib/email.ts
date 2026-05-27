@@ -55,7 +55,7 @@ export function buildReminderHtml(cfg: Record<string, string>, data: {
       <p style="color:#374151;margin-top:20px">Por favor confirme su asistencia:</p>
       <div style="text-align:center;margin:16px 0">
         <a href="${confirmUrl}?action=confirm" style="background:#16a34a;color:white;padding:10px 24px;border-radius:8px;text-decoration:none;margin:0 8px;display:inline-block">✓ Confirmar</a>
-        <a href="${confirmUrl}?action=reject" style="background:#dc2626;color:white;padding:10px 24px;border-radius:8px;text-decoration:none;margin:0 8px;display:inline-block">✗ Cancelar</a>
+        <a href="${confirmUrl}?action=cancel" style="background:#dc2626;color:white;padding:10px 24px;border-radius:8px;text-decoration:none;margin:0 8px;display:inline-block">✗ Cancelar</a>
       </div>
       ` : ""}
     </div>
