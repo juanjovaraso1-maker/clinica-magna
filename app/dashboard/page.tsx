@@ -82,9 +82,9 @@ const METHOD_ICON: Record<string, React.ReactNode> = {
 const CustomTooltipIncome = ({ active, payload, label }: any) => {
   if (active && payload?.length) {
     return (
-      <div className="bg-white border border-slate-200 rounded-xl shadow-lg px-3 py-2 text-xs">
-        <p className="font-semibold text-slate-700 mb-1 capitalize">{label}</p>
-        <p className="text-primary-700">Ingresos: <span className="font-bold">{fmt(payload[0].value)}</span></p>
+      <div className="bg-white border border-[#E3E8F0] rounded-[10px] shadow-card px-3 py-2 text-xs">
+        <p className="font-semibold text-[#1A1D2E] mb-1 capitalize">{label}</p>
+        <p className="text-[#0057FF]">Ingresos: <span className="font-bold">{fmt(payload[0].value)}</span></p>
       </div>
     );
   }
@@ -94,10 +94,10 @@ const CustomTooltipIncome = ({ active, payload, label }: any) => {
 const CustomTooltipWeek = ({ active, payload, label }: any) => {
   if (active && payload?.length) {
     return (
-      <div className="bg-white border border-slate-200 rounded-xl shadow-lg px-3 py-2 text-xs">
-        <p className="font-semibold text-slate-700 mb-1 capitalize">{label}</p>
-        <p className="text-primary-600">Citas: <span className="font-bold">{payload[0]?.value}</span></p>
-        <p className="text-emerald-600">Completadas: <span className="font-bold">{payload[1]?.value}</span></p>
+      <div className="bg-white border border-[#E3E8F0] rounded-[10px] shadow-card px-3 py-2 text-xs">
+        <p className="font-semibold text-[#1A1D2E] mb-1 capitalize">{label}</p>
+        <p className="text-[#9AA0B4]">Citas: <span className="font-bold text-[#5A6072]">{payload[0]?.value}</span></p>
+        <p className="text-[#00A86B]">Completadas: <span className="font-bold">{payload[1]?.value}</span></p>
       </div>
     );
   }
@@ -171,80 +171,86 @@ export default function Dashboard() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="card p-4 sm:p-5 bg-gradient-to-br from-white to-primary-50/40 border-primary-100/60 hover:shadow-card-hover transition-shadow">
-          <div className="flex items-start justify-between gap-3">
+        {/* Pacientes */}
+        <div className="card p-4 sm:p-5 overflow-hidden relative">
+          <div className="absolute top-0 left-0 right-0 h-[3px] bg-[#0057FF] rounded-t-[10px]" />
+          <div className="flex items-start justify-between gap-3 mt-1">
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Pacientes</p>
-              <p className="text-2xl sm:text-3xl font-bold text-slate-900 mt-1.5 tracking-tight">{data.totalPatients}</p>
-              <p className="text-xs text-emerald-600 mt-1.5 flex items-center gap-0.5 font-medium">
+              <p className="text-[10.5px] text-[#9AA0B4] uppercase tracking-[0.6px] font-semibold">Pacientes</p>
+              <p className="text-[26px] sm:text-[30px] font-bold text-[#1A1D2E] mt-1 leading-none tracking-tight">{data.totalPatients}</p>
+              <p className="text-[11.5px] text-[#00A86B] mt-1.5 flex items-center gap-0.5 font-medium">
                 <ArrowUpRight size={12} /> +{data.newPatientsMonth} este mes
               </p>
             </div>
-            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-primary-100 flex items-center justify-center flex-shrink-0 shadow-sm">
-              <Users className="w-5 h-5 sm:w-6 sm:h-6 text-primary-700" />
+            <div className="w-10 h-10 rounded-[10px] bg-[#EEF3FF] flex items-center justify-center flex-shrink-0">
+              <Users className="w-5 h-5 text-[#0057FF]" />
             </div>
           </div>
         </div>
 
-        <div className="card p-4 sm:p-5 bg-gradient-to-br from-white to-blue-50/40 border-blue-100/60 hover:shadow-card-hover transition-shadow">
-          <div className="flex items-start justify-between gap-3">
+        {/* Citas Hoy */}
+        <div className="card p-4 sm:p-5 overflow-hidden relative">
+          <div className="absolute top-0 left-0 right-0 h-[3px] bg-[#7C3AED] rounded-t-[10px]" />
+          <div className="flex items-start justify-between gap-3 mt-1">
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Citas Hoy</p>
-              <p className="text-2xl sm:text-3xl font-bold text-slate-900 mt-1.5 tracking-tight">{data.todayAppointments.length}</p>
-              <div className="flex gap-1.5 mt-1.5 flex-wrap">
+              <p className="text-[10.5px] text-[#9AA0B4] uppercase tracking-[0.6px] font-semibold">Citas Hoy</p>
+              <p className="text-[26px] sm:text-[30px] font-bold text-[#1A1D2E] mt-1 leading-none tracking-tight">{data.todayAppointments.length}</p>
+              <div className="flex gap-2 mt-1.5 flex-wrap">
                 {data.statusCount.confirmed > 0 && (
-                  <span className="text-xs text-blue-600 font-medium">{data.statusCount.confirmed} conf.</span>
+                  <span className="text-[11.5px] text-[#00A86B] font-medium">{data.statusCount.confirmed} conf.</span>
                 )}
                 {data.statusCount.completed > 0 && (
-                  <span className="text-xs text-slate-400">{data.statusCount.completed} compl.</span>
-                )}
-                {data.statusCount.scheduled > 0 && (
-                  <span className="text-xs text-primary-600 font-medium">{data.statusCount.scheduled} agend.</span>
+                  <span className="text-[11.5px] text-[#9AA0B4]">{data.statusCount.completed} compl.</span>
                 )}
               </div>
             </div>
-            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-blue-100 flex items-center justify-center flex-shrink-0 shadow-sm">
-              <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+            <div className="w-10 h-10 rounded-[10px] bg-[#EDE9FE] flex items-center justify-center flex-shrink-0">
+              <Calendar className="w-5 h-5 text-[#7C3AED]" />
             </div>
           </div>
         </div>
 
-        <div className="card p-4 sm:p-5 bg-gradient-to-br from-white to-emerald-50/40 border-emerald-100/60 hover:shadow-card-hover transition-shadow">
-          <div className="flex items-start justify-between gap-3">
+        {/* Ingresos */}
+        <div className="card p-4 sm:p-5 overflow-hidden relative">
+          <div className="absolute top-0 left-0 right-0 h-[3px] bg-[#00A86B] rounded-t-[10px]" />
+          <div className="flex items-start justify-between gap-3 mt-1">
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Ingresos Mes</p>
-              <p className="text-xl sm:text-2xl font-bold text-emerald-700 mt-1.5 tracking-tight">{fmtShort(data.monthIncome)}</p>
+              <p className="text-[10.5px] text-[#9AA0B4] uppercase tracking-[0.6px] font-semibold">Ingresos Mes</p>
+              <p className="text-[22px] sm:text-[26px] font-bold text-[#00A86B] mt-1 leading-none tracking-tight">{fmtShort(data.monthIncome)}</p>
               {incomeTrend !== null ? (
-                <p className={`text-xs mt-1.5 flex items-center gap-0.5 font-medium ${incomeTrend >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                <p className={`text-[11.5px] mt-1.5 flex items-center gap-0.5 font-medium ${incomeTrend >= 0 ? "text-[#00A86B]" : "text-[#E53935]"}`}>
                   {incomeTrend >= 0
                     ? <><ArrowUpRight size={12} />+{incomeTrend}%</>
                     : <><ArrowDownRight size={12} />{incomeTrend}%</>
                   }
+                  &nbsp;vs mes ant.
                 </p>
               ) : (
-                <p className="text-xs text-slate-400 mt-1.5">Neto {fmtShort(net)}</p>
+                <p className="text-[11.5px] text-[#9AA0B4] mt-1.5">Neto {fmtShort(net)}</p>
               )}
             </div>
-            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-emerald-100 flex items-center justify-center flex-shrink-0 shadow-sm">
+            <div className="w-10 h-10 rounded-[10px] bg-[#E6F7F1] flex items-center justify-center flex-shrink-0">
               {incomeTrend === null || incomeTrend >= 0
-                ? <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600" />
-                : <TrendingDown className="w-5 h-5 sm:w-6 sm:h-6 text-red-500" />
+                ? <TrendingUp className="w-5 h-5 text-[#00A86B]" />
+                : <TrendingDown className="w-5 h-5 text-[#E53935]" />
               }
             </div>
           </div>
         </div>
 
-        <div className="card p-4 sm:p-5 bg-gradient-to-br from-white to-red-50/30 border-red-100/60 hover:shadow-card-hover transition-shadow">
-          <div className="flex items-start justify-between gap-3">
+        {/* Deudas */}
+        <div className="card p-4 sm:p-5 overflow-hidden relative">
+          <div className="absolute top-0 left-0 right-0 h-[3px] bg-[#E53935] rounded-t-[10px]" />
+          <div className="flex items-start justify-between gap-3 mt-1">
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Deudas</p>
-              <p className="text-xl sm:text-2xl font-bold text-red-600 mt-1.5 tracking-tight">{fmtShort(data.totalDebt)}</p>
-              <p className="text-xs text-slate-400 mt-1.5 font-medium">
+              <p className="text-[10.5px] text-[#9AA0B4] uppercase tracking-[0.6px] font-semibold">Deudas</p>
+              <p className="text-[22px] sm:text-[26px] font-bold text-[#E53935] mt-1 leading-none tracking-tight">{fmtShort(data.totalDebt)}</p>
+              <p className="text-[11.5px] text-[#9AA0B4] mt-1.5">
                 {data.debtorCount} pac. · {data.pendingBudgets} presup.
               </p>
             </div>
-            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-red-100 flex items-center justify-center flex-shrink-0 shadow-sm">
-              <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-red-500" />
+            <div className="w-10 h-10 rounded-[10px] bg-[#FDECEA] flex items-center justify-center flex-shrink-0">
+              <AlertTriangle className="w-5 h-5 text-[#E53935]" />
             </div>
           </div>
         </div>
@@ -266,15 +272,15 @@ export default function Dashboard() {
             <AreaChart data={data.monthlyChart} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="incomeGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3a6439" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#3a6439" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#0057FF" stopOpacity={0.18} />
+                  <stop offset="95%" stopColor="#0057FF" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickFormatter={fmtShort} width={48} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#E3E8F0" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#9AA0B4" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: "#9AA0B4" }} axisLine={false} tickLine={false} tickFormatter={fmtShort} width={48} />
               <Tooltip content={<CustomTooltipIncome />} />
-              <Area type="monotone" dataKey="income" stroke="#3a6439" strokeWidth={2.5} fill="url(#incomeGrad)" dot={{ fill: "#3a6439", strokeWidth: 0, r: 3.5 }} activeDot={{ r: 6, fill: "#3a6439", strokeWidth: 2, stroke: "#fff" }} />
+              <Area type="monotone" dataKey="income" stroke="#0057FF" strokeWidth={2} fill="url(#incomeGrad)" dot={{ fill: "#0057FF", strokeWidth: 0, r: 3 }} activeDot={{ r: 5, fill: "#0057FF", strokeWidth: 2, stroke: "#fff" }} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -295,13 +301,13 @@ export default function Dashboard() {
               <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} width={20} />
               <Tooltip content={<CustomTooltipWeek />} />
-              <Bar dataKey="citas" fill="#bad5b6" radius={[6, 6, 0, 0]} maxBarSize={22} />
-              <Bar dataKey="completadas" fill="#3a6439" radius={[6, 6, 0, 0]} maxBarSize={22} />
+              <Bar dataKey="citas" fill="#E3E8F0" radius={[6, 6, 0, 0]} maxBarSize={22} />
+              <Bar dataKey="completadas" fill="#0057FF" radius={[6, 6, 0, 0]} maxBarSize={22} />
             </BarChart>
           </ResponsiveContainer>
           <div className="flex gap-4 mt-2 justify-center">
-            <div className="flex items-center gap-1.5 text-xs text-slate-500"><span className="w-3 h-3 rounded-sm bg-primary-200 inline-block" /><span>Agendadas</span></div>
-            <div className="flex items-center gap-1.5 text-xs text-slate-500"><span className="w-3 h-3 rounded-sm bg-primary-500 inline-block" /><span>Completadas</span></div>
+            <div className="flex items-center gap-1.5 text-[11px] text-[#9AA0B4]"><span className="w-3 h-2 rounded-sm bg-[#E3E8F0] inline-block" /><span>Agendadas</span></div>
+            <div className="flex items-center gap-1.5 text-[11px] text-[#9AA0B4]"><span className="w-3 h-2 rounded-sm bg-[#0057FF] inline-block" /><span>Completadas</span></div>
           </div>
         </div>
       </div>

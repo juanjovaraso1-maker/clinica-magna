@@ -197,51 +197,55 @@ export default function Finanzas() {
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="card p-4">
-          <div className="flex items-start justify-between">
+        <div className="card p-4 overflow-hidden relative">
+          <div className="absolute top-0 left-0 right-0 h-[3px] bg-[#00A86B]" />
+          <div className="flex items-start justify-between mt-1">
             <div>
-              <p className="text-xs text-muted uppercase tracking-wide">Ingresos</p>
-              <p className="text-xl font-bold text-emerald-700 mt-1">{fmtShort(income)}</p>
-              <p className="text-xs text-slate-400 mt-0.5">{payments.length} cobros</p>
+              <p className="text-[10.5px] text-[#9AA0B4] uppercase tracking-[0.6px] font-semibold">Ingresos</p>
+              <p className="text-[22px] font-bold text-[#00A86B] mt-1 leading-none tracking-tight">{fmtShort(income)}</p>
+              <p className="text-[11.5px] text-[#9AA0B4] mt-1">{payments.length} cobros</p>
             </div>
-            <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
-              <TrendingUp size={18} className="text-emerald-600" />
+            <div className="w-9 h-9 rounded-[10px] bg-[#E6F7F1] flex items-center justify-center flex-shrink-0">
+              <TrendingUp size={17} className="text-[#00A86B]" />
             </div>
           </div>
         </div>
-        <div className="card p-4">
-          <div className="flex items-start justify-between">
+        <div className="card p-4 overflow-hidden relative">
+          <div className="absolute top-0 left-0 right-0 h-[3px] bg-[#E53935]" />
+          <div className="flex items-start justify-between mt-1">
             <div>
-              <p className="text-xs text-muted uppercase tracking-wide">Gastos</p>
-              <p className="text-xl font-bold text-red-600 mt-1">{fmtShort(expTotal)}</p>
-              <p className="text-xs text-slate-400 mt-0.5">{expenses.length} egresos</p>
+              <p className="text-[10.5px] text-[#9AA0B4] uppercase tracking-[0.6px] font-semibold">Gastos</p>
+              <p className="text-[22px] font-bold text-[#E53935] mt-1 leading-none tracking-tight">{fmtShort(expTotal)}</p>
+              <p className="text-[11.5px] text-[#9AA0B4] mt-1">{expenses.length} egresos</p>
             </div>
-            <div className="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0">
-              <TrendingDown size={18} className="text-red-600" />
+            <div className="w-9 h-9 rounded-[10px] bg-[#FDECEA] flex items-center justify-center flex-shrink-0">
+              <TrendingDown size={17} className="text-[#E53935]" />
             </div>
           </div>
         </div>
-        <div className="card p-4">
-          <div className="flex items-start justify-between">
+        <div className="card p-4 overflow-hidden relative">
+          <div className={`absolute top-0 left-0 right-0 h-[3px] ${net >= 0 ? "bg-[#00A86B]" : "bg-[#E53935]"}`} />
+          <div className="flex items-start justify-between mt-1">
             <div>
-              <p className="text-xs text-muted uppercase tracking-wide">Resultado neto</p>
-              <p className={`text-xl font-bold mt-1 ${net >= 0 ? "text-emerald-700" : "text-red-600"}`}>{fmtShort(net)}</p>
-              <p className="text-xs text-slate-400 mt-0.5">{net >= 0 ? "Superávit" : "Déficit"}</p>
+              <p className="text-[10.5px] text-[#9AA0B4] uppercase tracking-[0.6px] font-semibold">Resultado neto</p>
+              <p className={`text-[22px] font-bold mt-1 leading-none tracking-tight ${net >= 0 ? "text-[#00A86B]" : "text-[#E53935]"}`}>{fmtShort(net)}</p>
+              <p className="text-[11.5px] text-[#9AA0B4] mt-1">{net >= 0 ? "Superávit" : "Déficit"}</p>
             </div>
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${net >= 0 ? "bg-emerald-100" : "bg-red-100"}`}>
-              <DollarSign size={18} className={net >= 0 ? "text-emerald-600" : "text-red-600"} />
+            <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center flex-shrink-0 ${net >= 0 ? "bg-[#E6F7F1]" : "bg-[#FDECEA]"}`}>
+              <DollarSign size={17} className={net >= 0 ? "text-[#00A86B]" : "text-[#E53935]"} />
             </div>
           </div>
         </div>
-        <div className="card p-4">
-          <div className="flex items-start justify-between mb-2">
+        <div className="card p-4 overflow-hidden relative">
+          <div className="absolute top-0 left-0 right-0 h-[3px] bg-[#F59E0B]" />
+          <div className="flex items-start justify-between mb-2 mt-1">
             <div>
-              <p className="text-xs text-muted uppercase tracking-wide">Margen</p>
-              <p className={`text-xl font-bold mt-1 ${margin >= 0 ? "text-primary-700" : "text-red-600"}`}>{margin}%</p>
-              <p className="text-xs text-slate-400 mt-0.5">sobre ingresos</p>
+              <p className="text-[10.5px] text-[#9AA0B4] uppercase tracking-[0.6px] font-semibold">Margen</p>
+              <p className={`text-[22px] font-bold mt-1 leading-none tracking-tight ${margin >= 0 ? "text-[#F59E0B]" : "text-[#E53935]"}`}>{margin}%</p>
+              <p className="text-[11.5px] text-[#9AA0B4] mt-1">sobre ingresos</p>
             </div>
-            <div className="w-9 h-9 rounded-xl bg-primary-50 flex items-center justify-center flex-shrink-0">
-              <BarChart3 size={18} className="text-primary-600" />
+            <div className="w-9 h-9 rounded-[10px] bg-[#FEF3C7] flex items-center justify-center flex-shrink-0">
+              <BarChart3 size={17} className="text-[#F59E0B]" />
             </div>
           </div>
           <div className="w-full bg-slate-100 rounded-full h-1.5 mt-1">

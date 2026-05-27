@@ -14,7 +14,9 @@
       "Bash(node -e \"const p = require\\('./node_modules/nodemailer/package.json'\\); console.log\\(p.version\\)\")",
       "Bash(mkdir \"c:\\\\Users\\\\PC\\\\clinica-magna\\\\app\\\\api\\\\email-templates\\\\[type]\" 2>nul; echo done)",
       "Bash(mkdir \"c:\\\\Users\\\\PC\\\\clinica-magna\\\\app\\\\api\\\\reminders\\\\[id]\" 2>nul; echo done)",
-      "Bash(mkdir \"c:\\\\Users\\\\PC\\\\clinica-magna\\\\app\\\\api\\\\convenios\\\\[id]\" 2>nul; echo done)"
+      "Bash(mkdir \"c:\\\\Users\\\\PC\\\\clinica-magna\\\\app\\\\api\\\\convenios\\\\[id]\" 2>nul; echo done)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\PC\\clinica-magna\\app\\api\\auth",
