@@ -1222,13 +1222,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
       {/* ===== TAB 2: ODONTOGRAMA ===== */}
       {tab===2&&(
         <div className="card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="section-title">Odontograma Dental</h3>
-            <button onClick={saveOdontogram} disabled={oSaving} className="btn-primary text-xs">
-              <Save size={13}/> {oSaving?"Guardando...":"Guardar"}
-            </button>
-          </div>
-          <DentalChart data={odontogram} onChange={setOdontogram}/>
+          <DentalChart data={odontogram} onChange={setOdontogram} onSave={saveOdontogram} isSaving={oSaving}/>
         </div>
       )}
 
