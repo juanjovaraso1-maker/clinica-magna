@@ -203,6 +203,7 @@ export default function Administracion() {
     setDeleting(false);
     setDeleteTarget(null);
     loadUsers();
+    load(); // recarga también el tab Doctores
   }
 
   /* ADMIN guard */
@@ -343,87 +344,99 @@ export default function Administracion() {
         </div>
       )}
 
-      {/* ═══ DOCTORES (comisiones) ═══ */}
+      {/* ═══ DOCTORES (comisiones + gestión) ═══ */}
       {tab === 1 && (
         <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-slate-500">Gestiona doctores y su porcentaje de comisión.</p>
+            <button onClick={openCreate} className="btn-primary flex items-center gap-2">
+              <UserPlus size={16}/> Agregar doctor
+            </button>
+          </div>
           {!data ? (
             <div className="flex items-center justify-center h-40">
               <div className="w-7 h-7 border-2 border-primary-600 border-t-transparent rounded-full animate-spin"/>
             </div>
           ) : (
-            <>
-              <p className="text-sm text-slate-500">Configura el porcentaje de comisión global de cada profesional.</p>
-              <div className="card overflow-hidden">
-                <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 grid grid-cols-12 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  <div className="col-span-5">Profesional</div>
-                  <div className="col-span-3 hidden md:block">Especialidad</div>
-                  <div className="col-span-3 text-center">% Comisión</div>
-                  <div className="col-span-1"/>
-                </div>
-                <div className="divide-y divide-slate-100">
-                  {data.users.map(u => {
-                    const comm = data.commissions[u.id];
-                    const rate = comm?.global ?? 0;
-                    const isEditing = editingUserId === u.id;
-                    return (
-                      <div key={u.id} className="px-5 py-4 grid grid-cols-12 items-center gap-2">
-                        <div className="col-span-5 flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center flex-shrink-0">
-                            <span className="text-white text-sm font-bold">{initials(u.name)}</span>
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold text-slate-900">{u.name}</p>
-                            <p className="text-xs text-slate-500">{u.email}</p>
-                          </div>
+            <div className="card overflow-hidden">
+              <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 grid grid-cols-12 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                <div className="col-span-4">Profesional</div>
+                <div className="col-span-3 hidden md:block">Especialidad</div>
+                <div className="col-span-3 text-center">% Comisión</div>
+                <div className="col-span-2"/>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {data.users.map(u => {
+                  const comm = data.commissions[u.id];
+                  const rate = comm?.global ?? 0;
+                  const isEditing = editingUserId === u.id;
+                  return (
+                    <div key={u.id} className="px-5 py-4 grid grid-cols-12 items-center gap-2">
+                      <div className="col-span-4 flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center flex-shrink-0">
+                          <span className="text-white text-sm font-bold">{initials(u.name)}</span>
                         </div>
-                        <div className="col-span-3 hidden md:flex items-center gap-1.5">
-                          {u.specialty
-                            ? <span className="text-xs text-slate-600">{u.specialty}</span>
-                            : <span className="text-xs text-slate-300">—</span>}
-                        </div>
-                        <div className="col-span-3 flex items-center justify-center gap-2">
-                          {isEditing ? (
-                            <div className="flex items-center gap-1">
-                              <input type="number" min="0" max="100" step="0.5"
-                                className="w-16 text-center input text-sm py-1"
-                                value={editRate} onChange={e=>setEditRate(e.target.value)}
-                                onKeyDown={e=>{if(e.key==="Enter")saveCommission(u.id);if(e.key==="Escape")setEditingUserId(null);}}
-                                autoFocus/>
-                              <span className="text-slate-500 text-sm">%</span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-1.5">
-                              <span className={`text-lg font-bold ${rate>0?"text-primary-700":"text-slate-300"}`}>{rate}</span>
-                              <span className="text-slate-400 text-sm">%</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="col-span-1 flex justify-end">
-                          {isEditing ? (
-                            <div className="flex gap-1">
-                              <button disabled={saving} onClick={()=>saveCommission(u.id)} className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200">
-                                <Check size={14}/>
-                              </button>
-                              <button onClick={()=>setEditingUserId(null)} className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200">
-                                <X size={14}/>
-                              </button>
-                            </div>
-                          ) : (
-                            <button onClick={()=>{setEditingUserId(u.id);setEditRate(String(rate));}}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
-                              <Edit2 size={14}/>
-                            </button>
-                          )}
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{u.name}</p>
+                          <p className="text-xs text-slate-500">{u.email}</p>
                         </div>
                       </div>
-                    );
-                  })}
-                  {data.users.length === 0 && (
-                    <div className="px-5 py-10 text-center text-muted text-sm">No hay usuarios registrados.</div>
-                  )}
-                </div>
+                      <div className="col-span-3 hidden md:flex items-center gap-1.5">
+                        {u.specialty
+                          ? <span className="text-xs text-slate-600">{u.specialty}</span>
+                          : <span className="text-xs text-slate-300">—</span>}
+                      </div>
+                      <div className="col-span-3 flex items-center justify-center gap-2">
+                        {isEditing ? (
+                          <div className="flex items-center gap-1">
+                            <input type="number" min="0" max="100" step="0.5"
+                              className="w-16 text-center input text-sm py-1"
+                              value={editRate} onChange={e=>setEditRate(e.target.value)}
+                              onKeyDown={e=>{if(e.key==="Enter")saveCommission(u.id);if(e.key==="Escape")setEditingUserId(null);}}
+                              autoFocus/>
+                            <span className="text-slate-500 text-sm">%</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-lg font-bold ${rate>0?"text-primary-700":"text-slate-300"}`}>{rate}</span>
+                            <span className="text-slate-400 text-sm">%</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="col-span-2 flex items-center justify-end gap-1">
+                        {isEditing ? (
+                          <>
+                            <button disabled={saving} onClick={()=>saveCommission(u.id)} className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200">
+                              <Check size={14}/>
+                            </button>
+                            <button onClick={()=>setEditingUserId(null)} className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200">
+                              <X size={14}/>
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button onClick={()=>{setEditingUserId(u.id);setEditRate(String(rate));}}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                              title="Editar comisión">
+                              <Edit2 size={14}/>
+                            </button>
+                            <button
+                              onClick={() => setDeleteTarget({ id: u.id, name: u.name, username: null, role: u.role, active: u.active, createdAt: "" })}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                              title="Eliminar doctor">
+                              <Trash2 size={14}/>
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {data.users.length === 0 && (
+                  <div className="px-5 py-10 text-center text-muted text-sm">No hay doctores registrados.</div>
+                )}
               </div>
-            </>
+            </div>
           )}
         </div>
       )}

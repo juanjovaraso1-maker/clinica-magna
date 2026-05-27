@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 
-type User = { id: string; name: string; email: string; rut?: string; role: string; specialty: string | null; active: boolean };
+type User = { id: string; name: string; email: string; rut?: string; username?: string; role: string; specialty: string | null; active: boolean };
 
 const TABS = [
   { key: "general",  label: "General",   icon: Building2 },
@@ -22,9 +22,9 @@ const SPECIALTIES = [
 ];
 
 const ROLE_META: Record<string, { label: string; color: string; bg: string; avatarBg: string }> = {
-  dentist:      { label: "Dentista",       color: "text-primary-700", bg: "bg-primary-100",  avatarBg: "bg-primary-600" },
-  admin:        { label: "Administrador",  color: "text-violet-700",  bg: "bg-violet-100",   avatarBg: "bg-violet-600"  },
-  receptionist: { label: "Recepcionista",  color: "text-blue-700",    bg: "bg-blue-100",     avatarBg: "bg-blue-600"    },
+  DENTIST:      { label: "Dentista",       color: "text-primary-700", bg: "bg-primary-100",  avatarBg: "bg-primary-600" },
+  ADMIN:        { label: "Administrador",  color: "text-violet-700",  bg: "bg-violet-100",   avatarBg: "bg-violet-600"  },
+  RECEPTIONIST: { label: "Recepcionista",  color: "text-blue-700",    bg: "bg-blue-100",     avatarBg: "bg-blue-600"    },
 };
 
 const DAYS = [
@@ -50,7 +50,7 @@ const DEFAULT_SCHEDULE: Schedule = {
   sun: { enabled: false, open: "09:00", close: "13:00" },
 };
 
-const EMPTY_USER = { name: "", email: "", rut: "", role: "dentist", specialty: "", username: "", password: "" };
+const EMPTY_USER = { name: "", email: "", rut: "", role: "DENTIST", specialty: "", username: "", password: "" };
 
 function initials(name: string) {
   return name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
@@ -94,7 +94,7 @@ export default function Configuracion() {
 
   function openNew() { setForm(EMPTY_USER); setEditing(null); setFormError(""); setUserModal(true); }
   function openEdit(u: User) {
-    setForm({ name: u.name, email: u.email, rut: u.rut || "", role: u.role, specialty: u.specialty || "" });
+    setForm({ name: u.name, email: u.email, rut: u.rut || "", role: u.role, specialty: u.specialty || "", username: u.username || "", password: "" });
     setEditing(u); setFormError(""); setUserModal(true);
   }
 
@@ -525,9 +525,9 @@ export default function Configuracion() {
             <div>
               <label className="label">Rol</label>
               <select className="select" value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
-                <option value="dentist">Dentista</option>
-                <option value="admin">Administrador</option>
-                <option value="receptionist">Recepcionista</option>
+                <option value="DENTIST">Dentista</option>
+                <option value="ADMIN">Administrador</option>
+                <option value="RECEPTIONIST">Recepcionista</option>
               </select>
             </div>
             <div>
