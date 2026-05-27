@@ -1285,40 +1285,58 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
               <button onClick={()=>openEvoModal()} className="btn-primary text-sm mt-4"><Plus size={14}/> Primera evolución</button>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2 relative pl-3">
               {patient.evolutions.map((e,idx)=>(
-                <div key={e.id} className="card p-4">
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <div className="flex items-center gap-2 flex-wrap flex-1">
-                      <span className="text-xs font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-medium">{e.date}</span>
-                      <span className="text-xs text-slate-500 font-medium">{e.user.name}</span>
-                      {e.tooth && <span className="text-[11px] bg-primary-50 text-primary-700 border border-primary-100 px-2 py-0.5 rounded-full font-medium">D.{e.tooth}</span>}
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {e.cost > 0 && <p className="text-sm font-bold text-emerald-700">{fmt(e.cost)}</p>}
-                      {isAdmin && (
-                        <button onClick={()=>deleteEvolution(e.id)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors">
-                          <Trash2 size={13}/>
-                        </button>
-                      )}
-                    </div>
+                <div key={e.id} className="flex gap-4 pb-6 relative">
+                  {/* Línea vertical timeline */}
+                  <div className="flex flex-col items-center flex-shrink-0">
+                    <div className="w-[10px] h-[10px] rounded-full bg-[#0057FF] mt-1 flex-shrink-0 border-2 border-white shadow-sm z-10" />
+                    {idx < patient.evolutions.length - 1 && (
+                      <div className="w-px flex-1 bg-[#E3E8F0] mt-1" />
+                    )}
                   </div>
-                  {e.diagnosis && (
-                    <p className="text-sm text-slate-700 mb-1">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-400 mr-1.5">Dx</span>
-                      {e.diagnosis}
-                    </p>
-                  )}
-                  <p className="text-sm text-slate-900 font-medium">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-400 mr-1.5">Tx</span>
-                    {e.treatment}
-                  </p>
-                  {e.observations && (
-                    <p className="text-xs text-slate-500 mt-2 pt-2 border-t border-slate-100 italic leading-relaxed">{e.observations}</p>
-                  )}
-                  {idx < patient.evolutions.length - 1 && (
-                    <div className="absolute left-5 bottom-0 w-px h-2 bg-slate-200" />
-                  )}
+                  {/* Contenido */}
+                  <div className="flex-1 bg-white border border-[#E3E8F0] rounded-[10px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-shadow">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[11px] font-semibold bg-[#F0F2F7] text-[#5A6072] px-[8px] py-[3px] rounded-full">{e.date}</span>
+                        <span className="text-[12px] font-medium text-[#5A6072]">{e.user.name}</span>
+                        {e.tooth && (
+                          <span className="text-[11px] bg-[#EEF3FF] text-[#0057FF] border border-[#0057FF]/20 px-[8px] py-[3px] rounded-full font-semibold">
+                            Diente #{e.tooth}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {e.cost > 0 && (
+                          <span className="text-[13px] font-bold text-[#00A86B] bg-[#E6F7F1] px-[10px] py-[3px] rounded-full">
+                            {fmt(e.cost)}
+                          </span>
+                        )}
+                        {isAdmin && (
+                          <button onClick={()=>deleteEvolution(e.id)} className="w-7 h-7 flex items-center justify-center rounded-lg text-[#C8D0E0] hover:text-[#E53935] hover:bg-[#FDECEA] transition-colors">
+                            <Trash2 size={13}/>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {e.diagnosis && (
+                      <div className="mb-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#9AA0B4] mr-2">Diagnóstico</span>
+                        <span className="text-[13px] text-[#1A1D2E]">{e.diagnosis}</span>
+                      </div>
+                    )}
+                    <div className="mb-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#9AA0B4] mr-2">Tratamiento</span>
+                      <span className="text-[13px] font-medium text-[#1A1D2E]">{e.treatment}</span>
+                    </div>
+                    {e.observations && (
+                      <div className="mt-3 pt-3 border-t border-[#E3E8F0]">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#9AA0B4] mr-2">Observaciones</span>
+                        <p className="text-[12.5px] text-[#5A6072] mt-1 leading-relaxed">{e.observations}</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
