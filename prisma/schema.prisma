@@ -258,6 +258,15 @@ model Convenio {
   createdAt    DateTime @default(now())
 }
 
+model BlockedSlot {
+  id        String   @id @default(cuid())
+  date      String
+  startTime String
+  endTime   String
+  reason    String?
+  createdAt DateTime @default(now())
+}
+
 model Reminder {
   id          String    @id @default(cuid())
   patientId   String

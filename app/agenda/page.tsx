@@ -1,9 +1,13 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Plus, MessageCircle, Mail, Trash2, ExternalLink, Calendar } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, MessageCircle, Mail, Trash2, ExternalLink, Calendar, Lock, X } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useRole";
 import Modal from "@/components/ui/Modal";
+
+interface BlockedSlot {
+  id: string; date: string; startTime: string; endTime: string; reason: string | null;
+}
 
 interface Appointment {
   id: string; date: string; startTime: string; endTime: string;
@@ -72,6 +76,10 @@ export default function Agenda() {
   const [toast, setToast] = useState<string|null>(null);
   const [view, setView] = useState<"week"|"day">("day");
   const [filterUserId, setFilterUserId] = useState("all");
+  const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
+  const [blockOpen, setBlockOpen] = useState(false);
+  const [blockForm, setBlockForm] = useState({ date: todayStr(), startTime: "09:00", endTime: "10:00", reason: "" });
+  const [blockSaving, setBlockSaving] = useState(false);
 
   // New state for expandable cards and mini calendar
   const [expandedId, setExpandedId] = useState<string|null>(null);
@@ -86,11 +94,15 @@ export default function Agenda() {
   const today = todayStr();
 
   const load = useCallback(async () => {
-    const url = view === "week"
+    const apptUrl = view === "week"
       ? `/api/appointments?weekStart=${ws}&weekEnd=${weekDays[6]}`
       : `/api/appointments?date=${currentDate}`;
-    const r = await fetch(url);
-    if (r.ok) setAppointments(await r.json());
+    const blockUrl = view === "week"
+      ? `/api/blocked-slots?startDate=${ws}&endDate=${weekDays[6]}`
+      : `/api/blocked-slots?date=${currentDate}`;
+    const [r, br] = await Promise.all([fetch(apptUrl), fetch(blockUrl)]);
+    if (r.ok)  setAppointments(await r.json());
+    if (br.ok) setBlockedSlots(await br.json());
   }, [currentDate, view, ws]);
 
   useEffect(() => {
@@ -135,6 +147,32 @@ export default function Agenda() {
     if (!selected || !confirm("¿Eliminar esta cita? Esta acción no se puede deshacer.")) return;
     await fetch(`/api/appointments/${selected.id}`, { method:"DELETE" });
     setOpen(false); setSelected(null); setForm(initForm); load();
+  }
+
+  function openBlock(date?: string, hour?: string) {
+    const d = date ?? currentDate;
+    const h = hour ?? "09:00";
+    const hNum = parseInt(h);
+    setBlockForm({ date: d, startTime: h, endTime: `${String(hNum + 1).padStart(2, "0")}:00`, reason: "" });
+    setBlockOpen(true);
+  }
+
+  async function createBlock() {
+    setBlockSaving(true);
+    await fetch("/api/blocked-slots", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(blockForm),
+    });
+    setBlockOpen(false);
+    setBlockSaving(false);
+    load();
+  }
+
+  async function deleteBlock(id: string) {
+    if (!confirm("¿Eliminar este bloqueo de horario?")) return;
+    await fetch(`/api/blocked-slots/${id}`, { method: "DELETE" });
+    load();
   }
 
   function openNew(date?: string, hour?: string, userId?: string) {
@@ -251,6 +289,14 @@ export default function Agenda() {
           >
             Semana
           </button>
+          {isAdmin && (
+            <button
+              onClick={() => openBlock()}
+              className="flex items-center gap-1.5 text-[13px] font-semibold px-4 py-2 rounded-lg border border-[#E3E8F0] bg-white text-[#4B5563] hover:bg-[#F0F2F7] transition-colors"
+            >
+              <Lock size={15}/> Bloquear horario
+            </button>
+          )}
           <button
             onClick={() => openNew()}
             className="flex items-center gap-1.5 text-[13px] font-semibold px-4 py-2 rounded-lg bg-[#0057FF] text-white hover:bg-[#0041CC] transition-colors"
@@ -355,6 +401,35 @@ export default function Agenda() {
                       </div>
                     );
                   })}
+                  {/* Blocked slots — week view */}
+                  {blockedSlots.map(b => {
+                    const dayIdx = weekDays.indexOf(b.date);
+                    if (dayIdx === -1) return null;
+                    const top    = topPx(b.startTime);
+                    const height = heightPx(b.startTime, b.endTime);
+                    const left   = `calc(52px + ${dayIdx} * (100% - 52px) / 7 + 2px)`;
+                    return (
+                      <div key={b.id}
+                        className="absolute rounded-lg px-1.5 py-1 overflow-hidden border border-slate-300"
+                        style={{
+                          top: `${top}px`, height: `${height}px`, left,
+                          width: `calc((100% - 52px) / 7 - 4px)`,
+                          background: "repeating-linear-gradient(45deg,#F1F5F9,#F1F5F9 4px,#E2E8F0 4px,#E2E8F0 8px)",
+                        }}>
+                        <p className="text-[10px] font-semibold text-slate-500 truncate leading-tight">
+                          🔒 {b.reason || "Bloqueado"}
+                        </p>
+                        {isAdmin && height > 28 && (
+                          <button
+                            onClick={e => { e.stopPropagation(); deleteBlock(b.id); }}
+                            className="absolute top-0.5 right-0.5 p-0.5 hover:bg-slate-200 rounded transition-colors"
+                          >
+                            <X size={10} className="text-slate-400"/>
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -363,14 +438,59 @@ export default function Agenda() {
           {/* ── DAY VIEW — expandable cards ── */}
           {view === "day" && (
             <div className="space-y-2">
-              {dayAppts.length === 0 ? (
-                <div className="bg-white border border-[#E3E8F0] rounded-[14px] py-16 text-center shadow-sm">
-                  <Calendar className="w-10 h-10 mx-auto mb-3 text-[#E3E8F0]"/>
-                  <p className="text-[14px] font-semibold text-[#9AA0B4]">Sin citas para este día</p>
-                  <p className="text-[12px] text-[#9AA0B4] mt-1">Presiona "+ Nueva cita" para agregar</p>
-                </div>
-              ) : (
-                dayAppts.map(a => {
+              {(() => {
+                const dayBlocks = blockedSlots.filter(b => b.date === currentDate);
+                const combined: Array<{ kind: "appt"; time: string; appt: Appointment } | { kind: "block"; time: string; block: BlockedSlot }> = [
+                  ...dayAppts.map(a => ({ kind: "appt" as const, time: a.startTime, appt: a })),
+                  ...dayBlocks.map(b => ({ kind: "block" as const, time: b.startTime, block: b })),
+                ].sort((x, y) => x.time.localeCompare(y.time));
+
+                if (combined.length === 0) return (
+                  <div className="bg-white border border-[#E3E8F0] rounded-[14px] py-16 text-center shadow-sm">
+                    <Calendar className="w-10 h-10 mx-auto mb-3 text-[#E3E8F0]"/>
+                    <p className="text-[14px] font-semibold text-[#9AA0B4]">Sin citas para este día</p>
+                    <p className="text-[12px] text-[#9AA0B4] mt-1">Presiona "+ Nueva cita" para agregar</p>
+                  </div>
+                );
+
+                return combined.map(item => {
+                  // ── Blocked slot card ──
+                  if (item.kind === "block") {
+                    const b = item.block;
+                    const dur = timeToMin(b.endTime) - timeToMin(b.startTime);
+                    return (
+                      <div key={b.id} className="bg-slate-50 border border-slate-200 rounded-[14px] shadow-sm overflow-hidden">
+                        <div className="flex items-center">
+                          <div className="w-[68px] px-3 py-3.5 text-center flex-shrink-0">
+                            <p className="text-[13px] font-bold text-slate-400">{b.startTime}</p>
+                            <p className="text-[11px] text-slate-300">{b.endTime}</p>
+                          </div>
+                          <div className="w-[3px] self-stretch my-2 rounded-full flex-shrink-0 bg-slate-300"/>
+                          <div className="flex-1 px-3 py-3.5 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <Lock size={13} className="text-slate-400 flex-shrink-0"/>
+                              <span className="text-[13px] font-semibold text-slate-500">Horario bloqueado</span>
+                            </div>
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                              {b.reason ? b.reason : "Sin motivo registrado"} · {dur} min
+                            </p>
+                          </div>
+                          {isAdmin && (
+                            <button
+                              onClick={() => deleteBlock(b.id)}
+                              className="px-3 py-3.5 text-slate-300 hover:text-red-500 transition-colors flex-shrink-0"
+                              title="Eliminar bloqueo"
+                            >
+                              <Trash2 size={15}/>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // ── Appointment card ──
+                  const a = item.appt;
                   const s = STATUS_STYLE[a.status] ?? STATUS_STYLE.scheduled;
                   const pillColor = userPillColor(a.user.id);
                   const duration = timeToMin(a.endTime) - timeToMin(a.startTime);
@@ -496,8 +616,8 @@ export default function Agenda() {
                       )}
                     </div>
                   );
-                })
-              )}
+                }); // end combined.map
+              })()} {/* end IIFE */}
             </div>
           )}
 
@@ -677,6 +797,76 @@ export default function Agenda() {
             <button className="btn-secondary text-xs" onClick={() => setOpen(false)}>Cancelar</button>
             <button className="btn-primary text-xs" onClick={save} disabled={saving || !form.patientId || !form.userId}>
               {saving ? "Guardando..." : selected ? "Actualizar" : "Agendar"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── Modal bloquear horario ── */}
+      <Modal open={blockOpen} onClose={() => setBlockOpen(false)} title="Bloquear horario">
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-[12px] font-semibold text-[#374151] mb-1">Fecha</label>
+              <input
+                type="date"
+                value={blockForm.date}
+                onChange={e => setBlockForm(f => ({ ...f, date: e.target.value }))}
+                className="w-full text-[13px] border border-[#E3E8F0] rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#0057FF]"
+              />
+            </div>
+            <div>
+              <label className="block text-[12px] font-semibold text-[#374151] mb-1">Hora inicio</label>
+              <input
+                type="time"
+                value={blockForm.startTime}
+                onChange={e => setBlockForm(f => ({ ...f, startTime: e.target.value }))}
+                className="w-full text-[13px] border border-[#E3E8F0] rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#0057FF]"
+              />
+            </div>
+            <div>
+              <label className="block text-[12px] font-semibold text-[#374151] mb-1">Hora fin</label>
+              <input
+                type="time"
+                value={blockForm.endTime}
+                onChange={e => setBlockForm(f => ({ ...f, endTime: e.target.value }))}
+                className="w-full text-[13px] border border-[#E3E8F0] rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#0057FF]"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[12px] font-semibold text-[#374151] mb-1">Motivo (opcional)</label>
+            <input
+              type="text"
+              value={blockForm.reason}
+              onChange={e => setBlockForm(f => ({ ...f, reason: e.target.value }))}
+              placeholder="Ej: Almuerzo, Reunión de equipo, Feriado, Mantención..."
+              className="w-full text-[13px] border border-[#E3E8F0] rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#0057FF]"
+            />
+          </div>
+
+          <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 flex items-start gap-2">
+            <Lock size={13} className="text-amber-500 mt-0.5 flex-shrink-0"/>
+            <p className="text-[11px] text-amber-700">
+              Este horario quedará bloqueado y visible en la agenda. Nadie podrá agendar citas en este período.
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-1">
+            <button
+              onClick={() => setBlockOpen(false)}
+              className="text-[13px] font-medium px-4 py-2 rounded-lg border border-[#E3E8F0] bg-white text-[#4B5563] hover:bg-[#F0F2F7] transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={createBlock}
+              disabled={blockSaving || !blockForm.date || !blockForm.startTime || !blockForm.endTime}
+              className="flex items-center gap-1.5 text-[13px] font-semibold px-4 py-2 rounded-lg bg-[#1A1D2E] text-white hover:bg-[#374151] transition-colors disabled:opacity-60"
+            >
+              <Lock size={14}/>
+              {blockSaving ? "Guardando..." : "Bloquear horario"}
             </button>
           </div>
         </div>
