@@ -50,7 +50,7 @@ const DEFAULT_SCHEDULE: Schedule = {
   sun: { enabled: false, open: "09:00", close: "13:00" },
 };
 
-const EMPTY_USER = { name: "", email: "", rut: "", role: "dentist", specialty: "" };
+const EMPTY_USER = { name: "", email: "", rut: "", role: "dentist", specialty: "", username: "", password: "" };
 
 function initials(name: string) {
   return name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
@@ -100,6 +100,9 @@ export default function Configuracion() {
 
   async function saveUser() {
     if (!form.name.trim() || !form.email.trim()) { setFormError("Nombre y email son obligatorios"); return; }
+    if (!editing && !form.username.trim()) { setFormError("El nombre de usuario es obligatorio"); return; }
+    if (!editing && !form.password) { setFormError("La contraseña es obligatoria"); return; }
+    if (!editing && form.password.length < 8) { setFormError("La contraseña debe tener mínimo 8 caracteres"); return; }
     setFormSaving(true); setFormError("");
     try {
       if (editing) {
@@ -494,6 +497,31 @@ export default function Configuracion() {
               <label className="label">Email *</label>
               <input className="input" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="carolina@clinica.cl" />
             </div>
+            <div>
+              <label className="text-[11px] font-bold uppercase tracking-wider text-[#9AA0B4]">
+                Usuario *
+              </label>
+              <input
+                className="w-full mt-1 px-3 py-2 border border-[#E3E8F0] rounded-[8px] text-[13px] focus:outline-none focus:border-[#0057FF]"
+                placeholder="ej: dr.juanjo"
+                value={form.username}
+                onChange={e=>setForm(f=>({...f,username:e.target.value}))}
+              />
+            </div>
+            {!editing && (
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-[#9AA0B4]">
+                  Contraseña *
+                </label>
+                <input
+                  type="password"
+                  className="w-full mt-1 px-3 py-2 border border-[#E3E8F0] rounded-[8px] text-[13px] focus:outline-none focus:border-[#0057FF]"
+                  placeholder="Mínimo 8 caracteres"
+                  value={form.password}
+                  onChange={e=>setForm(f=>({...f,password:e.target.value}))}
+                />
+              </div>
+            )}
             <div>
               <label className="label">Rol</label>
               <select className="select" value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
