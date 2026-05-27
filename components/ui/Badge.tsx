@@ -38,7 +38,7 @@ export default function Badge({ value, className = "" }: { value: string; classN
   const style = variants[value] ?? variants.default;
   const label = labels[value] ?? value;
   return (
-    <span className={`inline-flex items-center px-2 py-[2px] text-[11px] font-semibold rounded-[20px] ${style} ${className}`}>
+    <span className={`inline-flex items-center px-[10px] py-[3px] text-[11px] font-semibold rounded-[20px] ${style} ${className}`}>
       {label}
     </span>
   );

@@ -1035,38 +1035,38 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         {/* Quick actions */}
         <div className="border-t border-[#E3E8F0] px-3 sm:px-4 py-2.5 flex gap-1.5 flex-wrap bg-[#F0F2F7] rounded-b-[10px]">
           <button onClick={()=>openEvoModal()}
-            className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold px-[13px] py-[7px] rounded-lg transition-all duration-150"
-            style={{ background:"#EEF3FF", color:"#0057FF", border:"1.5px solid rgba(0,87,255,0.2)" }}>
+            className="inline-flex items-center gap-1.5 rounded-[8px] text-[12.5px] font-semibold px-[13px] py-[7px] border-[1.5px] transition-all duration-150 cursor-pointer
+                       bg-[#EEF3FF] text-[#0057FF] border-[#0057FF]/25 hover:bg-[#0057FF] hover:text-white hover:border-[#0057FF]">
             <Activity size={13}/> Evolución
           </button>
           <button onClick={()=>setRxModal(true)}
-            className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold px-[13px] py-[7px] rounded-lg transition-all duration-150"
-            style={{ background:"#E6F7F1", color:"#00A86B", border:"1.5px solid rgba(0,168,107,0.2)" }}>
+            className="inline-flex items-center gap-1.5 rounded-[8px] text-[12.5px] font-semibold px-[13px] py-[7px] border-[1.5px] transition-all duration-150 cursor-pointer
+                       bg-[#E6F7F1] text-[#00A86B] border-[#00A86B]/25 hover:bg-[#00A86B] hover:text-white hover:border-[#00A86B]">
             <Printer size={13}/> Receta
           </button>
           <button onClick={()=>setCuidadosModal(true)}
-            className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold px-[13px] py-[7px] rounded-lg transition-all duration-150"
-            style={{ background:"#E0F2FE", color:"#0891B2", border:"1.5px solid rgba(8,145,178,0.2)" }}>
+            className="inline-flex items-center gap-1.5 rounded-[8px] text-[12.5px] font-semibold px-[13px] py-[7px] border-[1.5px] transition-all duration-150 cursor-pointer
+                       bg-[#E0F2FE] text-[#0891B2] border-[#0891B2]/25 hover:bg-[#0891B2] hover:text-white hover:border-[#0891B2]">
             <BookOpen size={13}/> Cuidados
           </button>
           <button onClick={()=>{ setRxDocUserId(""); setRxDocItems([{type:"",zone:""}]); setRxDocIndication(""); setRxDocObservations(""); setRxDocModal(true); }}
-            className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold px-[13px] py-[7px] rounded-lg transition-all duration-150"
-            style={{ background:"#FEF3C7", color:"#92600A", border:"1.5px solid rgba(245,158,11,0.2)" }}>
+            className="inline-flex items-center gap-1.5 rounded-[8px] text-[12.5px] font-semibold px-[13px] py-[7px] border-[1.5px] transition-all duration-150 cursor-pointer
+                       bg-[#FEF3C7] text-[#92600A] border-[#F59E0B]/25 hover:bg-[#F59E0B] hover:text-white hover:border-[#F59E0B]">
             <FileText size={13}/> Solicitud Rx
           </button>
           <button onClick={()=>setPayModal(true)}
-            className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold px-[13px] py-[7px] rounded-lg transition-all duration-150"
-            style={{ background:"#E6F7F1", color:"#00A86B", border:"1.5px solid rgba(0,168,107,0.2)" }}>
+            className="inline-flex items-center gap-1.5 rounded-[8px] text-[12.5px] font-semibold px-[13px] py-[7px] border-[1.5px] transition-all duration-150 cursor-pointer
+                       bg-[#E6F7F1] text-[#00A86B] border-[#00A86B]/25 hover:bg-[#00A86B] hover:text-white hover:border-[#00A86B]">
             <CreditCard size={13}/> Pago
           </button>
           <button onClick={openBudgetCreate}
-            className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold px-[13px] py-[7px] rounded-lg transition-all duration-150"
-            style={{ background:"#EDE9FE", color:"#7C3AED", border:"1.5px solid rgba(124,58,237,0.2)" }}>
+            className="inline-flex items-center gap-1.5 rounded-[8px] text-[12.5px] font-semibold px-[13px] py-[7px] border-[1.5px] transition-all duration-150 cursor-pointer
+                       bg-[#EDE9FE] text-[#7C3AED] border-[#7C3AED]/25 hover:bg-[#7C3AED] hover:text-white hover:border-[#7C3AED]">
             <FileText size={13}/> Presupuesto
           </button>
           <a href={`/agenda?patientId=${id}&newAppt=1`}
-            className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold px-[13px] py-[7px] rounded-lg transition-all duration-150"
-            style={{ background:"#EEF3FF", color:"#0057FF", border:"1.5px solid rgba(0,87,255,0.2)" }}>
+            className="inline-flex items-center gap-1.5 rounded-[8px] text-[12.5px] font-semibold px-[13px] py-[7px] border-[1.5px] transition-all duration-150 cursor-pointer
+                       bg-[#EEF3FF] text-[#0057FF] border-[#0057FF]/25 hover:bg-[#0057FF] hover:text-white hover:border-[#0057FF]">
             <CalendarPlus size={13}/> Cita
           </a>
         </div>
@@ -1074,7 +1074,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
 
       {/* Tabs */}
       <div className="overflow-x-auto">
-        <div className="inline-flex bg-[#F0F2F7] border border-[#E3E8F0] rounded-[10px] p-[3px] min-w-max">
+        <div className="inline-flex gap-[2px] bg-[#F0F2F7] border border-[#E3E8F0] rounded-[10px] p-[3px] min-w-max">
           {TABS.map((t,i)=>(
             <button key={t} onClick={()=>setTab(i)}
               className={`px-3.5 py-[7px] text-[13px] font-medium rounded-[7px] whitespace-nowrap transition-all duration-150 ${

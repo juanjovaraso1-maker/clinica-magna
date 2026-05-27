@@ -24,8 +24,14 @@ const config: Config = {
           900: "#001D66",
           950: "#000E4D",
         },
+        // Top-level semantic shortcuts
+        accent:   { DEFAULT: "#0057FF", light: "#EEF3FF", dark: "#0041CC" },
+        text2:    "#5A6072",
+        text3:    "#9AA0B4",
+        border2:  "#C8D0E0",
+        surface2: "#F0F2F7",
         // Sidebar / dark surface
-        sidebar: "#1A1D2E",
+        sidebar:  "#1A1D2E",
         // Brand semantic palette
         brand: {
           bg:        "#F4F6FA",

@@ -171,13 +171,12 @@ export default function Dashboard() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Pacientes */}
-        <div className="card p-4 sm:p-5 overflow-hidden relative">
-          <div className="absolute top-0 left-0 right-0 h-[3px] bg-[#0057FF] rounded-t-[10px]" />
-          <div className="flex items-start justify-between gap-3 mt-1">
+        {/* Pacientes — azul */}
+        <div className="card p-4 sm:p-5 border-t-[3px] border-t-[#0057FF]">
+          <div className="flex items-start justify-between gap-3 mt-0.5">
             <div className="flex-1 min-w-0">
               <p className="text-[10.5px] text-[#9AA0B4] uppercase tracking-[0.6px] font-semibold">Pacientes</p>
-              <p className="text-[26px] sm:text-[30px] font-bold text-[#1A1D2E] mt-1 leading-none tracking-tight">{data.totalPatients}</p>
+              <p className="text-[28px] font-bold text-[#1A1D2E] mt-1 leading-none">{data.totalPatients}</p>
               <p className="text-[11.5px] text-[#00A86B] mt-1.5 flex items-center gap-0.5 font-medium">
                 <ArrowUpRight size={12} /> +{data.newPatientsMonth} este mes
               </p>
@@ -188,13 +187,12 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Citas Hoy */}
-        <div className="card p-4 sm:p-5 overflow-hidden relative">
-          <div className="absolute top-0 left-0 right-0 h-[3px] bg-[#7C3AED] rounded-t-[10px]" />
-          <div className="flex items-start justify-between gap-3 mt-1">
+        {/* Citas Hoy — verde */}
+        <div className="card p-4 sm:p-5 border-t-[3px] border-t-[#00A86B]">
+          <div className="flex items-start justify-between gap-3 mt-0.5">
             <div className="flex-1 min-w-0">
               <p className="text-[10.5px] text-[#9AA0B4] uppercase tracking-[0.6px] font-semibold">Citas Hoy</p>
-              <p className="text-[26px] sm:text-[30px] font-bold text-[#1A1D2E] mt-1 leading-none tracking-tight">{data.todayAppointments.length}</p>
+              <p className="text-[28px] font-bold text-[#1A1D2E] mt-1 leading-none">{data.todayAppointments.length}</p>
               <div className="flex gap-2 mt-1.5 flex-wrap">
                 {data.statusCount.confirmed > 0 && (
                   <span className="text-[11.5px] text-[#00A86B] font-medium">{data.statusCount.confirmed} conf.</span>
@@ -204,19 +202,18 @@ export default function Dashboard() {
                 )}
               </div>
             </div>
-            <div className="w-10 h-10 rounded-[10px] bg-[#EDE9FE] flex items-center justify-center flex-shrink-0">
-              <Calendar className="w-5 h-5 text-[#7C3AED]" />
+            <div className="w-10 h-10 rounded-[10px] bg-[#E6F7F1] flex items-center justify-center flex-shrink-0">
+              <Calendar className="w-5 h-5 text-[#00A86B]" />
             </div>
           </div>
         </div>
 
-        {/* Ingresos */}
-        <div className="card p-4 sm:p-5 overflow-hidden relative">
-          <div className="absolute top-0 left-0 right-0 h-[3px] bg-[#00A86B] rounded-t-[10px]" />
-          <div className="flex items-start justify-between gap-3 mt-1">
+        {/* Ingresos — amber */}
+        <div className="card p-4 sm:p-5 border-t-[3px] border-t-[#F59E0B]">
+          <div className="flex items-start justify-between gap-3 mt-0.5">
             <div className="flex-1 min-w-0">
               <p className="text-[10.5px] text-[#9AA0B4] uppercase tracking-[0.6px] font-semibold">Ingresos Mes</p>
-              <p className="text-[22px] sm:text-[26px] font-bold text-[#00A86B] mt-1 leading-none tracking-tight">{fmtShort(data.monthIncome)}</p>
+              <p className="text-[28px] font-bold text-[#1A1D2E] mt-1 leading-none">{fmtShort(data.monthIncome)}</p>
               {incomeTrend !== null ? (
                 <p className={`text-[11.5px] mt-1.5 flex items-center gap-0.5 font-medium ${incomeTrend >= 0 ? "text-[#00A86B]" : "text-[#E53935]"}`}>
                   {incomeTrend >= 0
@@ -229,22 +226,21 @@ export default function Dashboard() {
                 <p className="text-[11.5px] text-[#9AA0B4] mt-1.5">Neto {fmtShort(net)}</p>
               )}
             </div>
-            <div className="w-10 h-10 rounded-[10px] bg-[#E6F7F1] flex items-center justify-center flex-shrink-0">
+            <div className="w-10 h-10 rounded-[10px] bg-[#FEF3C7] flex items-center justify-center flex-shrink-0">
               {incomeTrend === null || incomeTrend >= 0
-                ? <TrendingUp className="w-5 h-5 text-[#00A86B]" />
+                ? <TrendingUp className="w-5 h-5 text-[#F59E0B]" />
                 : <TrendingDown className="w-5 h-5 text-[#E53935]" />
               }
             </div>
           </div>
         </div>
 
-        {/* Deudas */}
-        <div className="card p-4 sm:p-5 overflow-hidden relative">
-          <div className="absolute top-0 left-0 right-0 h-[3px] bg-[#E53935] rounded-t-[10px]" />
-          <div className="flex items-start justify-between gap-3 mt-1">
+        {/* Deudas — rojo */}
+        <div className="card p-4 sm:p-5 border-t-[3px] border-t-[#E53935]">
+          <div className="flex items-start justify-between gap-3 mt-0.5">
             <div className="flex-1 min-w-0">
               <p className="text-[10.5px] text-[#9AA0B4] uppercase tracking-[0.6px] font-semibold">Deudas</p>
-              <p className="text-[22px] sm:text-[26px] font-bold text-[#E53935] mt-1 leading-none tracking-tight">{fmtShort(data.totalDebt)}</p>
+              <p className="text-[28px] font-bold text-[#E53935] mt-1 leading-none">{fmtShort(data.totalDebt)}</p>
               <p className="text-[11.5px] text-[#9AA0B4] mt-1.5">
                 {data.debtorCount} pac. · {data.pendingBudgets} presup.
               </p>

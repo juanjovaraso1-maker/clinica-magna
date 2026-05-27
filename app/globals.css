@@ -26,6 +26,26 @@
   --text2:        #5A6072;
   --text3:        #9AA0B4;
   --sidebar-bg:   #1A1D2E;
+
+  /* --color-* aliases */
+  --color-accent:        #0057FF;
+  --color-accent-light:  #EEF3FF;
+  --color-green:         #00A86B;
+  --color-green-light:   #E6F7F1;
+  --color-red:           #E53935;
+  --color-red-light:     #FDECEA;
+  --color-amber:         #F59E0B;
+  --color-amber-light:   #FEF3C7;
+  --color-purple:        #7C3AED;
+  --color-purple-light:  #EDE9FE;
+  --color-teal:          #0891B2;
+  --color-teal-light:    #E0F2FE;
+  --color-text:          #1A1D2E;
+  --color-text2:         #5A6072;
+  --color-text3:         #9AA0B4;
+  --color-border:        #E3E8F0;
+  --color-border2:       #C8D0E0;
+  --color-surface2:      #F0F2F7;
 }
 
 @layer base {
