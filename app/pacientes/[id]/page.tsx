@@ -939,8 +939,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         <div className="p-3 sm:p-5">
           <div className="flex items-start gap-3 sm:gap-4 flex-wrap md:flex-nowrap">
             {/* Avatar */}
-            <div className="w-[56px] h-[56px] rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ring-2 ring-white"
-              style={{ background: "linear-gradient(135deg, #0057FF, #7C3AED)" }}>
+            <div className="w-[56px] h-[56px] rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ring-2 ring-white bg-gradient-to-br from-[#0057FF] to-[#7C3AED]">
               <span className="text-white text-[20px] font-bold">{patient.firstName[0]}{patient.lastName[0]}</span>
             </div>
 
@@ -1073,14 +1072,13 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
       </div>
 
       {/* Tabs */}
-      <div className="overflow-x-auto">
-        <div className="inline-flex gap-[2px] bg-[#F0F2F7] border border-[#E3E8F0] rounded-[10px] p-[3px] min-w-max">
+      <div className="flex gap-[2px] bg-[#F0F2F7] rounded-[10px] p-[3px] w-fit border border-[#E3E8F0] mb-4 flex-wrap">
           {TABS.map((t,i)=>(
             <button key={t} onClick={()=>setTab(i)}
-              className={`px-3.5 py-[7px] text-[13px] font-medium rounded-[7px] whitespace-nowrap transition-all duration-150 ${
+              className={`px-3.5 py-[7px] text-[13px] rounded-[7px] transition-all duration-150 ${
                 tab===i
-                  ? "bg-white text-[#1A1D2E] shadow-sm2"
-                  : "text-[#9AA0B4] hover:text-[#5A6072]"
+                  ? "bg-white text-[#1A1D2E] shadow-sm font-semibold"
+                  : "text-[#9AA0B4] font-medium cursor-pointer hover:text-[#1A1D2E]"
               }`}>
               {t}
               {t==="Historial" && timeline.length > 0 && (
@@ -1088,7 +1086,6 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
               )}
             </button>
           ))}
-        </div>
       </div>
 
       {/* ===== TAB 0: HISTORIAL (TIMELINE) ===== */}

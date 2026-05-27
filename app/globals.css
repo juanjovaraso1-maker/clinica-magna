@@ -123,3 +123,14 @@
   .section-title { @apply text-[13px] font-semibold text-[#1A1D2E]; }
   .text-muted   { @apply text-[13px] text-[#5A6072]; }
 }
+
+.card {
+  background: #FFFFFF;
+  border: 1px solid #E3E8F0;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.05);
+}
+
+body {
+  background-color: #F4F6FA;
+}

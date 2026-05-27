@@ -1,10 +1,10 @@
 const variants: Record<string, string> = {
   scheduled:   "bg-[#EEF3FF] text-[#0057FF]",
   confirmed:   "bg-[#E6F7F1] text-[#00A86B]",
-  completed:   "bg-[#F0F2F7] text-[#5A6072]",
+  completed:   "bg-[#E6F7F1] text-[#00A86B]",
   cancelled:   "bg-[#FDECEA] text-[#E53935]",
   "no-show":   "bg-[#FEF3C7] text-[#92600A]",
-  waiting:     "bg-[#E0F2FE] text-[#0891B2]",
+  waiting:     "bg-[#FEF3C7] text-[#92600A]",
   in_progress: "bg-[#EDE9FE] text-[#7C3AED]",
   pending:     "bg-[#FEF3C7] text-[#92600A]",
   approved:    "bg-[#E6F7F1] text-[#00A86B]",
@@ -38,7 +38,7 @@ export default function Badge({ value, className = "" }: { value: string; classN
   const style = variants[value] ?? variants.default;
   const label = labels[value] ?? value;
   return (
-    <span className={`inline-flex items-center px-[10px] py-[3px] text-[11px] font-semibold rounded-[20px] ${style} ${className}`}>
+    <span className={`inline-flex items-center px-[10px] py-[3px] text-[11px] font-semibold rounded-full ${style} ${className}`}>
       {label}
     </span>
   );
