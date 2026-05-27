@@ -1094,42 +1094,39 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
           {timeline.length===0 ? (
             <div className="card py-12 text-center text-muted">Este paciente no tiene historial registrado aún.</div>
           ) : (
-            <div className="relative">
-              {/* Vertical line */}
-              <div className="absolute left-[27px] top-0 bottom-0 w-0.5 bg-slate-100 hidden sm:block"/>
-              <div className="space-y-2">
-                {timeline.map((item,i)=>(
-                  <div key={i} className="flex gap-4 group">
-                    {/* Icon bubble */}
-                    <div className={`w-[54px] flex-shrink-0 flex flex-col items-center pt-3 hidden sm:flex`}>
-                      <div className={`w-9 h-9 rounded-full flex items-center justify-center z-10 ${item.color} border-2 border-white shadow-sm`}>
-                        {item.icon}
-                      </div>
-                    </div>
-                    {/* Card */}
-                    <div className="flex-1 card p-4 hover:shadow-md transition-shadow">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                            <span className={`sm:hidden inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${item.color}`}>{item.icon}{item.kind}</span>
-                            <p className="text-sm font-semibold text-slate-900 truncate">{item.label}</p>
-                            {item.badge && <Badge value={item.badge} className="ml-1"/>}
-                          </div>
-                          <p className="text-xs text-slate-500">{item.sub}</p>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className="text-xs font-medium text-slate-600">{new Date(item.date+"T12:00:00").toLocaleDateString("es-CL",{day:"numeric",month:"short",year:"numeric"})}</p>
-                          {item.amount != null && item.amount > 0 && (
-                            <p className={`text-sm font-bold mt-0.5 ${item.kind==="pago"?"text-emerald-700":item.kind==="presupuesto"?"text-slate-700":"text-violet-700"}`}>
-                              {fmt(item.amount)}
-                            </p>
-                          )}
-                        </div>
-                      </div>
+            <div className="space-y-0">
+              {timeline.map((item,i)=>(
+                <div key={i} className="flex gap-3 pb-6 relative">
+                  <div className="flex flex-col items-center flex-shrink-0 w-16">
+                    <div className="text-[11px] font-semibold text-[#9AA0B4] text-center leading-tight">
+                      {new Date(item.date+"T12:00:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short"})}
                     </div>
                   </div>
-                ))}
-              </div>
+                  <div className="flex flex-col items-center flex-shrink-0 mt-1">
+                    <div className={`w-3 h-3 rounded-full flex-shrink-0 border-2 border-white shadow z-10 ${item.color}`}/>
+                    {i < timeline.length-1 && <div className="w-px flex-1 bg-[#E3E8F0] mt-1 min-h-[24px]"/>}
+                  </div>
+                  <div className="flex-1 bg-white border border-[#E3E8F0] rounded-[10px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-shadow mb-2">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-[8px] py-[3px] rounded-full ${item.color}`}>
+                          {item.icon}{item.kind}
+                        </span>
+                        <p className="text-[13.5px] font-semibold text-[#1A1D2E]">{item.label}</p>
+                        {item.badge && <Badge value={item.badge} className="ml-1"/>}
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        {item.amount != null && item.amount > 0 && (
+                          <span className={`text-[12px] font-bold px-[8px] py-[3px] rounded-full ${item.kind==="pago"?"bg-[#E6F7F1] text-[#00A86B]":item.kind==="presupuesto"?"bg-[#F0F2F7] text-[#5A6072]":"bg-[#EDE9FE] text-[#7C3AED]"}`}>
+                            {fmt(item.amount)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-[12px] text-[#9AA0B4]">{item.sub}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -1162,36 +1159,24 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                 <button onClick={openFicha} className="btn-primary"><Plus size={15}/> Crear ficha clínica</button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {patient.clinicalRecord.bloodType && (
-                  <div className="md:col-span-2 flex items-center gap-3 p-3 bg-red-50 border border-red-100 rounded-xl">
-                    <Heart className="text-red-500 w-5 h-5 flex-shrink-0"/>
-                    <div><p className="text-xs font-semibold text-red-700 uppercase tracking-wide">Grupo Sanguíneo</p><p className="text-sm font-bold text-red-800">{patient.clinicalRecord.bloodType}</p></div>
-                  </div>
-                )}
-                {patient.clinicalRecord.allergies && (
-                  <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-100 rounded-xl">
-                    <AlertTriangle className="text-amber-500 w-5 h-5 flex-shrink-0 mt-0.5"/>
-                    <div><p className="text-xs font-semibold text-amber-700 uppercase tracking-wide">Alergias</p><p className="text-sm text-amber-900">{patient.clinicalRecord.allergies}</p></div>
-                  </div>
-                )}
-                {patient.clinicalRecord.currentMedications && (
-                  <div className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-100 rounded-xl">
-                    <Pill className="text-blue-500 w-5 h-5 flex-shrink-0 mt-0.5"/>
-                    <div><p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Medicamentos</p><p className="text-sm text-blue-900">{patient.clinicalRecord.currentMedications}</p></div>
-                  </div>
-                )}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                 {[
-                  ["Antecedentes médicos", patient.clinicalRecord.medicalBackground],
-                  ["Antecedentes dentales", patient.clinicalRecord.dentalBackground],
-                  ["Hábitos", patient.clinicalRecord.habits],
-                  ["Observaciones", patient.clinicalRecord.observations],
-                ].map(([l,v])=> v ? (
-                  <div key={l as string} className="p-3 bg-slate-50 rounded-xl">
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">{l}</p>
-                    <p className="text-sm text-slate-800">{v}</p>
+                  {label:"Grupo sanguíneo", value: patient.clinicalRecord.bloodType, icon:"🩸"},
+                  {label:"Alergias", value: patient.clinicalRecord.allergies||"Sin alergias", icon:"⚠️", alert: !!patient.clinicalRecord.allergies},
+                  {label:"Medicamentos", value: patient.clinicalRecord.currentMedications||"Ninguno", icon:"💊"},
+                  {label:"Antec. médicos", value: patient.clinicalRecord.medicalBackground||"—", icon:"🏥"},
+                  {label:"Antec. dentales", value: patient.clinicalRecord.dentalBackground||"—", icon:"🦷"},
+                  {label:"Hábitos", value: patient.clinicalRecord.habits||"—", icon:"📋"},
+                ].map((field,i) => (
+                  <div key={i} className={`rounded-[10px] p-4 border ${field.alert?"bg-[#FDECEA] border-[#E53935]/20":"bg-[#F0F2F7] border-[#E3E8F0]"}`}>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-[#9AA0B4] mb-1 flex items-center gap-1">
+                      <span>{field.icon}</span>{field.label}
+                    </div>
+                    <div className={`text-[13px] font-semibold ${field.alert?"text-[#E53935]":"text-[#1A1D2E]"}`}>
+                      {field.value||"—"}
+                    </div>
                   </div>
-                ) : null)}
+                ))}
               </div>
             )
           ) : (
@@ -1372,24 +1357,37 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
               const bPaid = b.payments.reduce((s,p)=>s+p.amount,0);
               const bBalance = b.total - bPaid;
               return (
-              <button key={b.id} onClick={()=>setBudgetDetailId(b.id)} className="card overflow-hidden w-full text-left hover:border-primary-200 transition-colors cursor-pointer">
-                <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
+              <div key={b.id} className="bg-white border border-[#E3E8F0] rounded-[10px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-shadow mb-3">
+                <div className="flex items-center justify-between mb-3">
                   <div>
-                    <p className="font-semibold text-slate-900">Presupuesto #{String(b.number).padStart(4,"0")}</p>
-                    <p className="text-xs text-slate-500">{b.date} · {b.user.name}</p>
+                    <div className="text-[13.5px] font-semibold text-[#1A1D2E]">Presupuesto #{String(b.number).padStart(4,"0")}</div>
+                    <div className="text-[11px] text-[#9AA0B4] mt-0.5">{b.date} · {b.user.name}</div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge value={b.status}/>
-                    <p className="text-base font-bold text-slate-900">{fmt(b.total)}</p>
-                    {bBalance > 0 && <span className="text-xs text-red-600 font-medium">Saldo: {fmt(bBalance)}</span>}
-                    <ChevronRight size={15} className="text-slate-400"/>
+                  <Badge value={b.status}/>
+                </div>
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  <div className="bg-[#F0F2F7] rounded-[8px] p-3 text-center">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-[#9AA0B4] mb-1">Total</div>
+                    <div className="text-[16px] font-bold text-[#1A1D2E]">{fmt(b.total)}</div>
+                  </div>
+                  <div className="bg-[#E6F7F1] rounded-[8px] p-3 text-center">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-[#9AA0B4] mb-1">Pagado</div>
+                    <div className="text-[16px] font-bold text-[#00A86B]">{fmt(bPaid)}</div>
+                  </div>
+                  <div className={`rounded-[8px] p-3 text-center ${bBalance>0?"bg-[#FDECEA]":"bg-[#E6F7F1]"}`}>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-[#9AA0B4] mb-1">Saldo</div>
+                    <div className={`text-[16px] font-bold ${bBalance>0?"text-[#E53935]":"text-[#00A86B]"}`}>{fmt(bBalance)}</div>
                   </div>
                 </div>
-                <div className="px-5 py-2.5 bg-slate-50/80 flex justify-between items-center text-xs text-slate-500">
-                  <span>{b.items.length} ítem{b.items.length!==1?"s":""}</span>
-                  <span>Abonado: <span className="font-semibold text-emerald-700">{fmt(bPaid)}</span></span>
+                <div className="w-full bg-[#E3E8F0] rounded-full h-1.5 mb-3">
+                  <div className="bg-[#00A86B] h-1.5 rounded-full transition-all" style={{width:`${Math.min(100,Math.round((bPaid/b.total)*100))}%`}}/>
                 </div>
-              </button>
+                <div className="flex gap-2">
+                  <button onClick={()=>setBudgetDetailId(b.id)} className="flex-1 text-[12px] font-semibold bg-[#EEF3FF] text-[#0057FF] border border-[#0057FF]/20 rounded-[8px] py-2 hover:bg-[#0057FF] hover:text-white transition-all">
+                    Ver detalle
+                  </button>
+                </div>
+              </div>
             )})}
         </div>
       )}
@@ -1412,52 +1410,32 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
               <CreditCard size={15}/> Registrar Pago
             </button>
           </div>
-          <div className="card overflow-x-auto">
-            <table className="w-full text-sm min-w-[420px]">
-              <thead className="bg-slate-50 border-b border-slate-100"><tr>
-                <th className="text-left px-3 sm:px-5 py-3 text-xs text-slate-500 uppercase tracking-wide">Fecha</th>
-                <th className="text-left px-3 sm:px-4 py-3 text-xs text-slate-500 uppercase tracking-wide">Monto</th>
-                <th className="text-left px-3 sm:px-4 py-3 text-xs text-slate-500 uppercase tracking-wide">Método</th>
-                <th className="text-left px-3 sm:px-4 py-3 text-xs text-slate-500 uppercase tracking-wide hidden md:table-cell">Vinculado a</th>
-                <th className="text-left px-3 sm:px-4 py-3 text-xs text-slate-500 uppercase tracking-wide hidden lg:table-cell">Notas</th>
-                <th className="w-12"/>
-              </tr></thead>
-              <tbody>
-                {patient.payments.length===0 ? (
-                  <tr><td colSpan={6} className="px-5 py-10 text-center text-muted">Sin pagos registrados</td></tr>
-                ) : patient.payments.map(p=>{
-                  const linkedEvo = p.reference ? patient.evolutions.find(e=>e.id===p.reference) : null;
-                  return (
-                  <tr key={p.id} className="table-row">
-                    <td className="px-3 sm:px-5 py-3 text-slate-600 text-xs">{p.date}</td>
-                    <td className="px-3 sm:px-4 py-3 font-bold text-emerald-700">{fmt(p.amount)}</td>
-                    <td className="px-3 sm:px-4 py-3 text-slate-600 capitalize">{METHOD_ICON[p.method]??""} {p.method}</td>
-                    <td className="px-3 sm:px-4 py-3 text-slate-500 hidden md:table-cell text-xs">
-                      {p.budget ? <span className="font-medium text-amber-700">Presup. #{p.budget.number}</span>
-                        : linkedEvo ? <span className="text-violet-700">↳ {linkedEvo.treatment}{linkedEvo.tooth?` D.${linkedEvo.tooth}`:""}</span>
-                        : "—"}
-                    </td>
-                    <td className="px-3 sm:px-4 py-3 text-slate-500 hidden lg:table-cell">{p.notes||"—"}</td>
-                    <td className="px-3 py-3">
-                      <div className="flex gap-1">
-                        <button onClick={()=>openPayEdit(p)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"><Pencil size={12}/></button>
-                        {isAdmin && <button onClick={()=>deletePayment(p.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"><Trash2 size={12}/></button>}
-                      </div>
-                    </td>
+          {patient.payments.length===0 ? (
+            <div className="card py-12 text-center text-muted">Sin pagos registrados</div>
+          ) : (
+            <div className="overflow-hidden border border-[#E3E8F0] rounded-[10px]">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-[#F0F2F7]">
+                    <th className="text-[10px] font-bold uppercase tracking-wider text-[#9AA0B4] px-4 py-3 text-left">Fecha</th>
+                    <th className="text-[10px] font-bold uppercase tracking-wider text-[#9AA0B4] px-4 py-3 text-left">Monto</th>
+                    <th className="text-[10px] font-bold uppercase tracking-wider text-[#9AA0B4] px-4 py-3 text-left">Método</th>
+                    <th className="text-[10px] font-bold uppercase tracking-wider text-[#9AA0B4] px-4 py-3 text-left">Notas</th>
                   </tr>
-                  );
-                })}
-              </tbody>
-              {patient.payments.length > 0 && (
-                <tfoot className="border-t border-slate-200 bg-slate-50">
-                  <tr>
-                    <td colSpan={4} className="px-3 sm:px-5 py-2.5 text-xs font-semibold text-slate-600">Total abonado</td>
-                    <td className="px-3 sm:px-4 py-2.5 font-bold text-emerald-700 hidden lg:table-cell text-right">{fmt(paidTotal)}</td>
-                  </tr>
-                </tfoot>
-              )}
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {patient.payments.map((p,i)=>(
+                    <tr key={p.id} className={`border-t border-[#E3E8F0] hover:bg-[#EEF3FF] transition-colors ${i%2===0?"bg-white":"bg-[#F0F2F7]/50"}`}>
+                      <td className="px-4 py-3 text-[12px] text-[#9AA0B4] font-medium">{new Date(p.date+"T12:00:00").toLocaleDateString("es-CL")}</td>
+                      <td className="px-4 py-3 text-[13px] font-bold text-[#00A86B]">{fmt(p.amount)}</td>
+                      <td className="px-4 py-3"><span className="text-[11px] font-semibold bg-[#F0F2F7] text-[#5A6072] px-[8px] py-[3px] rounded-full">{p.method}</span></td>
+                      <td className="px-4 py-3 text-[12px] text-[#9AA0B4]">{p.notes||"—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -1481,18 +1459,19 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
           {patient.documents.length===0 ? (
             <div className="card py-10 text-center text-muted">Sin documentos adjuntos</div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {patient.documents.map(doc=>(
-                <div key={doc.id} className="card p-4 flex items-start gap-3 hover:shadow-md transition-shadow">
-                  <span className="text-2xl">{docIcons[doc.type]??docIcons.other}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">{doc.name}</p>
-                    <p className="text-xs text-slate-400 capitalize">{doc.type} · {doc.size ? `${Math.round(doc.size/1024)} KB` : ""}</p>
-                    <p className="text-xs text-slate-400">{new Date(doc.createdAt).toLocaleDateString("es-CL")}</p>
+                <div key={doc.id} className="flex items-center gap-3 bg-[#F0F2F7] border border-[#E3E8F0] rounded-[10px] p-3 hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] transition-shadow">
+                  <div className="w-10 h-10 rounded-[8px] bg-white border border-[#E3E8F0] flex items-center justify-center flex-shrink-0 text-[20px]">
+                    {doc.type==="radiografia"?"🩻":doc.type==="consentimiento"?"📄":doc.type==="foto"?"📸":"📎"}
                   </div>
-                  <div className="flex gap-1">
-                    <a href={doc.fileName} target="_blank" className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-primary-600 hover:bg-primary-50"><ExternalLink size={13}/></a>
-                    {isAdmin && <button onClick={()=>deleteDoc(doc.id)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50"><Trash2 size={13}/></button>}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] font-semibold text-[#1A1D2E] truncate">{doc.name}</div>
+                    <div className="text-[11px] text-[#9AA0B4] mt-0.5">{new Date(doc.createdAt).toLocaleDateString("es-CL")} · {doc.type}</div>
+                  </div>
+                  <div className="flex gap-1 flex-shrink-0">
+                    <a href={doc.fileName} target="_blank" className="w-8 h-8 flex items-center justify-center rounded-[7px] bg-white border border-[#E3E8F0] text-[#5A6072] hover:bg-[#0057FF] hover:text-white hover:border-[#0057FF] transition-all text-[13px]">↗</a>
+                    {isAdmin && <button onClick={()=>deleteDoc(doc.id)} className="w-8 h-8 flex items-center justify-center rounded-[7px] bg-white border border-[#E3E8F0] text-[#C8D0E0] hover:bg-[#FDECEA] hover:text-[#E53935] hover:border-[#E53935] transition-all"><Trash2 size={13}/></button>}
                   </div>
                 </div>
               ))}
