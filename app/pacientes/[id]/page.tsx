@@ -203,7 +203,7 @@ export default function PatientDetail() {
   const [cuidadosTemplate, setCuidadosTemplate] = useState("Post-exodoncia");
   const [cuidadosText, setCuidadosText] = useState(CARE_TEMPLATES["Post-exodoncia"]);
   const [cuidadosUserId, setCuidadosUserId] = useState("");
-  const [odontogram, setOdontogram] = useState<Record<string,{condition:string;surfaces?:Record<string,string>;notes:string}>>({});
+  const [odontogram, setOdontogram] = useState<any>({});
   const [facial, setFacial] = useState<Record<string,{treatment:string;units:number;notes:string}>>({});
   const [oSaving, setOSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
