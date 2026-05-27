@@ -17,7 +17,8 @@
       "Bash(mkdir \"c:\\\\Users\\\\PC\\\\clinica-magna\\\\app\\\\api\\\\convenios\\\\[id]\" 2>nul; echo done)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(git commit *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\PC\\clinica-magna\\app\\api\\auth",
