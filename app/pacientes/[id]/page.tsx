@@ -92,7 +92,7 @@ interface Patient {
   documents: Array<{ id:string; name:string; type:string; fileName:string; mimeType:string; size:number; createdAt:string }>;
 }
 
-const TABS = ["Historial","Ficha Clínica","Odontograma","Estética Facial","Evoluciones","Presupuestos","Radiografías","Pagos","Documentos","Datos","Citas"];
+const TABS = ["Historial","Ficha Clínica","Odontograma","Estética Facial","Evoluciones","Recetas","Presupuestos","Radiografías","Pagos","Documentos","Citas"];
 
 function fmt(n:number) { return new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(n); }
 function fmtShort(n:number) { const abs=Math.abs(n); const sign=n<0?"-":""; if(abs>=1000000) return `${sign}$${(abs/1000000).toFixed(1)}M`; if(abs>=1000) return `${sign}$${Math.round(abs/1000)}K`; return fmt(n); }
@@ -208,6 +208,10 @@ export default function PatientDetail() {
   const [odontogram, setOdontogram] = useState<any>({});
   const [facial, setFacial] = useState<any>({});
   const [oSaving, setOSaving] = useState(false);
+  const [prescriptions, setPrescriptions] = useState<Array<{id:string;date:string;type:string;content:string;user:{name:string};createdAt:string}>>([]);
+  const [rxTabType, setRxTabType] = useState<"recipe"|"care">("recipe");
+  const [rxFreeForm, setRxFreeForm] = useState({ userId:"", date:new Date().toISOString().split("T")[0], content:"" });
+  const [rxFreeSaving, setRxFreeSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [docType, setDocType] = useState("radiografia");
@@ -258,6 +262,8 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     if (ur.ok) setUsers(await ur.json());
     if (or_.ok) setOdontograms(await or_.json());
     if (fr.ok) setFacial(await fr.json());
+    const rxr = await fetch(`/api/prescriptions?patientId=${id}`);
+    if (rxr.ok) setPrescriptions(await rxr.json());
     if (cr.ok) setClinicCfg(await cr.json());
     if (tr.ok) setTreatments(await tr.json());
     if (cvr.ok) setConvenios(await cvr.json());
@@ -868,6 +874,26 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     load();
   }
 
+  async function saveRxFree() {
+    if (!rxFreeForm.userId || !rxFreeForm.content.trim()) return;
+    setRxFreeSaving(true);
+    await fetch("/api/prescriptions", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ patientId: id, userId: rxFreeForm.userId, date: rxFreeForm.date, type: rxTabType, content: rxFreeForm.content }),
+    });
+    setRxFreeForm(f => ({ ...f, content: "" }));
+    setRxFreeSaving(false);
+    const r = await fetch(`/api/prescriptions?patientId=${id}`);
+    if (r.ok) setPrescriptions(await r.json());
+  }
+
+  async function deleteRx(rxId: string) {
+    if (!confirm("¿Eliminar este registro?")) return;
+    await fetch(`/api/prescriptions/${rxId}`, { method: "DELETE" });
+    const r = await fetch(`/api/prescriptions?patientId=${id}`);
+    if (r.ok) setPrescriptions(await r.json());
+  }
+
   async function saveOdontogram(data: any, recordId: string | null, type: string) {
     setOSaving(true);
     const today = new Date().toISOString().split("T")[0];
@@ -1015,8 +1041,8 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         {/* Barra de acciones rápidas bajo el header */}
         <div className="bg-white border-b border-[#E3E8F0] px-4 sm:px-6 py-2 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex gap-1.5 flex-wrap">
-            <button onClick={()=>setRxModal(true)} className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-600 hover:text-white transition-all">
-              <Printer size={13}/> Receta
+            <button onClick={()=>{ setTab(5); }} className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-600 hover:text-white transition-all">
+              <Printer size={13}/> Receta / Cuidados
             </button>
             <button onClick={()=>router.push(`/agenda?patientId=${patient.id}`)} className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-[#F0F2F7] text-[#4B5563] border border-[#E3E8F0] hover:bg-[#E3E8F0] transition-all">
               <CalendarPlus size={13}/> Agendar
@@ -1047,9 +1073,9 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         </div>
 
         {/* Acciones secundarias */}
-        <div className="bg-[#F8F9FC] px-4 sm:px-6 py-2 flex gap-1.5 flex-wrap rounded-b-2xl border-t border-[#E3E8F0]">
-          <button onClick={()=>{ setRxDocUserId(""); setRxDocItems([{type:"",zone:""}]); setRxDocIndication(""); setRxDocObservations(""); setRxDocModal(true); }} className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-3 py-1.5 rounded-lg bg-[#FEF3C7] text-[#92600A] border border-[#F59E0B]/20 hover:bg-[#F59E0B] hover:text-white transition-all">
-            <FileText size={12}/> Solicitud Rx
+        <div className="bg-[#F8F9FC] px-4 sm:px-6 py-1.5 flex gap-1.5 flex-wrap rounded-b-2xl border-t border-[#E3E8F0]">
+          <button onClick={()=>setTab(4)} className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-3 py-1.5 rounded-lg bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-600 hover:text-white transition-all">
+            <Activity size={12}/> Nueva evolución
           </button>
         </div>
       </div>
@@ -1301,8 +1327,113 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         </div>
       )}
 
-      {/* ===== TAB 5: PRESUPUESTOS ===== */}
+      {/* ===== TAB 5: RECETAS Y CUIDADOS ===== */}
       {tab===5&&(
+        <div className="space-y-4">
+          {/* Sub-tabs */}
+          <div className="flex gap-1 bg-[#F0F2F7] rounded-xl p-1 w-fit">
+            {([["recipe","Recetas 🖊"],["care","Cuidados 📋"]] as [string,string][]).map(([t,label])=>(
+              <button key={t} onClick={()=>setRxTabType(t as any)}
+                className={`px-4 py-2 text-[13px] font-semibold rounded-lg transition-all ${rxTabType===t?"bg-white text-[#1A1D2E] shadow-sm":"text-[#9AA0B4] hover:text-[#1A1D2E]"}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Formulario de creación */}
+          <div className="bg-white border border-[#E3E8F0] rounded-2xl overflow-hidden shadow-sm">
+            <div className="px-5 pt-4 pb-3 border-b border-[#E3E8F0] grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-[#9AA0B4] uppercase tracking-wide mb-1.5">Profesional *</label>
+                <select className="select text-[13px]" value={rxFreeForm.userId} onChange={e=>setRxFreeForm(f=>({...f,userId:e.target.value}))}>
+                  <option value="">Seleccionar profesional...</option>
+                  {users.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-[#9AA0B4] uppercase tracking-wide mb-1.5">Fecha</label>
+                <input type="date" className="input text-[13px]" value={rxFreeForm.date} onChange={e=>setRxFreeForm(f=>({...f,date:e.target.value}))}/>
+              </div>
+            </div>
+            {/* Toolbar */}
+            <div className="px-5 pt-3 pb-1 flex items-center justify-between">
+              <div className="flex items-center gap-0.5 bg-[#F0F2F7] rounded-lg p-1">
+                {["P","B","I","U","S"].map(b=>(
+                  <button key={b} className={`w-7 h-7 flex items-center justify-center rounded-md hover:bg-white hover:shadow-sm transition-all text-[#4B5563] text-[12px] ${b==="B"?"font-bold":b==="I"?"italic":b==="U"?"underline":b==="S"?"line-through":""}`}>{b}</button>
+                ))}
+              </div>
+              {rxTabType==="recipe" ? (
+                <select className="appearance-none text-[12px] font-semibold bg-[#EEF3FF] text-[#0057FF] border border-[#0057FF]/20 rounded-lg px-3 py-1.5 pr-6 cursor-pointer focus:outline-none"
+                  value="" onChange={e=>{ const tmpl=RX_TEMPLATES[e.target.value]; if(tmpl){const txt=tmpl.map((m:any)=>`${m.drug} ${m.dose} — ${m.freq} × ${m.duration}`).join("\n"); setRxFreeForm(f=>({...f,content:(f.content?f.content+"\n":"")+txt}));} (e.target as HTMLSelectElement).value=""; }}>
+                  <option value="">+ Usar plantilla</option>
+                  {Object.keys(RX_TEMPLATES).map(k=><option key={k} value={k}>{k}</option>)}
+                </select>
+              ) : (
+                <select className="appearance-none text-[12px] font-semibold bg-[#EEF3FF] text-[#0057FF] border border-[#0057FF]/20 rounded-lg px-3 py-1.5 pr-6 cursor-pointer focus:outline-none"
+                  value="" onChange={e=>{ const t=CARE_TEMPLATES[e.target.value]; if(t) setRxFreeForm(f=>({...f,content:(f.content?f.content+"\n":"")+t})); (e.target as HTMLSelectElement).value=""; }}>
+                  <option value="">+ Usar plantilla</option>
+                  {Object.keys(CARE_TEMPLATES).map(k=><option key={k} value={k}>{k}</option>)}
+                </select>
+              )}
+            </div>
+            <div className="px-5 pb-4">
+              <textarea
+                className="w-full text-[13px] border border-[#E3E8F0] rounded-xl px-4 py-3 focus:outline-none focus:ring-1 focus:ring-[#0057FF] resize-none leading-relaxed"
+                rows={6}
+                value={rxFreeForm.content}
+                onChange={e=>setRxFreeForm(f=>({...f,content:e.target.value}))}
+                placeholder={rxTabType==="recipe"?"Escribe la receta médica aquí...":"Escribe los cuidados post-operatorios aquí..."}
+              />
+              <div className="flex justify-end gap-2 mt-2">
+                <button onClick={()=>setRxFreeForm(f=>({...f,content:""}))}
+                  className="text-[12px] font-medium px-3 py-2 rounded-lg border border-[#E3E8F0] text-[#4B5563] hover:bg-[#F0F2F7] transition-colors">
+                  Limpiar
+                </button>
+                <button onClick={saveRxFree} disabled={rxFreeSaving||!rxFreeForm.userId||!rxFreeForm.content.trim()}
+                  className="flex items-center gap-1.5 text-[12px] font-semibold px-4 py-2 rounded-lg bg-[#0057FF] text-white hover:bg-[#0041CC] transition-colors disabled:opacity-60">
+                  <Save size={13}/> {rxFreeSaving?"Guardando...": rxTabType==="recipe"?"Guardar Receta":"Guardar Cuidados"}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Lista de registros guardados */}
+          <div className="space-y-3">
+            {prescriptions.filter(p=>p.type===rxTabType).length===0 ? (
+              <div className="bg-white border border-[#E3E8F0] rounded-2xl py-10 text-center shadow-sm">
+                <p className="text-[13px] text-[#9AA0B4]">{rxTabType==="recipe"?"Sin recetas guardadas":"Sin cuidados guardados"}</p>
+              </div>
+            ) : prescriptions.filter(p=>p.type===rxTabType).map(rx=>(
+              <div key={rx.id} className="bg-white border border-[#E3E8F0] rounded-2xl shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-3 border-b border-[#F0F2F7] bg-[#F8F9FC]">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-[#0057FF] flex items-center justify-center flex-shrink-0">
+                      <span className="text-white text-[11px] font-bold">{rx.user.name[0]}</span>
+                    </div>
+                    <div>
+                      <p className="text-[12px] font-semibold text-[#1A1D2E]">{rx.user.name}</p>
+                      <p className="text-[10px] text-[#9AA0B4]">{new Date(rx.date+"T12:00:00").toLocaleDateString("es-CL",{day:"numeric",month:"short",year:"numeric"})}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={()=>{ setRxFreeForm({userId:"",date:new Date().toISOString().split("T")[0],content:rx.content}); window.scrollTo(0,0); }}
+                      className="text-[11px] font-semibold text-[#0057FF] hover:underline">
+                      Reutilizar
+                    </button>
+                    {isAdmin&&<button onClick={()=>deleteRx(rx.id)} className="text-[#D4C4A0] hover:text-red-500 transition-colors"><Trash2 size={13}/></button>}
+                  </div>
+                </div>
+                <div className="px-5 py-3">
+                  <p className="text-[13px] text-[#1A1D2E] leading-relaxed whitespace-pre-line">{rx.content}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ===== TAB 6: PRESUPUESTOS ===== */}
+      {tab===6&&(
         <div className="space-y-4">
           {/* Editor inline */}
           {budgetEditorOpen && (
@@ -1502,11 +1633,11 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         </div>
       )}
 
-      {/* ===== TAB 6: RADIOGRAFÍAS ===== */}
-      {tab===6&&(
+      {/* ===== TAB 7: RADIOGRAFÍAS ===== */}
+      {tab===7&&(
         <div className="space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-2 flex-wrap items-center">
               <select className="select text-sm w-auto" value={docType} onChange={e=>setDocType(e.target.value)}>
                 <option value="radiografia">Radiografía</option>
                 <option value="examen">Examen</option>
@@ -1514,6 +1645,10 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                 <option value="foto">Fotografía</option>
                 <option value="other">Otro</option>
               </select>
+              <button onClick={()=>{ setRxDocUserId(""); setRxDocItems([{type:"",zone:""}]); setRxDocIndication(""); setRxDocObservations(""); setRxDocModal(true); }}
+                className="inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-2 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-500 hover:text-white transition-all">
+                <FileText size={14}/> Solicitud Rx
+              </button>
             </div>
             <button onClick={()=>fileRef.current?.click()} disabled={uploading}
               className="btn-primary text-sm flex items-center gap-1.5">
@@ -1561,8 +1696,8 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         </div>
       )}
 
-      {/* ===== TAB 7: PAGOS ===== */}
-      {tab===7&&(
+      {/* ===== TAB 8: PAGOS ===== */}
+      {tab===8&&(
         <div className="space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex gap-2 flex-wrap">
@@ -1608,8 +1743,8 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         </div>
       )}
 
-      {/* ===== TAB 8: DOCUMENTOS ===== */}
-      {tab===8&&(
+      {/* ===== TAB 9: DOCUMENTOS ===== */}
+      {tab===9&&(
         <div className="space-y-4">
           <div className="card p-4 flex flex-wrap items-center gap-3">
             <select className="select w-auto text-sm" value={docType} onChange={e=>setDocType(e.target.value)}>
@@ -1646,30 +1781,6 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
               ))}
             </div>
           )}
-        </div>
-      )}
-
-      {/* ===== TAB 9: DATOS ===== */}
-      {tab===9&&(
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[
-            ["Datos Personales",[["RUT",patient.rut],["Nombre",`${patient.firstName} ${patient.lastName}`],["Género",patient.gender==="M"?"Masculino":"Femenino"],["Fecha nac.",patient.birthDate?new Date(patient.birthDate.split("T")[0]+"T12:00:00").toLocaleDateString("es-CL"):"—"],["Edad",age?`${age} años`:"—"]]],
-            ["Contacto",[["Teléfono",patient.phone||"—"],["Email",patient.email||"—"],["Dirección",patient.address||"—"],["Ciudad",patient.city||"—"]]],
-            ["Previsión",[["Previsión de salud",patient.healthInsurance||"—"]]],
-            ["Notas",[[null,patient.notes||"Sin observaciones"]]],
-          ].map(([title,rows])=>(
-            <div key={title as string} className="card p-5">
-              <h3 className="section-title mb-3">{title as string}</h3>
-              <dl className="space-y-2.5">
-                {(rows as [string|null,string][]).map(([k,v],i)=>(
-                  <div key={i} className={k?"flex justify-between gap-4":""}>
-                    {k&&<dt className="text-sm text-slate-500">{k}</dt>}
-                    <dd className={`text-sm font-medium text-slate-800 ${k?"text-right":""}`}>{v}</dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
-          ))}
         </div>
       )}
 

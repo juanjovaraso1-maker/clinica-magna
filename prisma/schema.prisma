@@ -21,9 +21,10 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  appointments Appointment[]
-  evolutions   Evolution[]
-  budgets      Budget[]
+  appointments  Appointment[]
+  evolutions    Evolution[]
+  budgets       Budget[]
+  prescriptions PrescriptionRecord[]
 }
 
 model Patient {
@@ -53,6 +54,7 @@ model Patient {
   odontograms    OdontogramRecord[]
   facialRecord   FacialRecord?
   reminders      Reminder[]
+  prescriptions  PrescriptionRecord[]
 }
 
 model Appointment {
@@ -282,4 +284,17 @@ model Reminder {
   createdAt   DateTime  @default(now())
 
   patient Patient @relation(fields: [patientId], references: [id])
+}
+
+model PrescriptionRecord {
+  id        String   @id @default(cuid())
+  patientId String
+  userId    String
+  date      String
+  type      String   @default("recipe")
+  content   String
+  createdAt DateTime @default(now())
+
+  patient Patient @relation(fields: [patientId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
 }

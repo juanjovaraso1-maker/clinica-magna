@@ -50,14 +50,17 @@
       "Bash(powershell.exe -Command \"Get-Process -Name node | Select-Object Id, Path, StartTime\")",
       "Bash(powershell.exe -Command \"netstat -ano | Select-String ':3000.*LISTENING'\")",
       "Bash(powershell.exe -Command \"\\(Get-Process -Id 17304\\).MainModule.FileName; \\(Get-Process -Id 17304 | Get-Item\\).Directory\")",
-      "Bash(powershell.exe -Command \"\\(Get-WmiObject Win32_Process -Filter 'ProcessId=17304'\\).CommandLine\")"
+      "Bash(powershell.exe -Command \"\\(Get-WmiObject Win32_Process -Filter 'ProcessId=17304'\\).CommandLine\")",
+      "Bash(grep -v \"^$\\\\|npm notice\\\\|┌\\\\|│\\\\|└\\\\|Run the\\\\|npm i \")",
+      "Bash(mkdir -p \"c:/Users/PC/clinica-magna/app/api/prescriptions/[id]\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\PC\\clinica-magna\\app\\api\\auth",
       "c:\\Users\\PC\\clinica-magna\\app\\api\\email-templates",
       "c:\\Users\\PC\\clinica-magna\\app\\api\\reminders",
       "c:\\Users\\PC\\clinica-magna\\app\\api\\convenios",
-      "c:\\Users\\PC\\clinica-magna\\app\\api\\odontogram"
+      "c:\\Users\\PC\\clinica-magna\\app\\api\\odontogram",
+      "c:\\Users\\PC\\clinica-magna\\app\\api\\prescriptions"
     ]
   }
 }
