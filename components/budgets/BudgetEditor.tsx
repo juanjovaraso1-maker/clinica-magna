@@ -64,14 +64,14 @@ function BudgetToothPNG({ num, hasLine, hovered }: { num: number; hasLine: boole
   const { src, mirror } = getToothPNG(num);
   return (
     <div style={{
-      position: "relative", display: "inline-block", borderRadius: 4,
+      position: "relative", display: "block", width: "100%", borderRadius: 4,
       outline: hovered ? "2.5px solid #2563EB" : hasLine ? "2px solid #3B82F6" : "none",
       outlineOffset: 2,
       backgroundColor: hovered ? "#DBEAFE" : hasLine ? "#EFF6FF" : "transparent",
     }}>
       <img src={src} alt="" draggable={false}
         style={{
-          width: 60, height: 135, objectFit: "contain",
+          width: "100%", height: "auto", objectFit: "contain",
           transform: mirror ? "scaleX(-1)" : undefined,
           display: "block",
         }}/>
@@ -297,11 +297,11 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
       </div>
       <div className="border-b border-[#E3E8F0] bg-white py-3 px-2">
         {/* Superior */}
-        <div className="flex items-end justify-between w-full mb-1 px-1">
-          {UPPER.map((num,idx)=>(
-            <div key={num} className={idx===7?"mr-2":""}>
-              <div className="flex flex-col items-center gap-[4px]">
-                <div className={`rounded-sm transition-all ${selTreat?"cursor-pointer":""}`}
+        <div style={{display:"grid", gridTemplateColumns:`repeat(${UPPER.length},1fr)`, gap:"3px", alignItems:"end"}} className="mb-1 px-1">
+          {UPPER.map((num)=>(
+            <div key={num}>
+              <div className="flex flex-col items-center gap-[4px] w-full">
+                <div className={`w-full rounded-sm transition-all ${selTreat?"cursor-pointer":""}`}
                   onClick={()=>selTreat&&addLine(num)}
                   onMouseEnter={()=>setHov(num)} onMouseLeave={()=>setHov(null)}>
                   <BudgetToothPNG num={num} hasLine={toothHasLine(num)} hovered={hoveredTooth===num&&!!selTreat}/>
@@ -313,12 +313,12 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
         </div>
         <div className="border-t-2 border-dashed border-[#E8E0D4] mx-2 my-3"/>
         {/* Inferior */}
-        <div className="flex items-start justify-between w-full mt-1 px-1">
-          {LOWER.map((num,idx)=>(
-            <div key={num} className={idx===7?"mr-2":""}>
-              <div className="flex flex-col items-center gap-[4px]">
+        <div style={{display:"grid", gridTemplateColumns:`repeat(${LOWER.length},1fr)`, gap:"3px", alignItems:"start"}} className="mt-1 px-1">
+          {LOWER.map((num)=>(
+            <div key={num}>
+              <div className="flex flex-col items-center gap-[4px] w-full">
                 <span className={`text-[11px] font-bold select-none leading-none ${toothHasLine(num)?"text-blue-600":"text-stone-400"}`}>{fmtTooth(num)}</span>
-                <div className={`rounded-sm transition-all ${selTreat?"cursor-pointer":""}`}
+                <div className={`w-full rounded-sm transition-all ${selTreat?"cursor-pointer":""}`}
                   onClick={()=>selTreat&&addLine(num)}
                   onMouseEnter={()=>setHov(num)} onMouseLeave={()=>setHov(null)}>
                   <BudgetToothPNG num={num} hasLine={toothHasLine(num)} hovered={hoveredTooth===num&&!!selTreat}/>

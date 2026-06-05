@@ -107,14 +107,14 @@ function ToothSVG({ num, wholeCond, selected }: { num: number; wholeCond?: strin
   const isExtraccion= wholeCond === "extraccion";
   return (
     <div style={{
-      position: "relative", display: "inline-block", borderRadius: 4,
+      position: "relative", display: "block", width: "100%", borderRadius: 4,
       outline: selected ? "2.5px solid #2563EB" : "none",
       outlineOffset: 2,
       backgroundColor: cond && !isAusente ? `${cond.color}1A` : "transparent",
     }}>
       <img src={src} alt="" draggable={false}
         style={{
-          width: 60, height: 135, objectFit: "contain",
+          width: "100%", height: "auto", objectFit: "contain",
           transform: mirror ? "scaleX(-1)" : undefined,
           opacity: isAusente ? 0.35 : 1,
           filter: isAusente ? "grayscale(1)" : undefined,
@@ -230,7 +230,7 @@ function ToothCell({ num, chart, upper, selTooth, selSurf, onTooth, onSurf, read
   );
 
   return (
-    <div className="flex flex-col items-center gap-[4px]">
+    <div className="flex flex-col items-center gap-[4px] w-full">
       {upper ? <>{svg}{diag}{label}</> : <>{label}{diag}{svg}</>}
     </div>
   );
@@ -484,10 +484,9 @@ export default function DentalChart({ records, onSave, onDelete, isSaving, reado
       <div className="flex">
         <div className="flex-1 min-w-0 py-3 px-2 bg-white">
           {/* Superior — distribuidos en todo el ancho */}
-          <div className="flex items-end justify-between w-full mb-1 px-1">
-            {upper.map((num,idx) => (
-              <div key={num} className={`${idx===Math.floor(upper.length/2)-1?"mr-2":""} transition-opacity`}
-                style={{opacity: toothOpacity(num)}}>
+          <div style={{display:"grid", gridTemplateColumns:`repeat(${upper.length},1fr)`, gap:"3px", alignItems:"end"}} className="mb-1 px-1">
+            {upper.map((num) => (
+              <div key={num} className="transition-opacity" style={{opacity: toothOpacity(num)}}>
                 <ToothCell num={num} chart={chart} upper={true}
                   selTooth={selTooth} selSurf={selSurf}
                   onTooth={handleToothClick} onSurf={handleSurfClick}
@@ -497,10 +496,9 @@ export default function DentalChart({ records, onSave, onDelete, isSaving, reado
           </div>
           <div className="border-t-2 border-dashed border-[#E8E0D4] mx-2 my-3"/>
           {/* Inferior — distribuidos en todo el ancho */}
-          <div className="flex items-start justify-between w-full mt-1 px-1">
-            {lower.map((num,idx) => (
-              <div key={num} className={`${idx===Math.floor(lower.length/2)-1?"mr-2":""} transition-opacity`}
-                style={{opacity: toothOpacity(num)}}>
+          <div style={{display:"grid", gridTemplateColumns:`repeat(${lower.length},1fr)`, gap:"3px", alignItems:"start"}} className="mt-1 px-1">
+            {lower.map((num) => (
+              <div key={num} className="transition-opacity" style={{opacity: toothOpacity(num)}}>
                 <ToothCell num={num} chart={chart} upper={false}
                   selTooth={selTooth} selSurf={selSurf}
                   onTooth={handleToothClick} onSurf={handleSurfClick}
