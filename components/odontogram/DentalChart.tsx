@@ -2,6 +2,7 @@
 import { useState, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { Plus, Trash2, Printer, ChevronDown } from "lucide-react";
+import { ToothPNG } from "./ToothPNG";
 
 /* ─── Tipos ─────────────────────────────────────────────────────────── */
 interface SurfaceState { cond: string }
@@ -79,65 +80,6 @@ function isUpper(num: number): boolean {
   return q === 1 || q === 2 || q === 5 || q === 6;
 }
 
-/* ─── Mapeo FDI → PNG ────────────────────────────────────────────────── */
-function getToothPNG(num: number): { src: string; mirror: boolean } {
-  const q = Math.floor(num / 10);
-  const n = num % 10;
-  const mirror = q === 2 || q === 3 || q === 6 || q === 7;
-  const upper  = q === 1 || q === 2 || q === 5 || q === 6;
-  if (upper) {
-    if (n >= 6) return { src: "/teeth/molar-superior.png", mirror };
-    if (n >= 4) return { src: "/teeth/premolar-superior.png", mirror };
-    if (n === 3) return { src: "/teeth/canino-superior.png", mirror };
-    if (n === 2) return { src: "/teeth/incisivo-lateral-superior.png", mirror };
-    return { src: "/teeth/incisivo-central-superior.png", mirror };
-  }
-  if (n >= 6) return { src: "/teeth/molar-inferior.png", mirror };
-  if (n >= 4) return { src: "/teeth/premolar-inferior.png", mirror };
-  if (n === 3) return { src: "/teeth/canino-inferior.png", mirror };
-  if (n === 2) return { src: "/teeth/incisivo-lateral-inferior.png", mirror };
-  return { src: "/teeth/incisivo-central-inferior.png", mirror };
-}
-
-/* ─── Diente como PNG ────────────────────────────────────────────────── */
-function ToothSVG({ num, wholeCond, selected }: { num: number; wholeCond?: string; selected?: boolean }) {
-  const { src, mirror } = getToothPNG(num);
-  const cond        = wholeCond && wholeCond !== "sano" ? CONDITIONS[wholeCond] : null;
-  const isAusente   = wholeCond === "ausente";
-  const isExtraccion= wholeCond === "extraccion";
-  return (
-    <div style={{
-      position: "relative", display: "block", width: "100%", borderRadius: 4,
-      outline: selected ? "2.5px solid #2563EB" : "none",
-      outlineOffset: 2,
-      backgroundColor: cond && !isAusente ? `${cond.color}1A` : "transparent",
-    }}>
-      <img src={src} alt="" draggable={false}
-        style={{
-          width: "100%", height: "auto", objectFit: "contain",
-          transform: mirror ? "scaleX(-1)" : undefined,
-          opacity: isAusente ? 0.35 : 1,
-          filter: isAusente ? "grayscale(1)" : undefined,
-          display: "block",
-        }}/>
-      {cond && !isAusente && (
-        <div style={{
-          position: "absolute", inset: 0, borderRadius: 4,
-          border: `1.5px solid ${cond.color}`,
-          pointerEvents: "none",
-        }}/>
-      )}
-      {isExtraccion && (
-        <div style={{
-          position: "absolute", inset: 0,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          color: "#B91C1C", fontWeight: 900, fontSize: 18,
-          pointerEvents: "none", textShadow: "0 0 4px white",
-        }}>✕</div>
-      )}
-    </div>
-  );
-}
 
 /* ─── Diagrama circular de superficies (5 cuñas) ─────────────────────── */
 function SurfaceDiagram({ num, toothState, selSurf, onSurf, readonly }: {
@@ -210,11 +152,14 @@ function ToothCell({ num, chart, upper, selTooth, selSurf, onTooth, onSurf, read
   const key   = String(num);
   const state = chart.teeth[key];
   const isSel = selTooth === num;
+  const cond  = state?.wholeCond && state.wholeCond !== "sano" ? CONDITIONS[state.wholeCond] : null;
 
   const svg = (
-    <div className={`cursor-pointer rounded-sm transition-all ${isSel?"ring-2 ring-blue-500 ring-offset-1 bg-blue-50/60":"hover:bg-amber-50/40"} ${readonly?"pointer-events-none":""}`}
-      onClick={() => !readonly && onTooth(num)}>
-      <ToothSVG num={num} wholeCond={state?.wholeCond} selected={isSel}/>
+    <div
+      className={`w-full rounded-sm transition-all ${isSel?"ring-2 ring-blue-500 ring-offset-1 bg-blue-50/60":"hover:bg-amber-50/40"} ${readonly?"pointer-events-none":"cursor-pointer"}`}
+      onClick={() => !readonly && onTooth(num)}
+    >
+      <ToothPNG num={num} wholeCond={state?.wholeCond} condColor={cond?.color}/>
     </div>
   );
   const diag = (

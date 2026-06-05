@@ -1,6 +1,7 @@
 "use client";
 import { useState, useMemo } from "react";
 import { Plus, Trash2, X, ChevronLeft, Save, Mail, MessageCircle, ChevronDown } from "lucide-react";
+import { ToothPNG } from "../odontogram/ToothPNG";
 
 /* ─── Tipos ─────────────────────────────────────────────────────────── */
 interface Treatment { id: string; name: string; category: string; price: number }
@@ -40,44 +41,6 @@ function fmtN(n: number) { return new Intl.NumberFormat("es-CL",{style:"currency
 function fmtTooth(n: number) { return `${Math.floor(n/10)}.${n%10}`; }
 function isUpperTooth(n: number) { const q=Math.floor(n/10); return q===1||q===2; }
 
-/* ─── Mapeo FDI → PNG ────────────────────────────────────────────────── */
-function getToothPNG(num: number): { src: string; mirror: boolean } {
-  const q = Math.floor(num / 10);
-  const n = num % 10;
-  const mirror = q === 2 || q === 3 || q === 6 || q === 7;
-  const upper  = q === 1 || q === 2 || q === 5 || q === 6;
-  if (upper) {
-    if (n >= 6) return { src: "/teeth/molar-superior.png", mirror };
-    if (n >= 4) return { src: "/teeth/premolar-superior.png", mirror };
-    if (n === 3) return { src: "/teeth/canino-superior.png", mirror };
-    if (n === 2) return { src: "/teeth/incisivo-lateral-superior.png", mirror };
-    return { src: "/teeth/incisivo-central-superior.png", mirror };
-  }
-  if (n >= 6) return { src: "/teeth/molar-inferior.png", mirror };
-  if (n >= 4) return { src: "/teeth/premolar-inferior.png", mirror };
-  if (n === 3) return { src: "/teeth/canino-inferior.png", mirror };
-  if (n === 2) return { src: "/teeth/incisivo-lateral-inferior.png", mirror };
-  return { src: "/teeth/incisivo-central-inferior.png", mirror };
-}
-
-function BudgetToothPNG({ num, hasLine, hovered }: { num: number; hasLine: boolean; hovered: boolean }) {
-  const { src, mirror } = getToothPNG(num);
-  return (
-    <div style={{
-      position: "relative", display: "block", width: "100%", borderRadius: 4,
-      outline: hovered ? "2.5px solid #2563EB" : hasLine ? "2px solid #3B82F6" : "none",
-      outlineOffset: 2,
-      backgroundColor: hovered ? "#DBEAFE" : hasLine ? "#EFF6FF" : "transparent",
-    }}>
-      <img src={src} alt="" draggable={false}
-        style={{
-          width: "100%", height: "auto", objectFit: "contain",
-          transform: mirror ? "scaleX(-1)" : undefined,
-          display: "block",
-        }}/>
-    </div>
-  );
-}
 
 
 
@@ -299,15 +262,16 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
         {/* Superior */}
         <div style={{display:"grid", gridTemplateColumns:`repeat(${UPPER.length},1fr)`, gap:"3px", alignItems:"end"}} className="mb-1 px-1">
           {UPPER.map((num)=>(
-            <div key={num}>
-              <div className="flex flex-col items-center gap-[4px] w-full">
-                <div className={`w-full rounded-sm transition-all ${selTreat?"cursor-pointer":""}`}
-                  onClick={()=>selTreat&&addLine(num)}
-                  onMouseEnter={()=>setHov(num)} onMouseLeave={()=>setHov(null)}>
-                  <BudgetToothPNG num={num} hasLine={toothHasLine(num)} hovered={hoveredTooth===num&&!!selTreat}/>
-                </div>
-                <span className={`text-[11px] font-bold select-none leading-none ${toothHasLine(num)?"text-blue-600":"text-stone-400"}`}>{fmtTooth(num)}</span>
-              </div>
+            <div key={num} className="flex flex-col items-center gap-[4px] w-full">
+              <ToothPNG
+                num={num}
+                hasLine={toothHasLine(num)}
+                hovered={hoveredTooth===num&&!!selTreat}
+                onClick={selTreat ? ()=>addLine(num) : undefined}
+                onMouseEnter={()=>setHov(num)}
+                onMouseLeave={()=>setHov(null)}
+              />
+              <span className={`text-[11px] font-bold select-none leading-none ${toothHasLine(num)?"text-blue-600":"text-stone-400"}`}>{fmtTooth(num)}</span>
             </div>
           ))}
         </div>
@@ -315,15 +279,16 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
         {/* Inferior */}
         <div style={{display:"grid", gridTemplateColumns:`repeat(${LOWER.length},1fr)`, gap:"3px", alignItems:"start"}} className="mt-1 px-1">
           {LOWER.map((num)=>(
-            <div key={num}>
-              <div className="flex flex-col items-center gap-[4px] w-full">
-                <span className={`text-[11px] font-bold select-none leading-none ${toothHasLine(num)?"text-blue-600":"text-stone-400"}`}>{fmtTooth(num)}</span>
-                <div className={`w-full rounded-sm transition-all ${selTreat?"cursor-pointer":""}`}
-                  onClick={()=>selTreat&&addLine(num)}
-                  onMouseEnter={()=>setHov(num)} onMouseLeave={()=>setHov(null)}>
-                  <BudgetToothPNG num={num} hasLine={toothHasLine(num)} hovered={hoveredTooth===num&&!!selTreat}/>
-                </div>
-              </div>
+            <div key={num} className="flex flex-col items-center gap-[4px] w-full">
+              <span className={`text-[11px] font-bold select-none leading-none ${toothHasLine(num)?"text-blue-600":"text-stone-400"}`}>{fmtTooth(num)}</span>
+              <ToothPNG
+                num={num}
+                hasLine={toothHasLine(num)}
+                hovered={hoveredTooth===num&&!!selTreat}
+                onClick={selTreat ? ()=>addLine(num) : undefined}
+                onMouseEnter={()=>setHov(num)}
+                onMouseLeave={()=>setHov(null)}
+              />
             </div>
           ))}
         </div>
