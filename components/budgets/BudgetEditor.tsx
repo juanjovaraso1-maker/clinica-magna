@@ -35,8 +35,6 @@ interface Props {
 /* ─── Dientes ────────────────────────────────────────────────────────── */
 const UPPER = [18,17,16,15,14,13,12,11,21,22,23,24,25,26,27,28];
 const LOWER = [48,47,46,45,44,43,42,41,31,32,33,34,35,36,37,38];
-const SEXTANTS = ["Sextante 1","Sextante 2","Sextante 3","Sextante 4","Sextante 5","Sextante 6"];
-const AREAS = ["Boca completa","Maxilar superior","Maxilar inferior",...SEXTANTS];
 
 function fmtN(n: number) { return new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(n); }
 function fmtTooth(n: number) { return `${Math.floor(n/10)}.${n%10}`; }
@@ -66,14 +64,14 @@ function BudgetToothPNG({ num, hasLine, hovered }: { num: number; hasLine: boole
   const { src, mirror } = getToothPNG(num);
   return (
     <div style={{
-      position: "relative", width: 24, height: 52, borderRadius: 4,
+      position: "relative", display: "inline-block", borderRadius: 4,
       outline: hovered ? "2.5px solid #2563EB" : hasLine ? "2px solid #3B82F6" : "none",
       outlineOffset: 2,
       backgroundColor: hovered ? "#DBEAFE" : hasLine ? "#EFF6FF" : "transparent",
     }}>
       <img src={src} alt="" draggable={false}
         style={{
-          width: "100%", height: "100%", objectFit: "contain",
+          width: 34, height: 78, objectFit: "contain",
           transform: mirror ? "scaleX(-1)" : undefined,
           display: "block",
         }}/>
@@ -143,8 +141,6 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
   const [treatSearch, setTreatSearch] = useState("");
   const [treatOpen,   setTreatOpen]   = useState(false);
   const [hoveredTooth,setHov]         = useState<number|null>(null);
-  /* selArea: area-context for the next treatment — never dims teeth */
-  const [selArea,     setSelArea]     = useState("Boca completa");
   const [viewFilter,  setViewFilter]  = useState<"full"|"upper"|"lower">("full");
   const [selSextantFilter, setSelSextantFilter] = useState<string|null>(null);
   const [gDiscountPct, setGDiscountPct] = useState(0);
@@ -213,9 +209,6 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
 
   /* ── Grid columns for items table ── */
   const gridCols = "100px minmax(120px,1fr) 70px 110px 60px 65px 90px 110px 36px";
-
-  /* Short label for the "Agregar" button */
-  const areaShort = selArea.replace(/\s*\(.*\)/,"").trim();
 
   return (
     <div className="bg-white border border-[#E3E8F0] rounded-2xl overflow-hidden shadow-sm">
@@ -305,30 +298,6 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
           )}
         </div>
 
-        {/* Área de asociación — siempre visible, cambia contexto para próxima prestación */}
-        <div className="flex items-start gap-2 flex-wrap">
-          <span className="text-[12px] font-semibold text-[#9AA0B4] mt-1.5 flex-shrink-0">Área:</span>
-          <div className="flex items-center gap-1.5 flex-wrap flex-1">
-            {AREAS.map(area=>(
-              <button key={area}
-                onClick={()=>setSelArea(area)}
-                className={`text-[12px] font-medium px-3 py-1.5 rounded-lg border transition-all ${
-                  selArea===area
-                    ? "bg-[#0057FF] text-white border-[#0057FF]"
-                    : "bg-[#F0F2F7] text-[#4B5563] border-[#E3E8F0] hover:bg-[#EEF3FF] hover:text-[#0057FF] hover:border-[#0057FF]/40"
-                }`}>
-                {area}
-              </button>
-            ))}
-          </div>
-          {selTreat && (
-            <button
-              onClick={()=>addLine(undefined, selArea)}
-              className="flex items-center gap-1.5 text-[12px] font-semibold px-4 py-1.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 active:scale-95 transition-all flex-shrink-0 mt-0.5">
-              <Plus size={12}/> Agregar para {areaShort}
-            </button>
-          )}
-        </div>
       </div>
 
       {/* ── Odontograma: selector de vista + sextantes ── */}

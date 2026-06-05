@@ -107,14 +107,14 @@ function ToothSVG({ num, wholeCond, selected }: { num: number; wholeCond?: strin
   const isExtraccion= wholeCond === "extraccion";
   return (
     <div style={{
-      position: "relative", width: 24, height: 52, borderRadius: 4,
+      position: "relative", display: "inline-block", borderRadius: 4,
       outline: selected ? "2.5px solid #2563EB" : "none",
       outlineOffset: 2,
       backgroundColor: cond && !isAusente ? `${cond.color}1A` : "transparent",
     }}>
       <img src={src} alt="" draggable={false}
         style={{
-          width: "100%", height: "100%", objectFit: "contain",
+          width: 34, height: 78, objectFit: "contain",
           transform: mirror ? "scaleX(-1)" : undefined,
           opacity: isAusente ? 0.35 : 1,
           filter: isAusente ? "grayscale(1)" : undefined,
