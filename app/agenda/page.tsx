@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Plus, MessageCircle, Mail, Trash2, ExternalLink, Calendar, Lock, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, MessageCircle, Mail, Trash2, ExternalLink, Calendar, Lock, X, AlertTriangle, RefreshCw } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useRole";
 import Modal from "@/components/ui/Modal";
 
@@ -19,8 +19,10 @@ interface Appointment {
 
 const TYPES = ["Odontología General","Estética Orofacial","Implantología","Rehabilitación Oral","Endodoncia","Periodoncia","Ortodoncia","Patología Oral","Cirugía Maxilofacial","Odontopediatría","Urgencia"];
 const STATUS_OPTIONS = ["scheduled","confirmed","waiting","in_progress","completed","cancelled","no-show"];
-const HOURS = Array.from({ length: 13 }, (_, i) => i + 8);
-const HOUR_H = 56;
+const SLOT_MIN = 15;
+const SLOT_H = 14;
+const HOUR_START = 7;
+const HOUR_END = 21;
 
 const STATUS_STYLE: Record<string, { bg: string; border: string; text: string; dot: string; label: string; solid: string }> = {
   scheduled:   { bg:"bg-blue-50",   border:"border-l-blue-500",   text:"text-blue-700",   dot:"bg-blue-500",   label:"Agendada",          solid:"bg-blue-500" },
@@ -56,8 +58,8 @@ function weekStart(d: string) {
   return dt.toISOString().split("T")[0];
 }
 function timeToMin(t: string) { const [h,m] = t.split(":").map(Number); return h*60+m; }
-function topPx(t: string) { return (timeToMin(t) - 8*60) * (HOUR_H/60); }
-function heightPx(start: string, end: string) { return Math.max((timeToMin(end)-timeToMin(start))*(HOUR_H/60), 28); }
+function topPx(t: string) { return (timeToMin(t) - HOUR_START * 60) / SLOT_MIN * SLOT_H; }
+function heightPx(start: string, end: string) { return Math.max((timeToMin(end) - timeToMin(start)) / SLOT_MIN * SLOT_H, 20); }
 
 const initForm = { patientId:"", userId:"", date:todayStr(), startTime:"09:00", endTime:"10:00", type:"Odontología General", status:"scheduled", box:1, notes:"" };
 
@@ -74,7 +76,7 @@ export default function Agenda() {
   const [saving, setSaving] = useState(false);
   const [reminderLoading, setReminderLoading] = useState<string|null>(null);
   const [toast, setToast] = useState<string|null>(null);
-  const [view, setView] = useState<"week"|"day">("day");
+  const [view, setView] = useState<"week"|"day">("week");
   const [filterUserId, setFilterUserId] = useState("all");
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
   const [blockOpen, setBlockOpen] = useState(false);
@@ -235,9 +237,19 @@ export default function Agenda() {
 
   // Sidebar stats
   const todayAppts = appointments.filter(a => a.date === currentDate);
-  const confirmedCount = todayAppts.filter(a => a.status === "confirmed").length;
   const pendingCount   = todayAppts.filter(a => a.status === "scheduled").length;
   const urgencyCount   = todayAppts.filter(a => a.type === "Urgencia").length;
+  const noShowCount    = todayAppts.filter(a => a.status === "no-show").length;
+
+  const weekRangeLabel = (() => {
+    const start = new Date(ws + "T12:00:00");
+    const end   = new Date(weekDays[6] + "T12:00:00");
+    const sDay  = start.getDate();
+    const eDay  = end.getDate();
+    const month = end.toLocaleDateString("es-CL", { month: "short" }).replace(".", "");
+    const year  = end.getFullYear();
+    return `${sDay} — ${eDay} de ${month}. ${year}`;
+  })();
 
   const calLabel = calMonthDate
     ? new Date(calMonthDate + "T12:00:00").toLocaleDateString("es-CL", {month:"long", year:"numeric"})
@@ -259,7 +271,7 @@ export default function Agenda() {
             <ChevronLeft size={18}/>
           </button>
           <div className="px-1">
-            <h1 className="text-[20px] font-bold text-[#1A1D2E] leading-tight">Agenda del día</h1>
+            <h1 className="text-[20px] font-bold text-[#1A1D2E] leading-tight">Agenda</h1>
             <p className="text-[13px] text-[#9AA0B4] capitalize">
               {new Date(currentDate+"T12:00:00").toLocaleDateString("es-CL",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}
             </p>
@@ -350,86 +362,143 @@ export default function Agenda() {
 
           {/* ── WEEK VIEW ── */}
           {view === "week" && (
-            <div className="bg-white border border-[#E3E8F0] rounded-[14px] overflow-auto shadow-sm">
-              <div className="min-w-[600px]">
-                <div className="grid border-b border-[#E3E8F0]" style={{gridTemplateColumns:"52px repeat(7, 1fr)"}}>
-                  <div className="border-r border-[#E3E8F0]"/>
-                  {weekDays.map(d => {
-                    const isToday = d === today;
-                    const dt = new Date(d+"T12:00:00");
-                    const count = filtered.filter(a => a.date === d).length;
+            <div className="bg-white border border-[#E3E8F0] rounded-[14px] overflow-hidden shadow-sm">
+              {/* Internal toolbar */}
+              <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#E3E8F0] flex-wrap gap-2">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    onClick={() => setFilterUserId("all")}
+                    className={`text-[11px] font-medium px-2.5 py-1 rounded-full transition-colors ${filterUserId === "all" ? "bg-[#1A1D2E] text-white" : "bg-[#F0F2F7] text-[#4B5563] hover:bg-[#E3E8F0]"}`}
+                  >
+                    Todos
+                  </button>
+                  {users.map(u => {
+                    const color = userPillColor(u.id);
+                    const active = filterUserId === u.id;
                     return (
-                      <div key={d} onClick={() => { setCurrentDate(d); setView("day"); }}
-                        className={`py-2 px-1 text-center border-r border-[#E3E8F0] last:border-r-0 cursor-pointer hover:bg-[#F0F2F7] transition-colors ${isToday?"bg-[#EEF3FF]":""}`}>
-                        <p className={`text-[11px] font-semibold uppercase ${isToday?"text-[#0057FF]":"text-[#9AA0B4]"}`}>
-                          {dt.toLocaleDateString("es-CL",{weekday:"short"}).replace(".","").slice(0,3)}
-                        </p>
-                        <p className={`text-[16px] font-bold ${isToday?"text-[#0057FF]":"text-[#1A1D2E]"}`}>{dt.getDate()}</p>
-                        {count > 0 && <p className={`text-[11px] ${isToday?"text-[#0057FF]":"text-[#9AA0B4]"}`}>{count} cita{count!==1?"s":""}</p>}
-                      </div>
+                      <button key={u.id} onClick={() => setFilterUserId(u.id)}
+                        className="flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full transition-colors"
+                        style={active ? {backgroundColor: color, color: "white"} : {backgroundColor: "#F0F2F7", color: "#4B5563"}}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{backgroundColor: active ? "rgba(255,255,255,0.75)" : color}}/>
+                        {u.name.split(" ").slice(0,2).join(" ")}
+                      </button>
                     );
                   })}
                 </div>
-                <div className="relative overflow-auto" style={{maxHeight:"calc(100vh - 260px)"}}>
-                  {HOURS.map(h => (
-                    <div key={h} className="grid border-b border-[#F0F2F7]"
-                      style={{gridTemplateColumns:"52px repeat(7, 1fr)", height:`${HOUR_H}px`}}>
-                      <div className="border-r border-[#E3E8F0] px-1.5 pt-1 flex-shrink-0">
-                        <span className="text-[11px] text-[#9AA0B4]">{String(h).padStart(2,"0")}:00</span>
-                      </div>
-                      {weekDays.map(d => (
-                        <div key={d}
-                          className={`border-r border-[#F0F2F7] last:border-r-0 hover:bg-[#F0F2F7]/50 cursor-pointer transition-colors ${d===today?"bg-[#EEF3FF]/30":""}`}
-                          onClick={() => openNew(d, `${String(h).padStart(2,"0")}:00`)}/>
-                      ))}
-                    </div>
-                  ))}
-                  {filtered.map(a => {
-                    const dayIdx = weekDays.indexOf(a.date);
-                    if (dayIdx === -1) return null;
-                    const top = topPx(a.startTime);
-                    const height = heightPx(a.startTime, a.endTime);
-                    const left = `calc(52px + ${dayIdx} * (100% - 52px) / 7 + 2px)`;
-                    const s = STATUS_STYLE[a.status] ?? STATUS_STYLE.scheduled;
-                    return (
-                      <div key={a.id}
-                        className={`absolute rounded-lg px-1.5 py-0.5 cursor-pointer hover:brightness-95 transition-all shadow-sm ${s.solid}`}
-                        style={{top:`${top}px`, height:`${height}px`, left, width:`calc((100% - 52px) / 7 - 4px)`}}
-                        onClick={e => { e.stopPropagation(); openEdit(a); }}>
-                        <p className="text-[11px] font-semibold truncate leading-tight text-white">{a.patient.firstName} {a.patient.lastName[0]}.</p>
-                        {height > 36 && <p className="text-[11px] truncate opacity-80 leading-tight text-white">{a.startTime} · {a.type.split(" ")[0]}</p>}
-                      </div>
-                    );
-                  })}
-                  {/* Blocked slots — week view */}
-                  {blockedSlots.map(b => {
-                    const dayIdx = weekDays.indexOf(b.date);
-                    if (dayIdx === -1) return null;
-                    const top    = topPx(b.startTime);
-                    const height = heightPx(b.startTime, b.endTime);
-                    const left   = `calc(52px + ${dayIdx} * (100% - 52px) / 7 + 2px)`;
-                    return (
-                      <div key={b.id}
-                        className="absolute rounded-lg px-1.5 py-1 overflow-hidden border border-slate-300"
-                        style={{
-                          top: `${top}px`, height: `${height}px`, left,
-                          width: `calc((100% - 52px) / 7 - 4px)`,
-                          background: "repeating-linear-gradient(45deg,#F1F5F9,#F1F5F9 4px,#E2E8F0 4px,#E2E8F0 8px)",
-                        }}>
-                        <p className="text-[10px] font-semibold text-slate-500 truncate leading-tight">
-                          🔒 {b.reason || "Bloqueado"}
-                        </p>
-                        {isAdmin && height > 28 && (
-                          <button
-                            onClick={e => { e.stopPropagation(); deleteBlock(b.id); }}
-                            className="absolute top-0.5 right-0.5 p-0.5 hover:bg-slate-200 rounded transition-colors"
-                          >
-                            <X size={10} className="text-slate-400"/>
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
+                <div className="flex items-center gap-1">
+                  <span className="text-[12px] font-semibold text-[#1A1D2E] mr-1 select-none">{weekRangeLabel}</span>
+                  <button onClick={load} className="p-1.5 rounded-lg hover:bg-[#F0F2F7] text-[#9AA0B4] transition-colors" title="Actualizar">
+                    <RefreshCw size={13}/>
+                  </button>
+                  <button onClick={() => setCurrentDate(d => addDays(d, -7))} className="p-1.5 rounded-lg hover:bg-[#F0F2F7] text-[#9AA0B4] transition-colors">
+                    <ChevronLeft size={15}/>
+                  </button>
+                  <button onClick={() => setCurrentDate(d => addDays(d, 7))} className="p-1.5 rounded-lg hover:bg-[#F0F2F7] text-[#9AA0B4] transition-colors">
+                    <ChevronRight size={15}/>
+                  </button>
+                </div>
+              </div>
+              <div className="overflow-auto" style={{maxHeight:"calc(100vh - 220px)"}}>
+                <div className="min-w-[620px]">
+                  {/* Day name header — sticky */}
+                  <div className="grid sticky top-0 z-10 bg-white border-b border-[#E3E8F0]" style={{gridTemplateColumns:"52px repeat(7, 1fr)"}}>
+                    <div className="border-r border-[#E3E8F0]"/>
+                    {weekDays.map(d => {
+                      const isToday = d === today;
+                      const dt = new Date(d+"T12:00:00");
+                      const count = filtered.filter(a => a.date === d).length;
+                      return (
+                        <div key={d} onClick={() => { setCurrentDate(d); setView("day"); }}
+                          className={`py-2 px-1 text-center border-r border-[#E3E8F0] last:border-r-0 cursor-pointer hover:bg-[#F0F2F7] transition-colors ${isToday ? "bg-[#F0FDF4]" : ""}`}>
+                          <p className={`text-[11px] font-semibold uppercase ${isToday ? "text-[#059669]" : "text-[#9AA0B4]"}`}>
+                            {dt.toLocaleDateString("es-CL",{weekday:"short"}).replace(".","").slice(0,3)}
+                          </p>
+                          <p className={`text-[16px] font-bold ${isToday ? "text-[#059669]" : "text-[#1A1D2E]"}`}>{dt.getDate()}</p>
+                          {count > 0 && <p className={`text-[11px] ${isToday ? "text-[#059669]" : "text-[#9AA0B4]"}`}>{count} cita{count!==1?"s":""}</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* 15-min time grid */}
+                  <div className="relative">
+                    {Array.from({ length: (HOUR_END - HOUR_START) * 4 }, (_, i) => {
+                      const totalMin = HOUR_START * 60 + i * SLOT_MIN;
+                      const h = Math.floor(totalMin / 60);
+                      const m = totalMin % 60;
+                      const isHour = m === 0;
+                      const isHalf = m === 30;
+                      return (
+                        <div key={i} className="grid"
+                          style={{
+                            gridTemplateColumns: "52px repeat(7, 1fr)",
+                            height: `${SLOT_H}px`,
+                            borderBottom: isHour ? "1px solid #E3E8F0" : isHalf ? "1px solid #F0F2F7" : "none",
+                          }}>
+                          <div className="border-r border-[#E3E8F0] relative flex-shrink-0 overflow-visible">
+                            {isHour && (
+                              <span className="absolute -top-[9px] left-1.5 text-[10px] text-[#9AA0B4] select-none whitespace-nowrap">
+                                {String(h).padStart(2,"0")}:00
+                              </span>
+                            )}
+                          </div>
+                          {weekDays.map(d => (
+                            <div key={d}
+                              className={`border-r border-[#F0F2F7] last:border-r-0 cursor-pointer transition-colors ${d === today ? "bg-[#F0FDF4]/40" : ""}`}
+                              onClick={() => openNew(d, `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`)}
+                            />
+                          ))}
+                        </div>
+                      );
+                    })}
+                    {/* Appointments */}
+                    {filtered.map(a => {
+                      const dayIdx = weekDays.indexOf(a.date);
+                      if (dayIdx === -1) return null;
+                      const top = topPx(a.startTime);
+                      const height = heightPx(a.startTime, a.endTime);
+                      const left = `calc(52px + ${dayIdx} * (100% - 52px) / 7 + 2px)`;
+                      const s = STATUS_STYLE[a.status] ?? STATUS_STYLE.scheduled;
+                      return (
+                        <div key={a.id}
+                          className={`absolute rounded-lg px-1.5 py-0.5 cursor-pointer hover:brightness-95 transition-all shadow-sm ${s.solid}`}
+                          style={{top:`${top}px`, height:`${height}px`, left, width:`calc((100% - 52px) / 7 - 4px)`}}
+                          onClick={e => { e.stopPropagation(); openEdit(a); }}>
+                          <p className="text-[11px] font-semibold truncate leading-tight text-white">{a.patient.firstName} {a.patient.lastName[0]}.</p>
+                          {height > 28 && <p className="text-[10px] truncate opacity-80 leading-tight text-white">{a.startTime} · {a.type.split(" ")[0]}</p>}
+                        </div>
+                      );
+                    })}
+                    {/* Blocked slots */}
+                    {blockedSlots.map(b => {
+                      const dayIdx = weekDays.indexOf(b.date);
+                      if (dayIdx === -1) return null;
+                      const top    = topPx(b.startTime);
+                      const height = heightPx(b.startTime, b.endTime);
+                      const left   = `calc(52px + ${dayIdx} * (100% - 52px) / 7 + 2px)`;
+                      return (
+                        <div key={b.id}
+                          className="absolute rounded-lg px-1.5 py-1 overflow-hidden border border-slate-300"
+                          style={{
+                            top: `${top}px`, height: `${height}px`, left,
+                            width: `calc((100% - 52px) / 7 - 4px)`,
+                            background: "repeating-linear-gradient(45deg,#F1F5F9,#F1F5F9 4px,#E2E8F0 4px,#E2E8F0 8px)",
+                          }}>
+                          <p className="text-[10px] font-semibold text-slate-500 truncate leading-tight">
+                            🔒 {b.reason || "Bloqueado"}
+                          </p>
+                          {isAdmin && height > 20 && (
+                            <button
+                              onClick={e => { e.stopPropagation(); deleteBlock(b.id); }}
+                              className="absolute top-0.5 right-0.5 p-0.5 hover:bg-slate-200 rounded transition-colors"
+                            >
+                              <X size={10} className="text-slate-400"/>
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
@@ -626,26 +695,38 @@ export default function Agenda() {
         {/* ── Sidebar ── */}
         <div className="hidden lg:flex flex-col gap-4 w-[232px] flex-shrink-0">
 
-          {/* Stats card */}
+          {/* Alerts card */}
           <div className="bg-white border border-[#E3E8F0] rounded-[14px] p-4 shadow-sm">
-            <h3 className="text-[13px] font-bold text-[#1A1D2E] mb-3">Resumen del día</h3>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="bg-[#EEF3FF] rounded-[10px] p-3 text-center">
-                <p className="text-[24px] font-bold text-[#0057FF] leading-tight">{todayAppts.length}</p>
-                <p className="text-[11px] text-[#0057FF] font-semibold mt-0.5">Citas hoy</p>
+            <h3 className="text-[13px] font-bold text-[#1A1D2E] mb-3 flex items-center gap-2">
+              <AlertTriangle size={14} className="text-amber-500 flex-shrink-0"/>
+              Alertas
+            </h3>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between bg-[#EEF3FF] rounded-[10px] px-3 py-2.5">
+                <span className="text-[12px] font-medium text-[#0057FF]">Citas hoy</span>
+                <span className="text-[15px] font-bold text-[#0057FF]">{todayAppts.length}</span>
               </div>
-              <div className="bg-[#ECFDF5] rounded-[10px] p-3 text-center">
-                <p className="text-[24px] font-bold text-[#059669] leading-tight">{confirmedCount}</p>
-                <p className="text-[11px] text-[#059669] font-semibold mt-0.5">Confirmadas</p>
-              </div>
-              <div className="bg-[#FFFBEB] rounded-[10px] p-3 text-center">
-                <p className="text-[24px] font-bold text-[#D97706] leading-tight">{pendingCount}</p>
-                <p className="text-[11px] text-[#D97706] font-semibold mt-0.5">Pendientes</p>
-              </div>
-              <div className="bg-[#FEF2F2] rounded-[10px] p-3 text-center">
-                <p className="text-[24px] font-bold text-[#E53935] leading-tight">{urgencyCount}</p>
-                <p className="text-[11px] text-[#E53935] font-semibold mt-0.5">Urgencias</p>
-              </div>
+              {pendingCount > 0 && (
+                <div className="flex items-center justify-between bg-amber-50 border border-amber-100 rounded-[10px] px-3 py-2.5">
+                  <span className="text-[12px] font-medium text-amber-700">Sin confirmar</span>
+                  <span className="text-[15px] font-bold text-amber-700">{pendingCount}</span>
+                </div>
+              )}
+              {noShowCount > 0 && (
+                <div className="flex items-center justify-between bg-red-50 border border-red-100 rounded-[10px] px-3 py-2.5">
+                  <span className="text-[12px] font-medium text-red-700">No asistió</span>
+                  <span className="text-[15px] font-bold text-red-700">{noShowCount}</span>
+                </div>
+              )}
+              {urgencyCount > 0 && (
+                <div className="flex items-center justify-between bg-orange-50 border border-orange-100 rounded-[10px] px-3 py-2.5">
+                  <span className="text-[12px] font-medium text-orange-700">Urgencias</span>
+                  <span className="text-[15px] font-bold text-orange-700">{urgencyCount}</span>
+                </div>
+              )}
+              {(pendingCount + noShowCount + urgencyCount) === 0 && todayAppts.length > 0 && (
+                <p className="text-[11px] text-[#9AA0B4] text-center py-1">Sin alertas activas</p>
+              )}
             </div>
           </div>
 

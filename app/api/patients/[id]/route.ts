@@ -11,7 +11,7 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
       payments: { include: { budget: true }, orderBy: { date: "desc" } },
       appointments: { include: { user: true }, orderBy: { date: "desc" } },
       documents: { orderBy: { createdAt: "desc" } },
-      odontogram: true,
+      odontograms: { orderBy: { date: "desc" } },
       facialRecord: true,
     },
   });
@@ -22,7 +22,7 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const data = await req.json();
-    const { clinicalRecord, evolutions, budgets, payments, appointments, documents, odontogram, facialRecord, _count, ...rest } = data;
+    const { clinicalRecord, evolutions, budgets, payments, appointments, documents, odontogram, odontograms, facialRecord, _count, ...rest } = data;
     if (rest.birthDate) rest.birthDate = new Date(rest.birthDate);
     const patient = await prisma.patient.update({ where: { id: params.id }, data: rest });
     return NextResponse.json(patient);

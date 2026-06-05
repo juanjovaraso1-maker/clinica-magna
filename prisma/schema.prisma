@@ -50,7 +50,7 @@ model Patient {
   budgets        Budget[]
   payments       Payment[]
   documents      PatientDocument[]
-  odontogram     OdontogramRecord?
+  odontograms    OdontogramRecord[]
   facialRecord   FacialRecord?
   reminders      Reminder[]
 }
@@ -198,8 +198,11 @@ model PatientDocument {
 
 model OdontogramRecord {
   id        String   @id @default(cuid())
-  patientId String   @unique
+  patientId String
+  date      String
+  type      String   @default("permanent")
   data      String
+  createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   patient Patient @relation(fields: [patientId], references: [id])

@@ -18,13 +18,22 @@
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(Get-ChildItem -Recurse -Path \"c:\\\\Users\\\\PC\\\\clinica-magna\" -Filter \"*.tsx\")",
+      "Bash(Select-Object FullName)",
+      "Bash(dir \"c:\\\\Users\\\\PC\\\\clinica-magna\\\\app\\\\pacientes\")",
+      "Bash(dir \"c:\\\\Users\\\\PC\\\\clinica-magna\\\\prisma\")",
+      "Bash(dir \"c:\\\\Users\\\\PC\\\\clinica-magna\\\\app\\\\api\\\\patients\")",
+      "Bash(dir \"c:\\\\Users\\\\PC\\\\clinica-magna\\\\app\\\\api\\\\patients\\\\[id]\")",
+      "Bash(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\PC\\\\clinica-magna\\\\app\\\\api\\\\odontogram\\\\[id]\")",
+      "Bash(mkdir -p \"c:/Users/PC/clinica-magna/app/api/odontogram/[id]\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\PC\\clinica-magna\\app\\api\\auth",
       "c:\\Users\\PC\\clinica-magna\\app\\api\\email-templates",
       "c:\\Users\\PC\\clinica-magna\\app\\api\\reminders",
-      "c:\\Users\\PC\\clinica-magna\\app\\api\\convenios"
+      "c:\\Users\\PC\\clinica-magna\\app\\api\\convenios",
+      "c:\\Users\\PC\\clinica-magna\\app\\api\\odontogram"
     ]
   }
 }

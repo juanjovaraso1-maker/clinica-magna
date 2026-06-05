@@ -203,6 +203,7 @@ export default function PatientDetail() {
   const [cuidadosTemplate, setCuidadosTemplate] = useState("Post-exodoncia");
   const [cuidadosText, setCuidadosText] = useState(CARE_TEMPLATES["Post-exodoncia"]);
   const [cuidadosUserId, setCuidadosUserId] = useState("");
+  const [odontograms, setOdontograms] = useState<any[]>([]);
   const [odontogram, setOdontogram] = useState<any>({});
   const [facial, setFacial] = useState<any>({});
   const [oSaving, setOSaving] = useState(false);
@@ -252,7 +253,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     ]);
     if (pr.ok) setPatient(await pr.json());
     if (ur.ok) setUsers(await ur.json());
-    if (or_.ok) setOdontogram(await or_.json());
+    if (or_.ok) setOdontograms(await or_.json());
     if (fr.ok) setFacial(await fr.json());
     if (cr.ok) setClinicCfg(await cr.json());
     if (tr.ok) setTreatments(await tr.json());
@@ -853,10 +854,23 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     load();
   }
 
-  async function saveOdontogram() {
+  async function saveOdontogram(data: any, recordId: string | null, type: string) {
     setOSaving(true);
-    await fetch("/api/odontogram", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({patientId:id, data:odontogram}) });
+    const today = new Date().toISOString().split("T")[0];
+    if (recordId) {
+      await fetch(`/api/odontogram/${recordId}`, { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ data }) });
+    } else {
+      await fetch("/api/odontogram", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ patientId:id, date:today, type, data }) });
+    }
     setOSaving(false);
+    const r = await fetch(`/api/odontogram?patientId=${id}`);
+    if (r.ok) setOdontograms(await r.json());
+  }
+
+  async function deleteOdontogram(recordId: string) {
+    await fetch(`/api/odontogram/${recordId}`, { method:"DELETE" });
+    const r = await fetch(`/api/odontogram?patientId=${id}`);
+    if (r.ok) setOdontograms(await r.json());
   }
 
   async function saveFacial() {
@@ -934,140 +948,107 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         <ArrowLeft size={15}/> Volver a pacientes
       </button>
 
-      {/* Patient header card */}
-      <div className="card overflow-hidden">
-        <div className="p-3 sm:p-5">
-          <div className="flex items-start gap-3 sm:gap-4 flex-wrap md:flex-nowrap">
+      {/* ── Encabezado azul estilo DentaLink ── */}
+      <div className="rounded-2xl overflow-hidden shadow-sm border border-[#0057FF]/20">
+        {/* Banda azul principal */}
+        <div className="bg-gradient-to-r from-[#0057FF] to-[#1a6bff] px-4 sm:px-6 py-4">
+          <div className="flex items-center gap-4 flex-wrap">
             {/* Avatar */}
-            <div className="w-[56px] h-[56px] rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ring-2 ring-white bg-gradient-to-br from-[#0057FF] to-[#7C3AED]">
-              <span className="text-white text-[20px] font-bold">{patient.firstName[0]}{patient.lastName[0]}</span>
+            <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0 ring-2 ring-white/40">
+              <span className="text-white text-[22px] font-bold">{patient.firstName[0]}{patient.lastName[0]}</span>
             </div>
 
-            {/* Main info */}
+            {/* Nombre + datos */}
             <div className="flex-1 min-w-0">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-                <div>
-                  <h1 className="text-xl font-bold text-slate-900">{patient.firstName} {patient.lastName}</h1>
-                  <p className="text-slate-500 text-sm font-mono">{patient.rut}{age ? ` · ${age} años` : ""}{patient.gender ? ` · ${patient.gender === "M" ? "Masculino" : "Femenino"}` : ""}</p>
-                </div>
-                <div className="flex gap-1.5 sm:gap-2 flex-wrap">
-                  <button onClick={()=>{
-                    if (!patient) return;
-                    // @ts-ignore
-                    import("xlsx").then(XLSX => {
-                      const wb = XLSX.utils.book_new();
-                      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ RUT:patient.rut, Nombre:`${patient.firstName} ${patient.lastName}`, Teléfono:patient.phone, Email:patient.email, Dirección:patient.address, Ciudad:patient.city, Previsión:patient.healthInsurance, "Fecha nac.":patient.birthDate?.split("T")[0]??"", Notas:patient.notes }]), "Datos");
-                      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(patient.evolutions.map(e=>({ Fecha:e.date, Diagnóstico:e.diagnosis, Tratamiento:e.treatment, Diente:e.tooth, Observaciones:e.observations, Costo:e.cost, Profesional:e.user.name }))), "Evoluciones");
-                      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(patient.budgets.map(b=>({ "N°":b.number, Fecha:b.date, Estado:b.status, Total:b.total, Abonado:b.payments.reduce((s,p)=>s+p.amount,0), Saldo:b.total-b.payments.reduce((s,p)=>s+p.amount,0) }))), "Presupuestos");
-                      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(patient.payments.map(p=>({ Fecha:p.date, Monto:p.amount, Método:p.method, Notas:p.notes }))), "Pagos");
-                      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(patient.appointments.map(a=>({ Fecha:a.date, Hora:a.startTime, Tipo:a.type, Estado:a.status, Profesional:a.user.name }))), "Citas");
-                      XLSX.writeFile(wb, `Paciente_${patient.rut}_${new Date().toISOString().split("T")[0]}.xlsx`);
-                    });
-                  }} className="btn-secondary text-xs">
-                    <Download size={13}/> Excel
-                  </button>
-                  <button onClick={openEditPatient} className="btn-secondary text-xs">
-                    <Edit2 size={13}/> Editar
-                  </button>
-                  {isAdmin && (
-                    <button onClick={deletePatientHard} disabled={deletingPatient} className="btn-secondary text-xs text-red-600 hover:bg-red-50 border-red-200">
-                      <Trash2 size={13}/> Eliminar
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
-                {patient.phone && <a href={`tel:${patient.phone}`} className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-primary-600"><Phone size={13} className="text-slate-400"/>{patient.phone}</a>}
-                {patient.email && <a href={`mailto:${patient.email}`} className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-primary-600"><Mail size={13} className="text-slate-400"/>{patient.email}</a>}
-                {(patient.address||patient.city) && <span className="flex items-center gap-1.5 text-sm text-slate-600"><MapPin size={13} className="text-slate-400"/>{[patient.address,patient.city].filter(Boolean).join(", ")}</span>}
-                {patient.healthInsurance && <span className="flex items-center gap-1.5 text-sm text-slate-600"><Heart size={13} className="text-slate-400"/>{patient.healthInsurance}</span>}
-                {patient.birthDate && (
-                  <span className="flex items-center gap-1.5 text-sm text-slate-600">
-                    <Calendar size={13} className="text-slate-400"/>
-                    {new Date(patient.birthDate.split("T")[0]+"T12:00:00").toLocaleDateString("es-CL")}
-                    {age ? <span className="text-primary-600 font-semibold ml-1">· {age} años</span> : null}
-                  </span>
+              <h1 className="text-[20px] font-bold text-white leading-tight">{patient.firstName} {patient.lastName}</h1>
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                <span className="text-blue-100 text-[13px]">RUT {patient.rut}</span>
+                {patient.gender && <span className="text-blue-200 text-[13px]">| {patient.gender === "M" ? "Masculino" : "Femenino"}</span>}
+                {age && <span className="text-blue-200 text-[13px]">| {age} años{patient.birthDate ? `, ${Math.floor((Date.now()-new Date(patient.birthDate).getTime())/(1000*60*60*24*30.5)%12)}M` : ""}</span>}
+                {patient.healthInsurance && (
+                  <span className="ml-1 px-2 py-0.5 bg-white/20 text-white text-[11px] font-semibold rounded-full">{patient.healthInsurance}</span>
                 )}
               </div>
             </div>
 
-            {/* KPIs */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 flex-shrink-0 w-full md:w-auto">
-              <div className="bg-slate-50 rounded-xl px-2 sm:px-3 py-2 text-center">
-                <p className="text-sm sm:text-base font-bold text-slate-900">{patient.appointments.length}</p>
-                <p className="text-[10px] sm:text-xs text-slate-500">Citas</p>
+            {/* Tarjetas de alerta médica */}
+            <div className="flex gap-2 flex-wrap flex-shrink-0">
+              <div className={`rounded-xl px-3 py-2 text-center min-w-[110px] ${patient.clinicalRecord?.allergies ? "bg-amber-400/90" : "bg-white/15"}`}>
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <AlertTriangle size={12} className="text-white flex-shrink-0"/>
+                  <span className="text-[10px] font-bold text-white uppercase tracking-wide">Alertas médicas</span>
+                </div>
+                <p className="text-[11px] text-white/80 truncate">{patient.clinicalRecord?.allergies || "Sin información"}</p>
               </div>
-              <div className="bg-slate-50 rounded-xl px-2 sm:px-3 py-2 text-center">
-                <p className="text-sm sm:text-base font-bold text-slate-900">{patient.evolutions.length}</p>
-                <p className="text-[10px] sm:text-xs text-slate-500">Evoluc.</p>
+              <div className={`rounded-xl px-3 py-2 text-center min-w-[110px] ${patient.clinicalRecord?.medicalBackground ? "bg-rose-400/80" : "bg-white/15"}`}>
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <Heart size={12} className="text-white flex-shrink-0"/>
+                  <span className="text-[10px] font-bold text-white uppercase tracking-wide">Enfermedades</span>
+                </div>
+                <p className="text-[11px] text-white/80 truncate">{patient.clinicalRecord?.medicalBackground?.split("\n")[0] || "Sin información"}</p>
               </div>
-              <div className="bg-emerald-50 rounded-xl px-2 sm:px-3 py-2 text-center">
-                <p className="text-xs sm:text-sm font-bold text-emerald-700 leading-tight">{fmtShort(paidTotal)}</p>
-                <p className="text-[10px] sm:text-xs text-slate-500">Pagado</p>
-              </div>
-              <div className={`rounded-xl px-2 sm:px-3 py-2 text-center ${saldo > 0 ? "bg-red-50" : "bg-emerald-50"}`}>
-                <p className={`text-xs sm:text-sm font-bold leading-tight ${saldo > 0 ? "text-red-600" : "text-emerald-700"}`}>{fmtShort(saldo)}</p>
-                <p className="text-[10px] sm:text-xs text-slate-500">Saldo</p>
+              <div className={`rounded-xl px-3 py-2 text-center min-w-[110px] ${patient.clinicalRecord?.currentMedications ? "bg-violet-400/80" : "bg-white/15"}`}>
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <Pill size={12} className="text-white flex-shrink-0"/>
+                  <span className="text-[10px] font-bold text-white uppercase tracking-wide">Medicamentos</span>
+                </div>
+                <p className="text-[11px] text-white/80 truncate">{patient.clinicalRecord?.currentMedications?.split("\n")[0] || "Sin información"}</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Medical alerts bar — always visible if data exists */}
-        {hasAlerts && (
-          <div className="border-t border-amber-100 bg-amber-50 px-5 py-2.5 flex flex-wrap gap-4">
-            {patient.clinicalRecord?.allergies && (
-              <span className="flex items-center gap-1.5 text-xs font-medium text-amber-800">
-                <AlertTriangle size={13} className="text-amber-500"/>
-                <span className="font-semibold">Alergias:</span> {patient.clinicalRecord.allergies}
-              </span>
-            )}
-            {patient.clinicalRecord?.currentMedications && (
-              <span className="flex items-center gap-1.5 text-xs font-medium text-amber-800">
-                <Pill size={13} className="text-amber-500"/>
-                <span className="font-semibold">Medicamentos:</span> {patient.clinicalRecord.currentMedications}
-              </span>
+        {/* Barra de acciones rápidas bajo el header */}
+        <div className="bg-white border-b border-[#E3E8F0] px-4 sm:px-6 py-2 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex gap-1.5 flex-wrap">
+            <button onClick={()=>openEvoModal()} className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-[#EEF3FF] text-[#0057FF] border border-[#0057FF]/20 hover:bg-[#0057FF] hover:text-white transition-all">
+              <Activity size={13}/> Nueva evolución
+            </button>
+            <button onClick={()=>setRxModal(true)} className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-600 hover:text-white transition-all">
+              <Printer size={13}/> Receta
+            </button>
+            <button onClick={openBudgetCreate} className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-500 hover:text-white transition-all">
+              <FileText size={13}/> Presupuesto
+            </button>
+            <button onClick={()=>router.push(`/agenda?patientId=${patient.id}`)} className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-[#F0F2F7] text-[#4B5563] border border-[#E3E8F0] hover:bg-[#E3E8F0] transition-all">
+              <CalendarPlus size={13}/> Agendar
+            </button>
+          </div>
+          <div className="flex gap-1.5">
+            <button onClick={openEditPatient} className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-[#F0F2F7] text-[#4B5563] border border-[#E3E8F0] hover:bg-[#E3E8F0] transition-all">
+              <Edit2 size={13}/> Editar paciente
+            </button>
+            {isAdmin && (
+              <button onClick={deletePatientHard} disabled={deletingPatient} className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-600 hover:text-white transition-all">
+                <Trash2 size={13}/> Eliminar
+              </button>
             )}
           </div>
-        )}
+        </div>
 
-        {/* Quick actions */}
-        <div className="border-t border-[#E3E8F0] px-3 sm:px-4 py-2.5 flex gap-1.5 flex-wrap bg-[#F0F2F7] rounded-b-[10px]">
-          <button onClick={()=>openEvoModal()}
-            className="inline-flex items-center gap-1.5 rounded-[8px] text-[12.5px] font-semibold px-[13px] py-[7px] border-[1.5px] transition-all duration-150 cursor-pointer
-                       bg-[#EEF3FF] text-[#0057FF] border-[#0057FF]/25 hover:bg-[#0057FF] hover:text-white hover:border-[#0057FF]">
-            <Activity size={13}/> Evolución
+        {/* KPIs rápidos */}
+        <div className="bg-[#F8F9FC] px-4 sm:px-6 py-2 flex gap-4 flex-wrap border-b border-[#E3E8F0]">
+          {patient.phone && <a href={`tel:${patient.phone}`} className="flex items-center gap-1.5 text-[12px] text-[#4B5563] hover:text-[#0057FF] transition-colors"><Phone size={12} className="text-[#9AA0B4]"/>{patient.phone}</a>}
+          {patient.email && <a href={`mailto:${patient.email}`} className="flex items-center gap-1.5 text-[12px] text-[#4B5563] hover:text-[#0057FF] transition-colors"><Mail size={12} className="text-[#9AA0B4]"/>{patient.email}</a>}
+          {(patient.address||patient.city) && <span className="flex items-center gap-1.5 text-[12px] text-[#4B5563]"><MapPin size={12} className="text-[#9AA0B4]"/>{[patient.address,patient.city].filter(Boolean).join(", ")}</span>}
+          <span className="flex items-center gap-1.5 text-[12px] ml-auto text-[#4B5563]">
+            <span className="font-semibold text-[#1A1D2E]">{patient.evolutions.length}</span> evoluciones ·{" "}
+            <span className="font-semibold text-emerald-600">{fmtShort(paidTotal)}</span> pagado ·{" "}
+            <span className={`font-semibold ${saldo>0?"text-red-600":"text-emerald-600"}`}>{fmtShort(Math.abs(saldo))}</span> {saldo>0?"saldo":"al día"}
+          </span>
+        </div>
+
+        {/* Acciones secundarias */}
+        <div className="bg-[#F8F9FC] px-4 sm:px-6 py-2 flex gap-1.5 flex-wrap rounded-b-2xl border-t border-[#E3E8F0]">
+          <button onClick={()=>setCuidadosModal(true)} className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-3 py-1.5 rounded-lg bg-[#E0F2FE] text-[#0891B2] border border-[#0891B2]/20 hover:bg-[#0891B2] hover:text-white transition-all">
+            <BookOpen size={12}/> Cuidados
           </button>
-          <button onClick={()=>setRxModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-[8px] text-[12.5px] font-semibold px-[13px] py-[7px] border-[1.5px] transition-all duration-150 cursor-pointer
-                       bg-[#E6F7F1] text-[#00A86B] border-[#00A86B]/25 hover:bg-[#00A86B] hover:text-white hover:border-[#00A86B]">
-            <Printer size={13}/> Receta
+          <button onClick={()=>{ setRxDocUserId(""); setRxDocItems([{type:"",zone:""}]); setRxDocIndication(""); setRxDocObservations(""); setRxDocModal(true); }} className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-3 py-1.5 rounded-lg bg-[#FEF3C7] text-[#92600A] border border-[#F59E0B]/20 hover:bg-[#F59E0B] hover:text-white transition-all">
+            <FileText size={12}/> Solicitud Rx
           </button>
-          <button onClick={()=>setCuidadosModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-[8px] text-[12.5px] font-semibold px-[13px] py-[7px] border-[1.5px] transition-all duration-150 cursor-pointer
-                       bg-[#E0F2FE] text-[#0891B2] border-[#0891B2]/25 hover:bg-[#0891B2] hover:text-white hover:border-[#0891B2]">
-            <BookOpen size={13}/> Cuidados
+          <button onClick={()=>setPayModal(true)} className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-3 py-1.5 rounded-lg bg-[#E6F7F1] text-[#00A86B] border border-[#00A86B]/20 hover:bg-[#00A86B] hover:text-white transition-all">
+            <CreditCard size={12}/> Registrar pago
           </button>
-          <button onClick={()=>{ setRxDocUserId(""); setRxDocItems([{type:"",zone:""}]); setRxDocIndication(""); setRxDocObservations(""); setRxDocModal(true); }}
-            className="inline-flex items-center gap-1.5 rounded-[8px] text-[12.5px] font-semibold px-[13px] py-[7px] border-[1.5px] transition-all duration-150 cursor-pointer
-                       bg-[#FEF3C7] text-[#92600A] border-[#F59E0B]/25 hover:bg-[#F59E0B] hover:text-white hover:border-[#F59E0B]">
-            <FileText size={13}/> Solicitud Rx
-          </button>
-          <button onClick={()=>setPayModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-[8px] text-[12.5px] font-semibold px-[13px] py-[7px] border-[1.5px] transition-all duration-150 cursor-pointer
-                       bg-[#E6F7F1] text-[#00A86B] border-[#00A86B]/25 hover:bg-[#00A86B] hover:text-white hover:border-[#00A86B]">
-            <CreditCard size={13}/> Pago
-          </button>
-          <button onClick={openBudgetCreate}
-            className="inline-flex items-center gap-1.5 rounded-[8px] text-[12.5px] font-semibold px-[13px] py-[7px] border-[1.5px] transition-all duration-150 cursor-pointer
-                       bg-[#EDE9FE] text-[#7C3AED] border-[#7C3AED]/25 hover:bg-[#7C3AED] hover:text-white hover:border-[#7C3AED]">
-            <FileText size={13}/> Presupuesto
-          </button>
-          <a href={`/agenda?patientId=${id}&newAppt=1`}
-            className="inline-flex items-center gap-1.5 rounded-[8px] text-[12.5px] font-semibold px-[13px] py-[7px] border-[1.5px] transition-all duration-150 cursor-pointer
-                       bg-[#EEF3FF] text-[#0057FF] border-[#0057FF]/25 hover:bg-[#0057FF] hover:text-white hover:border-[#0057FF]">
-            <CalendarPlus size={13}/> Cita
-          </a>
         </div>
       </div>
 
@@ -1221,9 +1202,12 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
 
       {/* ===== TAB 2: ODONTOGRAMA ===== */}
       {tab===2&&(
-        <div className="card p-6">
-          <DentalChart data={odontogram} onChange={setOdontogram} onSave={saveOdontogram} isSaving={oSaving}/>
-        </div>
+        <DentalChart
+          records={odontograms}
+          onSave={saveOdontogram}
+          onDelete={isAdmin ? deleteOdontogram : undefined}
+          isSaving={oSaving}
+        />
       )}
 
       {/* ===== TAB 3: ESTÉTICA FACIAL ===== */}

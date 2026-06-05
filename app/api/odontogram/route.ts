@@ -3,16 +3,23 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
   const patientId = req.nextUrl.searchParams.get("patientId")!;
-  const record = await prisma.odontogramRecord.findUnique({ where: { patientId } });
-  return NextResponse.json(record ? JSON.parse(record.data) : {});
+  const records = await prisma.odontogramRecord.findMany({
+    where: { patientId },
+    orderBy: { date: "desc" },
+  });
+  return NextResponse.json(records.map(r => ({ ...r, data: JSON.parse(r.data) })));
 }
 
 export async function POST(req: NextRequest) {
-  const { patientId, data } = await req.json();
-  const record = await prisma.odontogramRecord.upsert({
-    where: { patientId },
-    update: { data: JSON.stringify(data) },
-    create: { patientId, data: JSON.stringify(data) },
+  const { patientId, date, type, data } = await req.json();
+  const today = new Date().toISOString().split("T")[0];
+  const record = await prisma.odontogramRecord.create({
+    data: {
+      patientId,
+      date: date ?? today,
+      type: type ?? "permanent",
+      data: JSON.stringify(data ?? {}),
+    },
   });
-  return NextResponse.json(record);
+  return NextResponse.json({ ...record, data: JSON.parse(record.data) }, { status: 201 });
 }
