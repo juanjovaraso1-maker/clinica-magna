@@ -114,7 +114,7 @@ function ToothSVG({ num, wholeCond, selected }: { num: number; wholeCond?: strin
     }}>
       <img src={src} alt="" draggable={false}
         style={{
-          width: 34, height: 78, objectFit: "contain",
+          width: 48, height: 108, objectFit: "contain",
           transform: mirror ? "scaleX(-1)" : undefined,
           opacity: isAusente ? 0.35 : 1,
           filter: isAusente ? "grayscale(1)" : undefined,
@@ -146,6 +146,7 @@ function SurfaceDiagram({ num, toothState, selSurf, onSurf, readonly }: {
 }) {
   const upper = isUpper(num);
   const size = 26, cx = 13, cy = 13, r = 11, ri = 4.5;
+  const renderSize = 38;
 
   function wedgePath(a1: number, a2: number): string {
     const rad = (d: number) => (d * Math.PI) / 180;
@@ -169,7 +170,7 @@ function SurfaceDiagram({ num, toothState, selSurf, onSurf, readonly }: {
   }
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{display:"block"}}>
+    <svg width={renderSize} height={renderSize} viewBox={`0 0 ${size} ${size}`} style={{display:"block"}}>
       <circle cx={cx} cy={cy} r={r} fill="white" stroke="#D4C8B8" strokeWidth="0.8"/>
       {wedges.map(w => {
         const c = cc(w.key); const isSel = selSurf===w.key;

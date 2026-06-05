@@ -1695,7 +1695,41 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                   </div>
                 </div>
                 <div className="px-5 py-3">
-                  <p className="text-[13px] text-[#1A1D2E] leading-relaxed whitespace-pre-line">{rx.content}</p>
+                  {(() => {
+                    let parsed: any = null;
+                    try { if (rx.content.trim().startsWith("{")) parsed = JSON.parse(rx.content); } catch {}
+                    if (parsed?.medications?.length) {
+                      return (
+                        <div className="space-y-3">
+                          {parsed.diagnosis && (
+                            <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                              <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wide">Diagnóstico: </span>
+                              <span className="text-[13px] text-amber-900">{parsed.diagnosis}</span>
+                            </div>
+                          )}
+                          <div className="space-y-1.5">
+                            {parsed.medications.map((m: any, i: number) => (
+                              <div key={i} className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+                                <span className="w-5 h-5 rounded-full bg-[#0057FF] text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{i+1}</span>
+                                <div>
+                                  <p className="text-[13px] font-semibold text-[#1A1D2E]">{m.name || m.drug}</p>
+                                  {(m.dosage || m.dose) && <p className="text-[12px] text-[#4B5563]">{m.dosage || [m.dose, m.freq, m.duration].filter(Boolean).join(" · ")}</p>}
+                                  {m.instructions && <p className="text-[11px] text-[#9AA0B4] italic">{m.instructions}</p>}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          {parsed.instructions && (
+                            <div className="bg-[#F0F2F7] rounded-lg px-3 py-2">
+                              <span className="text-[10px] font-bold text-[#4B5563] uppercase tracking-wide">Indicaciones: </span>
+                              <span className="text-[13px] text-[#1A1D2E]">{parsed.instructions}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+                    return <p className="text-[13px] text-[#1A1D2E] leading-relaxed whitespace-pre-line">{rx.content}</p>;
+                  })()}
                 </div>
               </div>
             ))}

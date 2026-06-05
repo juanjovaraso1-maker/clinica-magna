@@ -71,7 +71,7 @@ function BudgetToothPNG({ num, hasLine, hovered }: { num: number; hasLine: boole
     }}>
       <img src={src} alt="" draggable={false}
         style={{
-          width: 34, height: 78, objectFit: "contain",
+          width: 48, height: 108, objectFit: "contain",
           transform: mirror ? "scaleX(-1)" : undefined,
           display: "block",
         }}/>
@@ -79,48 +79,6 @@ function BudgetToothPNG({ num, hasLine, hovered }: { num: number; hasLine: boole
   );
 }
 
-/* ─── SVG Ilustración de arcada dental (vista oclusal) ─────────────── */
-function ArchIllustration({ type }: { type: "full"|"upper"|"lower" }) {
-  const upperTeeth = [
-    {x:14,y:22,w:5,h:7},{x:20,y:18,w:5,h:7},{x:27,y:14,w:5,h:7},{x:34,y:11,w:5,h:7},
-    {x:41,y:9, w:4,h:6},{x:47,y:8, w:4,h:6},{x:52,y:8, w:4,h:6},{x:57,y:9, w:4,h:6},
-    {x:62,y:11,w:5,h:7},{x:68,y:14,w:5,h:7},{x:74,y:18,w:5,h:7},{x:80,y:22,w:5,h:7},
-  ];
-  const lowerTeeth = [
-    {x:16,y:2, w:5,h:7},{x:22,y:6, w:5,h:7},{x:29,y:10,w:5,h:7},{x:36,y:13,w:5,h:7},
-    {x:43,y:15,w:4,h:6},{x:49,y:16,w:4,h:6},{x:54,y:16,w:4,h:6},{x:59,y:15,w:4,h:6},
-    {x:63,y:13,w:5,h:7},{x:70,y:10,w:5,h:7},{x:77,y:6, w:5,h:7},{x:83,y:2, w:5,h:7},
-  ];
-  const showU = type==="full"||type==="upper";
-  const showL = type==="full"||type==="lower";
-  const h = type==="full" ? 58 : 32;
-  const lOffset = type==="full" ? 30 : 2;
-  return (
-    <svg viewBox={`0 0 99 ${h}`} width={72} height={h*0.85} style={{display:"block"}}>
-      {showU && (
-        <g opacity={1}>
-          <path d="M11,30 C9,14 22,2 49.5,2 C77,2 90,14 88,30" fill="none" stroke="#7BAFD4" strokeWidth="8" strokeLinecap="round"/>
-          {upperTeeth.map((t,i)=>(
-            <rect key={i} x={t.x} y={t.y-1} width={t.w+1} height={t.h+1} rx="1.5" fill="white" stroke="#7BAFD4" strokeWidth="0.8"/>
-          ))}
-        </g>
-      )}
-      {showL && (
-        <g transform={`translate(0,${lOffset})`} opacity={1}>
-          <path d="M13,2 C11,18 24,28 49.5,28 C75,28 88,18 86,2" fill="none" stroke="#9B7DB0" strokeWidth="8" strokeLinecap="round"/>
-          {lowerTeeth.map((t,i)=>(
-            <rect key={i} x={t.x} y={t.y+2} width={t.w+1} height={t.h+1} rx="1.5" fill="white" stroke="#9B7DB0" strokeWidth="0.8"/>
-          ))}
-        </g>
-      )}
-    </svg>
-  );
-}
-
-const SEXTANT_TEETH_BUDGET: Record<string, number[]> = {
-  S1: [18,17,16,15,14], S2: [13,12,11,21,22,23], S3: [24,25,26,27,28],
-  S4: [38,37,36,35,34], S5: [33,32,31,41,42,43], S6: [44,45,46,47,48],
-};
 
 
 export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUserId="", initDate, initValidUntil, initStatus="pending", initDiscount=0, initNotes="", initLines=[], users, treatments, convenios, onSave, onCancel, onDelete, onSendEmail, patientPhone, isSaving }: Props) {
@@ -141,8 +99,6 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
   const [treatSearch, setTreatSearch] = useState("");
   const [treatOpen,   setTreatOpen]   = useState(false);
   const [hoveredTooth,setHov]         = useState<number|null>(null);
-  const [viewFilter,  setViewFilter]  = useState<"full"|"upper"|"lower">("full");
-  const [selSextantFilter, setSelSextantFilter] = useState<string|null>(null);
   const [gDiscountPct, setGDiscountPct] = useState(0);
 
   const categories  = useMemo(()=>Array.from(new Set(treatments.map(t=>t.category))).sort(),[treatments]);
@@ -198,14 +154,6 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
   }
 
   const toothHasLine=(num:number)=>lines.some(l=>l.toothNum===num);
-
-  function toothOpacityBudget(num: number): number {
-    const up = isUpperTooth(num);
-    if (selSextantFilter) return SEXTANT_TEETH_BUDGET[selSextantFilter]?.includes(num) ? 1 : 0.2;
-    if (viewFilter === "upper") return up ? 1 : 0.25;
-    if (viewFilter === "lower") return up ? 0.25 : 1;
-    return 1;
-  }
 
   /* ── Grid columns for items table ── */
   const gridCols = "100px minmax(120px,1fr) 70px 110px 60px 65px 90px 110px 36px";
@@ -300,47 +248,35 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
 
       </div>
 
-      {/* ── Odontograma: selector de vista + sextantes ── */}
-      <div className="flex items-center gap-3 px-3 py-2 border-b border-[#F0F2F7] bg-[#FAFBFD] flex-wrap">
-        <div className="flex items-center gap-1.5">
-          {([["full","Boca completa"],["upper","Maxilar superior"],["lower","Maxilar inferior"]] as [string,string][]).map(([k,label])=>(
-            <button key={k} onClick={()=>{setViewFilter(k as any);setSelSextantFilter(null);}}
-              className={`flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-xl border transition-all ${
-                viewFilter===k && !selSextantFilter
-                  ? "bg-[#EEF3FF] border-[#0057FF] text-[#0057FF]"
-                  : "border-[#E3E8F0] text-[#6B7280] hover:border-[#C7D2FE] hover:bg-[#F0F2F7]"
+      {/* ── Zonas de tratamiento (agregan línea al presupuesto) ── */}
+      <div className="px-4 py-2.5 border-b border-[#F0F2F7] bg-[#FAFBFD]">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[11px] font-bold text-[#9AA0B4] uppercase tracking-wide mr-1 flex-shrink-0">Zona:</span>
+          {["Boca completa","Maxilar superior","Maxilar inferior","Sextante 1","Sextante 2","Sextante 3","Sextante 4","Sextante 5","Sextante 6"].map(zona=>(
+            <button key={zona}
+              onClick={()=>selTreat && addLine(undefined, zona)}
+              disabled={!selTreat}
+              title={selTreat ? `Agregar «${selTreat.name}» para ${zona}` : "Selecciona un tratamiento primero"}
+              className={`text-[12px] font-medium px-3 py-1.5 rounded-lg border transition-all ${
+                selTreat
+                  ? "bg-white text-[#4B5563] border-[#E3E8F0] hover:bg-[#EEF3FF] hover:text-[#0057FF] hover:border-[#0057FF]/40 cursor-pointer"
+                  : "bg-[#F0F2F7] text-[#C4C9D4] border-[#E3E8F0] cursor-not-allowed"
               }`}>
-              <ArchIllustration type={k as any}/>
-              <span className="text-[10px] font-semibold whitespace-nowrap">{label}</span>
+              {zona}
             </button>
           ))}
-        </div>
-        <div className="flex items-center gap-1.5 ml-1">
-          <span className="text-[11px] font-bold text-[#9AA0B4] uppercase tracking-wide mr-0.5">Sextante:</span>
-          {["S1","S2","S3","S4","S5","S6"].map(s=>(
-            <button key={s} onClick={()=>setSelSextantFilter(prev=>prev===s?null:s)}
-              className={`w-10 h-8 text-[12px] font-bold rounded-lg border transition-all ${
-                selSextantFilter===s
-                  ? "bg-[#0057FF] text-white border-[#0057FF]"
-                  : "bg-white text-[#4B5563] border-[#E3E8F0] hover:border-[#0057FF]/40 hover:text-[#0057FF]"
-              }`}>{s}</button>
-          ))}
-          {selSextantFilter && (
-            <button onClick={()=>setSelSextantFilter(null)} className="text-[11px] text-[#9AA0B4] hover:text-red-500 ml-0.5 px-1.5">✕</button>
-          )}
         </div>
       </div>
       <div className="text-center py-1.5 border-b border-[#F0F2F7] bg-white">
         <span className="text-[10px] font-bold text-[#9AA0B4] tracking-widest uppercase">
-          {selTreat ? `Haz clic en un diente para agregar «${selTreat.name}»` : "Selecciona un tratamiento para agregar dientes al presupuesto"}
+          {selTreat ? `Haz clic en un diente o zona para agregar «${selTreat.name}»` : "Selecciona un tratamiento para agregar dientes o zonas al presupuesto"}
         </span>
       </div>
       <div className="border-b border-[#E3E8F0] bg-white py-3 px-2">
         {/* Superior */}
         <div className="flex items-end justify-between w-full mb-1 px-1">
           {UPPER.map((num,idx)=>(
-            <div key={num} className={`${idx===7?"mr-2":""} transition-opacity`}
-              style={{opacity: toothOpacityBudget(num)}}>
+            <div key={num} className={idx===7?"mr-2":""}>
               <div className="flex flex-col items-center gap-[4px]">
                 <div className={`rounded-sm transition-all ${selTreat?"cursor-pointer":""}`}
                   onClick={()=>selTreat&&addLine(num)}
@@ -356,8 +292,7 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
         {/* Inferior */}
         <div className="flex items-start justify-between w-full mt-1 px-1">
           {LOWER.map((num,idx)=>(
-            <div key={num} className={`${idx===7?"mr-2":""} transition-opacity`}
-              style={{opacity: toothOpacityBudget(num)}}>
+            <div key={num} className={idx===7?"mr-2":""}>
               <div className="flex flex-col items-center gap-[4px]">
                 <span className={`text-[11px] font-bold select-none leading-none ${toothHasLine(num)?"text-blue-600":"text-stone-400"}`}>{fmtTooth(num)}</span>
                 <div className={`rounded-sm transition-all ${selTreat?"cursor-pointer":""}`}
