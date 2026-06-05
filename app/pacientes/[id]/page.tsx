@@ -183,7 +183,7 @@ export default function PatientDetail() {
   const [tab, setTab] = useState(0);
   const [users, setUsers] = useState<Array<{id:string;name:string;rut?:string}>>([]);
   const [evoModal, setEvoModal] = useState(false);
-  const [evoForm, setEvoForm] = useState({ date:new Date().toISOString().split("T")[0], diagnosis:"", observations:"", userId:"" });
+  const [evoForm, setEvoForm] = useState({ date:new Date().toISOString().split("T")[0], diagnosis:"", observations:"", userId:"", treatment:"", isPrivate:false });
   const [evoBudgetSelections, setEvoBudgetSelections] = useState<Record<string,{selected:boolean;newStatus:string}>>({});
   const [evoReminder, setEvoReminder] = useState(0);
   const [rxDocModal, setRxDocModal] = useState(false);
@@ -490,31 +490,41 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
       });
     });
     setEvoBudgetSelections(selections);
-    setEvoForm({ date:new Date().toISOString().split("T")[0], diagnosis:"", observations:"", userId:"" });
+    setEvoForm({ date:new Date().toISOString().split("T")[0], diagnosis:"", observations:"", userId:"", treatment:"", isPrivate:false });
     setEvoReminder(0);
     setEvoModal(true);
   }
 
   async function saveEvo() {
-    const selectedEntries = Object.entries(evoBudgetSelections).filter(([,v]) => v.selected);
-    if (!selectedEntries.length || !evoForm.userId) return;
+    if (!evoForm.userId) return;
     setSaving(true);
+    const selectedEntries = Object.entries(evoBudgetSelections).filter(([,v]) => v.selected);
     const allItems = patient!.budgets.flatMap(b => b.items);
-    await Promise.all(selectedEntries.map(([itemId]) => {
-      const item = allItems.find(i => i.id === itemId);
-      if (!item) return Promise.resolve();
-      return fetch("/api/evolutions", { method:"POST", headers:{"Content-Type":"application/json"},
+
+    if (selectedEntries.length > 0) {
+      await Promise.all(selectedEntries.map(([itemId]) => {
+        const item = allItems.find(i => i.id === itemId);
+        if (!item) return Promise.resolve();
+        return fetch("/api/evolutions", { method:"POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({ patientId:id, date:evoForm.date, diagnosis:evoForm.diagnosis,
+            treatment:item.description, tooth:item.tooth||"", observations:evoForm.observations,
+            cost:item.total, userId:evoForm.userId }) });
+      }));
+      await Promise.all(selectedEntries.map(([itemId, sel]) =>
+        fetch(`/api/budget-items/${itemId}`, { method:"PUT", headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({ status: sel.newStatus }) })
+      ));
+    } else {
+      const treatmentText = evoForm.treatment.trim() || evoForm.diagnosis.trim() || "Consulta";
+      await fetch("/api/evolutions", { method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({ patientId:id, date:evoForm.date, diagnosis:evoForm.diagnosis,
-          treatment:item.description, tooth:item.tooth||"", observations:evoForm.observations,
-          cost:item.total, userId:evoForm.userId }) });
-    }));
-    await Promise.all(selectedEntries.map(([itemId, sel]) =>
-      fetch(`/api/budget-items/${itemId}`, { method:"PUT", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({ status: sel.newStatus }) })
-    ));
+          treatment:treatmentText, tooth:"", observations:evoForm.observations,
+          cost:0, userId:evoForm.userId }) });
+    }
+
     setEvoModal(false);
     setEvoBudgetSelections({});
-    setEvoForm({ date:new Date().toISOString().split("T")[0], diagnosis:"", observations:"", userId:"" });
+    setEvoForm({ date:new Date().toISOString().split("T")[0], diagnosis:"", observations:"", userId:"", treatment:"", isPrivate:false });
     if (evoReminder > 0) {
       fetch("/api/reminders", { method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({ patientId: id, months: evoReminder }) });
@@ -1330,43 +1340,143 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
             </button>
           </div>
 
-          {patient.budgets.length===0 ? <div className="card py-12 text-center text-muted">Sin presupuestos</div> :
-            patient.budgets.map(b=>{
-              const bPaid = b.payments.reduce((s,p)=>s+p.amount,0);
-              const bBalance = b.total - bPaid;
-              return (
-              <div key={b.id} className="bg-white border border-[#E3E8F0] rounded-[10px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-shadow mb-3">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <div className="text-[13.5px] font-semibold text-[#1A1D2E]">Presupuesto #{String(b.number).padStart(4,"0")}</div>
-                    <div className="text-[11px] text-[#9AA0B4] mt-0.5">{b.date} · {b.user.name}</div>
+          {patient.budgets.length === 0 ? (
+            <div className="bg-white border border-[#E3E8F0] rounded-2xl py-16 text-center shadow-sm">
+              <FileText className="w-10 h-10 mx-auto mb-3 text-[#E3E8F0]"/>
+              <p className="text-[14px] font-semibold text-[#9AA0B4]">Sin planes de tratamiento</p>
+              <p className="text-[12px] text-[#9AA0B4] mt-1">Presiona "+ Nuevo Presupuesto" para comenzar</p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {/* Grupo: En ejecución */}
+              {patient.budgets.filter(b=>b.status==="approved"||b.status==="pending").length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 flex-shrink-0"/>
+                    <span className="text-[13px] font-bold text-[#1A1D2E]">En ejecución</span>
                   </div>
-                  <Badge value={b.status}/>
+                  {patient.budgets.filter(b=>b.status==="approved"||b.status==="pending").map(b=>{
+                    const bPaid = b.payments.reduce((s,p)=>s+p.amount,0);
+                    const bBalance = b.total - bPaid;
+                    const prog = b.total > 0 ? Math.min(100,Math.round((bPaid/b.total)*100)) : 0;
+                    const lastAppt = patient.appointments.find(a=>a.date >= b.date);
+                    const financialStatus = bBalance <= 0 ? "Al día" : bBalance < b.total ? "Abono parcial" : "Sin abono";
+                    const fColor = bBalance <= 0 ? "text-emerald-600" : bBalance < b.total ? "text-amber-600" : "text-[#9AA0B4]";
+                    return (
+                      <div key={b.id} className="bg-white border border-[#E3E8F0] rounded-2xl p-4 mb-3 shadow-sm hover:shadow-md transition-shadow">
+                        {/* Header */}
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className="text-[14px] font-bold text-[#0057FF]">#{String(b.number).padStart(5,"0")}</span>
+                              <span className="text-[14px] font-bold text-[#1A1D2E]">{b.notes || "Sin nombre"}</span>
+                              <button onClick={()=>openBudgetEdit(b)} className="text-[#9AA0B4] hover:text-[#0057FF] transition-colors">
+                                <Pencil size={12}/>
+                              </button>
+                            </div>
+                          </div>
+                          {isAdmin && (
+                            <button onClick={async()=>{ if(!confirm("¿Eliminar este presupuesto?"))return; await fetch(`/api/budgets/${b.id}`,{method:"DELETE"}); load(); }}
+                              className="text-[#D4C4A0] hover:text-red-500 transition-colors p-1">
+                              <Trash2 size={14}/>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Grilla de datos */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                          <div>
+                            <p className="text-[9px] font-bold text-[#9AA0B4] uppercase tracking-wide mb-0.5">Profesional</p>
+                            <p className="text-[12px] font-medium text-[#1A1D2E]">{b.user.name.split(" ").slice(0,2).join(" ")}</p>
+                            <p className="text-[10px] text-[#9AA0B4]">General</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold text-[#9AA0B4] uppercase tracking-wide mb-0.5">Última cita</p>
+                            {lastAppt ? (
+                              <><p className="text-[12px] font-medium text-[#1A1D2E]">{lastAppt.date}</p>
+                              <p className="text-[10px] text-[#9AA0B4]">{lastAppt.startTime}</p></>
+                            ) : <p className="text-[12px] text-[#9AA0B4]">—</p>}
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold text-[#9AA0B4] uppercase tracking-wide mb-0.5">Progreso</p>
+                            {/* Mini círculo de progreso */}
+                            <div className="flex items-center gap-2">
+                              <svg width="32" height="32" viewBox="0 0 32 32">
+                                <circle cx="16" cy="16" r="13" fill="none" stroke="#E3E8F0" strokeWidth="4"/>
+                                <circle cx="16" cy="16" r="13" fill="none" stroke={prog===100?"#22C55E":prog>0?"#0057FF":"#E3E8F0"} strokeWidth="4"
+                                  strokeDasharray={`${prog*0.816} 81.6`} strokeDashoffset="20.4" strokeLinecap="round"/>
+                              </svg>
+                              <span className="text-[12px] font-bold text-[#1A1D2E]">{prog}%</span>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold text-[#9AA0B4] uppercase tracking-wide mb-0.5">Estado financiero</p>
+                            <p className={`text-[12px] font-bold ${fColor}`}>{financialStatus}</p>
+                            <p className="text-[10px] text-[#9AA0B4]">{fmt(bBalance)} saldo</p>
+                          </div>
+                        </div>
+
+                        {/* Barra de progreso */}
+                        <div className="w-full bg-[#E3E8F0] rounded-full h-1.5 mb-3">
+                          <div className="bg-emerald-500 h-1.5 rounded-full transition-all" style={{width:`${prog}%`}}/>
+                        </div>
+
+                        {/* Fechas + acciones */}
+                        <div className="flex items-center justify-between text-[10px] text-[#9AA0B4]">
+                          <span>Creado: {b.date}{b.validUntil?` · Válido hasta: ${b.validUntil}`:""}</span>
+                          <div className="flex gap-2">
+                            <button onClick={()=>openBudgetEdit(b)} className="text-[11px] font-semibold text-[#0057FF] hover:underline">
+                              Editar
+                            </button>
+                            <button onClick={()=>setBudgetDetailId(b.id)} className="text-[11px] font-semibold text-[#0057FF] hover:underline">
+                              Ver detalle
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="grid grid-cols-3 gap-2 mb-3">
-                  <div className="bg-[#F0F2F7] rounded-[8px] p-3 text-center">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-[#9AA0B4] mb-1">Total</div>
-                    <div className="text-[16px] font-bold text-[#1A1D2E]">{fmt(b.total)}</div>
+              )}
+
+              {/* Grupo: Otros */}
+              {patient.budgets.filter(b=>b.status!=="approved"&&b.status!=="pending").length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3 mt-4">
+                    <div className="w-2.5 h-2.5 rounded-full bg-[#9AA0B4] flex-shrink-0"/>
+                    <span className="text-[13px] font-bold text-[#1A1D2E]">Otros</span>
                   </div>
-                  <div className="bg-[#E6F7F1] rounded-[8px] p-3 text-center">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-[#9AA0B4] mb-1">Pagado</div>
-                    <div className="text-[16px] font-bold text-[#00A86B]">{fmt(bPaid)}</div>
-                  </div>
-                  <div className={`rounded-[8px] p-3 text-center ${bBalance>0?"bg-[#FDECEA]":"bg-[#E6F7F1]"}`}>
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-[#9AA0B4] mb-1">Saldo</div>
-                    <div className={`text-[16px] font-bold ${bBalance>0?"text-[#E53935]":"text-[#00A86B]"}`}>{fmt(bBalance)}</div>
-                  </div>
+                  {patient.budgets.filter(b=>b.status!=="approved"&&b.status!=="pending").map(b=>{
+                    const bPaid = b.payments.reduce((s,p)=>s+p.amount,0);
+                    const bBalance = b.total - bPaid;
+                    return (
+                      <div key={b.id} className="bg-white border border-[#E3E8F0] rounded-2xl p-4 mb-3 shadow-sm opacity-80">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[13px] font-bold text-[#9AA0B4]">#{String(b.number).padStart(5,"0")}</span>
+                              <span className="text-[13px] text-[#4B5563]">{b.notes || "Sin nombre"}</span>
+                              <Badge value={b.status}/>
+                            </div>
+                            <p className="text-[11px] text-[#9AA0B4] mt-0.5">{b.user.name} · {b.date} · Total: {fmt(b.total)}</p>
+                          </div>
+                          <div className="flex gap-2 flex-shrink-0">
+                            <button onClick={()=>openBudgetEdit(b)} className="text-[11px] font-semibold text-[#0057FF] hover:underline">Editar</button>
+                            {isAdmin && (
+                              <button onClick={async()=>{ if(!confirm("¿Eliminar?"))return; await fetch(`/api/budgets/${b.id}`,{method:"DELETE"}); load(); }}
+                                className="text-red-400 hover:text-red-600 transition-colors">
+                                <Trash2 size={13}/>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="w-full bg-[#E3E8F0] rounded-full h-1.5 mb-3">
-                  <div className="bg-[#00A86B] h-1.5 rounded-full transition-all" style={{width:`${Math.min(100,Math.round((bPaid/b.total)*100))}%`}}/>
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={()=>setBudgetDetailId(b.id)} className="flex-1 text-[12px] font-semibold bg-[#EEF3FF] text-[#0057FF] border border-[#0057FF]/20 rounded-[8px] py-2 hover:bg-[#0057FF] hover:text-white transition-all">
-                    Ver detalle
-                  </button>
-                </div>
-              </div>
-            )})}
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -1518,113 +1628,166 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         </div>
       )}
 
-      {/* ===== MODAL EVOLUCIÓN ===== */}
-      <Modal open={evoModal} onClose={()=>setEvoModal(false)} title="Registrar Evolución">
-        <div className="p-4 sm:p-6 space-y-5 overflow-y-auto max-h-[75vh]">
+      {/* ===== MODAL EVOLUCIÓN (estilo imagen 10) ===== */}
+      <Modal open={evoModal} onClose={()=>setEvoModal(false)} title="Nueva evolución" size="lg">
+        <div className="overflow-y-auto max-h-[80vh]">
 
-          {/* ── Fecha y profesional ── */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* ── Cabecera: profesional + tratamiento + fecha ── */}
+          <div className="px-6 pt-5 pb-4 border-b border-[#E3E8F0] grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="label">Fecha</label>
-              <input className="input" type="date" value={evoForm.date} onChange={e=>setEvoForm(f=>({...f,date:e.target.value}))}/>
-            </div>
-            <div>
-              <label className="label">Profesional *</label>
-              <select className="select" value={evoForm.userId} onChange={e=>setEvoForm(f=>({...f,userId:e.target.value}))}>
-                <option value="">Seleccionar...</option>
+              <label className="block text-[11px] font-semibold text-[#9AA0B4] uppercase tracking-wide mb-1.5">Profesional *</label>
+              <select className="select text-[13px]" value={evoForm.userId} onChange={e=>setEvoForm(f=>({...f,userId:e.target.value}))}>
+                <option value="">Seleccionar profesional...</option>
                 {users.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}
               </select>
             </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-[#9AA0B4] uppercase tracking-wide mb-1.5">Tratamiento</label>
+              {allActiveBudgetItems.length > 0 ? (
+                <select className="select text-[13px]" value={evoForm.treatment}
+                  onChange={e=>setEvoForm(f=>({...f,treatment:e.target.value}))}>
+                  <option value="">Buscar tratamiento...</option>
+                  {allActiveBudgetItems.map(item=>(
+                    <option key={item.id} value={item.description}>#{item.budgetNumber} — {item.description}{item.tooth?` (D.${item.tooth})`:""}</option>
+                  ))}
+                </select>
+              ) : (
+                <input className="input text-[13px]" value={evoForm.treatment}
+                  onChange={e=>setEvoForm(f=>({...f,treatment:e.target.value}))}
+                  placeholder="Ej: Extracción, Obturación..."/>
+              )}
+            </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-[#9AA0B4] uppercase tracking-wide mb-1.5">Fecha</label>
+              <input className="input text-[13px]" type="date" value={evoForm.date}
+                onChange={e=>setEvoForm(f=>({...f,date:e.target.value}))}/>
+            </div>
           </div>
 
-          {/* ── Diagnóstico ── */}
-          <div>
-            <label className="label">Diagnóstico</label>
-            <input className="input" value={evoForm.diagnosis}
+          {/* ── Editor de evolución ── */}
+          <div className="px-6 py-4">
+            {/* Barra de formato */}
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-0.5 bg-[#F0F2F7] rounded-lg p-1">
+                {[
+                  {label:"P", title:"Párrafo", cls:"font-normal text-[12px]"},
+                  {label:"B", title:"Negrita", cls:"font-bold text-[13px]"},
+                  {label:"I", title:"Cursiva", cls:"italic text-[13px]"},
+                  {label:"U", title:"Subrayado", cls:"underline text-[13px]"},
+                  {label:"S", title:"Tachado", cls:"line-through text-[12px]"},
+                ].map(btn=>(
+                  <button key={btn.label} title={btn.title}
+                    className={`w-7 h-7 flex items-center justify-center rounded-md hover:bg-white hover:shadow-sm transition-all text-[#4B5563] ${btn.cls}`}>
+                    {btn.label}
+                  </button>
+                ))}
+                <div className="w-px h-5 bg-[#E3E8F0] mx-1"/>
+                {[{label:"≡",title:"Alineación"},{label:"↓",title:"Lista"},{label:"A",title:"Color"}].map(btn=>(
+                  <button key={btn.label} title={btn.title}
+                    className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-white hover:shadow-sm transition-all text-[#4B5563] text-[13px]">
+                    {btn.label}
+                  </button>
+                ))}
+              </div>
+              {/* Usar plantilla */}
+              <div className="relative">
+                <select className="appearance-none text-[12px] font-semibold bg-[#EEF3FF] text-[#0057FF] border border-[#0057FF]/20 rounded-lg px-3 py-1.5 pr-7 cursor-pointer focus:outline-none"
+                  value=""
+                  onChange={e=>{
+                    const tmpl = CARE_TEMPLATES[e.target.value];
+                    if (tmpl) setEvoForm(f=>({...f, observations:(f.observations?f.observations+"\n\n":"")+tmpl}));
+                    (e.target as HTMLSelectElement).value="";
+                  }}>
+                  <option value="">+ Usar plantilla</option>
+                  {Object.keys(CARE_TEMPLATES).map(k=><option key={k} value={k}>{k}</option>)}
+                </select>
+                <ChevronRight size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#0057FF] pointer-events-none rotate-90"/>
+              </div>
+            </div>
+
+            {/* Área de diagnóstico (opcional) */}
+            <input className="input text-[13px] mb-3" value={evoForm.diagnosis}
               onChange={e=>setEvoForm(f=>({...f,diagnosis:e.target.value}))}
-              placeholder="Descripción del diagnóstico clínico..."/>
-          </div>
+              placeholder="Diagnóstico (opcional)..."/>
 
-          {/* ── Tratamientos desde presupuesto ── */}
-          <div>
-            <label className="label font-semibold mb-2.5 block">Tratamientos a registrar *</label>
-            {allActiveBudgetItems.length === 0 ? (
-              <div className="border border-slate-200 rounded-xl bg-slate-50 p-5 text-center">
-                <p className="text-sm text-slate-500 mb-2">No hay tratamientos presupuestados pendientes.</p>
-                <button type="button" onClick={()=>{ setEvoModal(false); openBudgetCreate(); }}
-                  className="text-xs text-primary-600 underline hover:text-primary-800">
-                  Crear un presupuesto primero
+            {/* Área de texto principal */}
+            <div className="relative border border-[#E3E8F0] rounded-xl bg-white overflow-hidden">
+              <textarea
+                className="w-full text-[13px] px-4 py-3 focus:outline-none resize-none leading-relaxed text-[#1A1D2E]"
+                rows={7}
+                value={evoForm.observations}
+                onChange={e=>setEvoForm(f=>({...f,observations:e.target.value}))}
+                placeholder="Escribe o dicta la evolución..."/>
+              <div className="px-4 py-2 border-t border-[#F0F2F7] flex items-center justify-end gap-3">
+                <button className="text-[11px] text-[#9AA0B4] hover:text-[#0057FF] transition-colors">
+                  Danos tu opinión
+                </button>
+                <button className="flex items-center gap-1.5 text-[12px] font-semibold bg-[#1A1D2E] text-white px-3 py-1.5 rounded-lg hover:bg-[#374151] transition-colors">
+                  🎤 Dictar
                 </button>
               </div>
-            ) : (
-              <div className="space-y-2">
-                {allActiveBudgetItems.map(item => {
-                  const sel = evoBudgetSelections[item.id] ?? { selected:false, newStatus:item.status||"in_progress" };
-                  return (
-                    <div key={item.id} className={`border rounded-xl overflow-hidden transition-colors ${sel.selected?"border-primary-300 bg-primary-50/40":"border-slate-200 bg-white"}`}>
-                      <label className="px-3 py-2.5 flex items-center gap-2.5 cursor-pointer">
+            </div>
+          </div>
+
+          {/* ── Tratamientos de presupuesto (collapsible) ── */}
+          {allActiveBudgetItems.length > 0 && (
+            <div className="px-6 pb-4">
+              <details className="border border-[#E3E8F0] rounded-xl overflow-hidden">
+                <summary className="px-4 py-3 text-[12px] font-semibold text-[#4B5563] cursor-pointer hover:bg-[#F0F2F7] transition-colors select-none">
+                  Vincular con tratamientos de presupuesto ({Object.values(evoBudgetSelections).filter(v=>v.selected).length} seleccionados)
+                </summary>
+                <div className="border-t border-[#E3E8F0] divide-y divide-[#F0F2F7] max-h-48 overflow-y-auto">
+                  {allActiveBudgetItems.map(item => {
+                    const sel = evoBudgetSelections[item.id] ?? { selected:false, newStatus:item.status||"in_progress" };
+                    return (
+                      <label key={item.id} className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors ${sel.selected?"bg-[#EEF3FF]":"hover:bg-[#F8F9FC]"}`}>
                         <input type="checkbox" checked={sel.selected}
                           onChange={e=>setEvoBudgetSelections(s=>({...s,[item.id]:{...(s[item.id]??{selected:false,newStatus:item.status||"in_progress"}),selected:e.target.checked}}))}
-                          className="w-4 h-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"/>
-                        <span className="text-xs text-slate-400 font-mono flex-shrink-0">#{item.budgetNumber}</span>
-                        <span className="flex-1 text-sm font-medium text-slate-900">{item.description}</span>
-                        {item.tooth && <span className="text-xs text-slate-400 flex-shrink-0">D.{item.tooth}</span>}
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${ITEM_STATUS[item.status||"pending"]?.color}`}>
-                          {ITEM_STATUS[item.status||"pending"]?.label}
-                        </span>
+                          className="w-3.5 h-3.5 rounded border-[#E3E8F0] text-[#0057FF]"/>
+                        <span className="text-[10px] text-[#9AA0B4] font-mono flex-shrink-0">#{item.budgetNumber}</span>
+                        <span className="flex-1 text-[12px] font-medium text-[#1A1D2E] truncate">{item.description}</span>
+                        {item.tooth&&<span className="text-[10px] text-[#9AA0B4]">D.{item.tooth}</span>}
+                        <span className="text-[11px] font-semibold text-[#0057FF]">{fmt(item.total)}</span>
                       </label>
-                      {sel.selected && (
-                        <div className="px-3 pb-2.5 flex items-center gap-2 border-t border-slate-100">
-                          <span className="text-xs text-slate-500 flex-shrink-0">Marcar como:</span>
-                          {[{v:"in_progress",l:"En proceso"},{v:"completed",l:"Terminado ✓"}].map(opt=>(
-                            <button key={opt.v} type="button"
-                              onClick={()=>setEvoBudgetSelections(s=>({...s,[item.id]:{...(s[item.id]??{selected:true,newStatus:"in_progress"}),newStatus:opt.v}}))}
-                              className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${sel.newStatus===opt.v?"bg-primary-600 text-white border-primary-600":"bg-white text-slate-600 border-slate-300 hover:border-slate-400"}`}>
-                              {opt.l}
-                            </button>
-                          ))}
-                          <span className="ml-auto text-xs text-slate-400">{fmt(item.total)}</span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                    );
+                  })}
+                </div>
+              </details>
+            </div>
+          )}
 
-          {/* ── Observaciones ── */}
-          <div>
-            <label className="label">Observaciones clínicas</label>
-            <textarea className="input resize-none text-sm leading-relaxed" rows={3}
-              value={evoForm.observations}
-              onChange={e=>setEvoForm(f=>({...f,observations:e.target.value}))}
-              placeholder="Detalles adicionales, indicaciones post-atención, próximos pasos..."/>
-          </div>
-
-          {/* ── Recordatorio de control ── */}
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-            <label className="text-xs font-semibold text-amber-800 uppercase tracking-wide block mb-2.5">Recordatorio de control</label>
-            <div className="flex gap-2 flex-wrap">
-              {[{v:0,l:"Sin recordatorio"},{v:3,l:"3 meses"},{v:6,l:"6 meses"},{v:12,l:"12 meses"},{v:24,l:"24 meses"}].map(opt=>(
-                <button key={opt.v} type="button"
-                  onClick={()=>setEvoReminder(opt.v)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${evoReminder===opt.v?"bg-amber-600 text-white border-amber-600":"bg-white text-amber-700 border-amber-300 hover:border-amber-500"}`}>
+          {/* ── Recordatorio ── */}
+          <div className="px-6 pb-4">
+            <p className="text-[11px] font-semibold text-[#9AA0B4] uppercase tracking-wide mb-2">Recordatorio de control</p>
+            <div className="flex gap-1.5 flex-wrap">
+              {[{v:0,l:"Sin recordatorio"},{v:3,l:"3 meses"},{v:6,l:"6 meses"},{v:12,l:"12 meses"}].map(opt=>(
+                <button key={opt.v} type="button" onClick={()=>setEvoReminder(opt.v)}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors ${evoReminder===opt.v?"bg-amber-500 text-white border-amber-500":"bg-white text-amber-700 border-amber-200 hover:border-amber-400"}`}>
                   {opt.l}
                 </button>
               ))}
             </div>
           </div>
         </div>
-        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 flex items-center justify-between gap-3">
-          <p className="text-xs text-slate-400">
-            {Object.values(evoBudgetSelections).filter(v=>v.selected).length} tratam. seleccionados
-          </p>
-          <div className="flex gap-3">
-            <button className="btn-secondary" onClick={()=>setEvoModal(false)}>Cancelar</button>
-            <button className="btn-primary" onClick={saveEvo}
-              disabled={saving||!Object.values(evoBudgetSelections).some(v=>v.selected)||!evoForm.userId}>
-              {saving?"Guardando...":"Guardar evolución"}
+
+        {/* ── Footer ── */}
+        <div className="px-6 py-3 border-t border-[#E3E8F0] bg-[#F8F9FC] flex items-center justify-between gap-3">
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <div
+              onClick={()=>setEvoForm(f=>({...f,isPrivate:!f.isPrivate}))}
+              className={`relative w-9 h-5 rounded-full transition-colors ${evoForm.isPrivate?"bg-[#0057FF]":"bg-[#D1D5DB]"}`}>
+              <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${evoForm.isPrivate?"translate-x-4":"translate-x-0.5"}`}/>
+            </div>
+            <span className="text-[12px] font-medium text-[#4B5563]">Evolución privada</span>
+          </label>
+          <div className="flex gap-2">
+            <button className="text-[13px] font-medium px-4 py-2 rounded-lg border border-[#E3E8F0] bg-white text-[#4B5563] hover:bg-[#F0F2F7] transition-colors"
+              onClick={()=>setEvoModal(false)}>
+              Cerrar
+            </button>
+            <button className="text-[13px] font-semibold px-4 py-2 rounded-lg bg-[#0057FF] text-white hover:bg-[#0041CC] transition-colors disabled:opacity-60"
+              onClick={saveEvo} disabled={saving||!evoForm.userId||(!evoForm.observations.trim()&&!evoForm.treatment.trim()&&!Object.values(evoBudgetSelections).some(v=>v.selected))}>
+              {saving ? "Guardando..." : "Crear nueva evolución"}
             </button>
           </div>
         </div>

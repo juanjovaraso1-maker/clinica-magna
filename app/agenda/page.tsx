@@ -444,9 +444,15 @@ export default function Agenda() {
                           </div>
                           {weekDays.map(d => (
                             <div key={d}
-                              className={`border-r border-[#F0F2F7] last:border-r-0 cursor-pointer transition-colors ${d === today ? "bg-[#F0FDF4]/40" : ""}`}
+                              className={`border-r border-[#F0F2F7] last:border-r-0 cursor-pointer transition-colors group relative ${d === today ? "bg-[#F0FDF4]/40" : ""}`}
                               onClick={() => openNew(d, `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`)}
-                            />
+                            >
+                              {isHour && (
+                                <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                  <span className="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] font-bold shadow-sm">+</span>
+                                </span>
+                              )}
+                            </div>
                           ))}
                         </div>
                       );
