@@ -980,7 +980,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
   ].sort((a,b) => b.date.localeCompare(a.date) || (("time" in b ? b.time : "")??"").localeCompare(("time" in a ? a.time : "")??""));
 
   return (
-    <div className="space-y-4 max-w-6xl">
+    <div className="space-y-4 w-full">
       {toast && <div className="fixed top-20 right-4 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg text-sm">{toast}</div>}
 
       {/* Back */}
@@ -1573,13 +1573,15 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                         </div>
 
                         {/* Fechas + acciones */}
-                        <div className="flex items-center justify-between text-[10px] text-[#9AA0B4]">
-                          <span>Creado: {b.date}{b.validUntil?` · Válido hasta: ${b.validUntil}`:""}</span>
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <span className="text-[11px] text-[#9AA0B4]">Creado: {b.date}{b.validUntil?` · Válido hasta: ${b.validUntil}`:""}</span>
                           <div className="flex gap-2">
-                            <button onClick={()=>openBudgetEdit(b)} className="text-[11px] font-semibold text-[#0057FF] hover:underline">
+                            <button onClick={()=>openBudgetEdit(b)}
+                              className="text-[13px] font-semibold px-4 py-2 rounded-xl bg-[#F0F2F7] text-[#4B5563] hover:bg-[#E3E8F0] transition-colors">
                               Editar
                             </button>
-                            <button onClick={()=>setBudgetDetailId(b.id)} className="text-[11px] font-semibold text-[#0057FF] hover:underline">
+                            <button onClick={()=>setBudgetDetailId(b.id)}
+                              className="text-[13px] font-semibold px-4 py-2 rounded-xl bg-[#0057FF] text-white hover:bg-[#0041CC] transition-colors">
                               Ver detalle
                             </button>
                           </div>
@@ -2459,17 +2461,6 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
             <div><label className="label">Email</label><input className="input" type="email" value={editForm.email} onChange={e=>setEditForm(f=>({...f,email:e.target.value}))}/></div>
             <div><label className="label">Dirección</label><input className="input" value={editForm.address} onChange={e=>setEditForm(f=>({...f,address:e.target.value}))}/></div>
             <div><label className="label">Ciudad</label><input className="input" value={editForm.city} onChange={e=>setEditForm(f=>({...f,city:e.target.value}))}/></div>
-            <div className="sm:col-span-2">
-              <label className="label">Previsión de salud</label>
-              <select className="select" value={editForm.healthInsurance} onChange={e=>setEditForm(f=>({...f,healthInsurance:e.target.value}))}>
-                <option>FONASA</option>
-                <option>ISAPRE Cruz Blanca</option>
-                <option>ISAPRE Banmédica</option>
-                <option>ISAPRE Colmena</option>
-                <option>ISAPRE Consalud</option>
-                <option>Particular</option>
-              </select>
-            </div>
             <div className="sm:col-span-2"><label className="label">Notas</label><textarea className="input resize-none" rows={2} value={editForm.notes} onChange={e=>setEditForm(f=>({...f,notes:e.target.value}))}/></div>
           </div>
         </div>
@@ -2536,25 +2527,18 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                       <td className="px-4 py-2.5 text-slate-700">{item.description}</td>
                       <td className="px-3 py-2.5 text-center text-slate-500 hidden sm:table-cell">{item.tooth||item.area||"—"}</td>
                       <td className="px-3 py-2.5 text-center">
-                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ITEM_STATUS[item.status||"pending"]?.color}`}>
-                            {ITEM_STATUS[item.status||"pending"]?.label}
-                          </span>
-                          {item.status === "completed" && (
-                            <button onClick={()=>updateItemStatus(item.id,"in_progress")}
-                              title="Revertir a En proceso"
-                              className="text-xs px-1.5 py-0.5 rounded border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors flex-shrink-0">
-                              Reactivar
-                            </button>
-                          )}
-                          {item.status !== "completed" && (
-                            <button onClick={()=>updateItemStatus(item.id,"completed")}
-                              title="Marcar como Terminado"
-                              className="text-xs px-1.5 py-0.5 rounded border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors flex-shrink-0">
-                              Terminado
-                            </button>
-                          )}
-                        </div>
+                        <select
+                          value={item.status||"pending"}
+                          onChange={e=>updateItemStatus(item.id, e.target.value)}
+                          className={`text-xs font-semibold rounded-lg px-2.5 py-1.5 border focus:outline-none focus:ring-1 focus:ring-[#0057FF] cursor-pointer ${
+                            item.status==="completed"?"bg-emerald-50 text-emerald-700 border-emerald-200":
+                            item.status==="in_progress"?"bg-amber-50 text-amber-700 border-amber-200":
+                            "bg-slate-50 text-slate-600 border-slate-200"
+                          }`}>
+                          <option value="pending">Pendiente</option>
+                          <option value="in_progress">En progreso</option>
+                          <option value="completed">Terminado</option>
+                        </select>
                       </td>
                       <td className="px-4 py-2.5 text-right font-semibold">{fmt(item.total)}</td>
                     </tr>

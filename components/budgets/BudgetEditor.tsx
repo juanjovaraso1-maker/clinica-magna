@@ -79,13 +79,19 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
   const [gDiscount,  setGDiscount]  = useState(initDiscount);
   const [notes,      setNotes]      = useState(initNotes);
   const [lines,      setLines]      = useState<BudgetLine[]>(initLines.length>0?initLines.map((l,i)=>({...l,_key:String(i)})):[]);
-  const [selCat,     setSelCat]     = useState("");
-  const [selTreatId, setSelTreatId] = useState("");
-  const [hoveredTooth,setHov]       = useState<number|null>(null);
+  const [selCat,      setSelCat]      = useState("");
+  const [selTreatId,  setSelTreatId]  = useState("");
+  const [treatSearch, setTreatSearch] = useState("");
+  const [treatOpen,   setTreatOpen]   = useState(false);
+  const [hoveredTooth,setHov]         = useState<number|null>(null);
 
-  const categories = useMemo(()=>Array.from(new Set(treatments.map(t=>t.category))).sort(),[treatments]);
-  const filteredTr = useMemo(()=>selCat?treatments.filter(t=>t.category===selCat):treatments,[treatments,selCat]);
-  const selTreat   = treatments.find(t=>t.id===selTreatId);
+  const categories  = useMemo(()=>Array.from(new Set(treatments.map(t=>t.category))).sort(),[treatments]);
+  const filteredTr  = useMemo(()=>{
+    let list = selCat ? treatments.filter(t=>t.category===selCat) : treatments;
+    if (treatSearch.trim()) list = list.filter(t=>t.name.toLowerCase().includes(treatSearch.toLowerCase()));
+    return list.slice(0,40);
+  },[treatments,selCat,treatSearch]);
+  const selTreat    = treatments.find(t=>t.id===selTreatId);
   const subtotal   = lines.reduce((s,l)=>s+l.total,0);
   const total      = Math.max(0,subtotal-gDiscount);
 
@@ -145,28 +151,57 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
       {/* Selector prestación + convenio */}
       <div className="px-5 py-4 border-b border-[#E3E8F0] space-y-3">
         <div className="flex items-center gap-3 flex-wrap">
-          <select className="select text-[13px] min-w-[170px]" value={selCat} onChange={e=>{setSelCat(e.target.value);setSelTreatId("");}}>
+          {/* Filtro de categoría */}
+          <select className="select text-[13px] w-48 flex-shrink-0" value={selCat} onChange={e=>{setSelCat(e.target.value);setTreatSearch("");setSelTreatId("");}}>
             <option value="">Todas las categorías</option>
             {categories.map(c=><option key={c} value={c}>{c}</option>)}
           </select>
-          <select className="select text-[13px] flex-1 min-w-[220px]" value={selTreatId} onChange={e=>setSelTreatId(e.target.value)}>
-            <option value="">Seleccionar prestación...</option>
-            {filteredTr.map(t=><option key={t.id} value={t.id}>{t.name} — {fmtN(t.price)}</option>)}
-          </select>
+
+          {/* Búsqueda con typeahead */}
+          <div className="relative flex-1 min-w-[240px]">
+            <input
+              type="text"
+              className="input text-[13px] w-full pr-8"
+              placeholder="Buscar prestación por nombre..."
+              value={selTreat ? selTreat.name : treatSearch}
+              onChange={e=>{ setTreatSearch(e.target.value); setSelTreatId(""); setTreatOpen(true); }}
+              onFocus={()=>setTreatOpen(true)}
+              onBlur={()=>setTimeout(()=>setTreatOpen(false),180)}
+            />
+            {selTreatId && (
+              <button onClick={()=>{ setSelTreatId(""); setTreatSearch(""); }} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9AA0B4] hover:text-red-500 transition-colors">
+                <X size={14}/>
+              </button>
+            )}
+            {treatOpen && !selTreatId && filteredTr.length>0 && (
+              <div className="absolute top-full left-0 right-0 z-50 bg-white border border-[#E3E8F0] rounded-xl shadow-xl max-h-64 overflow-y-auto mt-1">
+                {filteredTr.map(t=>(
+                  <button key={t.id} type="button"
+                    onMouseDown={()=>{ setSelTreatId(t.id); setTreatSearch(t.name); setTreatOpen(false); }}
+                    className="w-full text-left px-4 py-2.5 hover:bg-[#EEF3FF] text-[13px] flex items-center justify-between border-b border-[#F0F2F7] last:border-0 transition-colors">
+                    <span className="font-medium text-[#1A1D2E]">{t.name}</span>
+                    <span className="text-[#0057FF] font-bold flex-shrink-0 ml-4">{fmtN(t.price)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           {selTreat && (
-            <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-3 py-2 text-[13px]">
+            <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2 text-[13px] flex-shrink-0">
               <span className="font-bold text-[#0057FF]">{selTreat.name}</span>
               <span className="text-[#9AA0B4]">·</span>
-              <span className="font-semibold text-[#0057FF]">{fmtN(selTreat.price)}</span>
-              <button onClick={()=>setSelTreatId("")} className="text-[#9AA0B4] hover:text-red-500 ml-1"><X size={13}/></button>
+              <span className="font-bold text-[#0057FF]">{fmtN(selTreat.price)}</span>
             </div>
           )}
         </div>
 
-        {/* Convenio */}
-        {convenios.length>0 && (
-          <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5">
-            <span className="text-[12px] font-bold text-emerald-700 uppercase tracking-wide flex-shrink-0">Convenio</span>
+        {/* Convenio — siempre visible */}
+        <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5">
+          <span className="text-[12px] font-bold text-emerald-700 uppercase tracking-wide flex-shrink-0">Convenio</span>
+          {convenios.length===0 ? (
+            <span className="text-[12px] text-emerald-600 italic">Sin convenios configurados — <a href="/administracion/convenios" className="underline font-medium">crear en Administración</a></span>
+          ) : (
             <select className="select text-[13px] flex-1 bg-white border-emerald-300" defaultValue=""
               onChange={e=>{
                 const cv=convenios.find(c=>c.id===e.target.value);
@@ -179,8 +214,8 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
               <option value="">Seleccionar convenio para aplicar descuento...</option>
               {convenios.map(c=><option key={c.id} value={c.id}>{c.name} — {c.discountType==="pct"?`${c.discount}%`:fmtN(c.discount)}</option>)}
             </select>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Áreas especiales */}
         {selTreat && (
