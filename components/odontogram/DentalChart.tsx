@@ -114,7 +114,7 @@ function ToothSVG({ num, wholeCond, selected }: { num: number; wholeCond?: strin
     }}>
       <img src={src} alt="" draggable={false}
         style={{
-          width: 48, height: 108, objectFit: "contain",
+          width: 60, height: 135, objectFit: "contain",
           transform: mirror ? "scaleX(-1)" : undefined,
           opacity: isAusente ? 0.35 : 1,
           filter: isAusente ? "grayscale(1)" : undefined,

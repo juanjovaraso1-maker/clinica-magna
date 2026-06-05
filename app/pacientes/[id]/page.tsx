@@ -771,67 +771,145 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
 
   function buildRxRequestHtml(f: RxFormData, professional: {name:string;rut?:string}|undefined): string {
     if (!patient) return "";
-    const today = new Date().toLocaleDateString("es-CL",{day:"numeric",month:"long",year:"numeric"});
-    const chk = (v:boolean) => v ? "☑" : "☐";
-    const row = (label:string, checked:boolean, extra="", mail1="", mail2="") =>
-      `<tr><td style="padding:3px 6px;border:1px solid #ccc;font-size:10px">${chk(checked)} ${label}${extra?"<span style='margin-left:8px'>${extra}</span>":""}</td><td style="padding:3px 6px;border:1px solid #ccc;font-size:10px;text-align:center;white-space:nowrap">${mail1}</td><td style="padding:3px 6px;border:1px solid #ccc;font-size:10px;text-align:center;white-space:nowrap">${mail2}</td></tr>`;
-    const section = (title:string, color:string, rows:string, mailHdr1="Con Informe", mailHdr2="Sin Informe") =>
-      `<tr style="background:${color}"><td colspan="3" style="padding:3px 6px;font-weight:bold;font-size:10px;letter-spacing:.5px">${title}<span style="float:right;background:#1f4e79;color:white;padding:1px 8px;font-size:9px;border-radius:3px">ENVÍO POR MAIL</span></td></tr>
-       <tr style="background:#ddd"><td style="padding:2px 6px;font-size:9px;font-weight:bold"></td><td style="padding:2px 6px;font-size:9px;font-weight:bold;text-align:center">${mailHdr1}</td><td style="padding:2px 6px;font-size:9px;font-weight:bold;text-align:center">${mailHdr2}</td></tr>
-       ${rows}`;
+    const today = new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"});
+    const chk = (v:boolean) => v
+      ? `<span style="display:inline-block;width:14px;height:14px;border:1.5px solid #1f4e79;border-radius:2px;background:#1f4e79;color:white;font-size:10px;line-height:14px;text-align:center;vertical-align:middle">✓</span>`
+      : `<span style="display:inline-block;width:14px;height:14px;border:1.5px solid #999;border-radius:2px;background:white;vertical-align:middle"></span>`;
+
+    const secHdr = (title:string, bg:string) =>
+      `<tr style="background:${bg}">
+        <td colspan="3" style="padding:4px 8px;font-weight:bold;font-size:11px;letter-spacing:.5px;border:1px solid #bbb">${title}</td>
+      </tr>
+      <tr style="background:#e8e8e8">
+        <td style="padding:3px 8px;font-size:9px;font-weight:bold;border:1px solid #bbb;width:55%">PROCEDIMIENTO</td>
+        <td style="padding:3px 8px;font-size:9px;font-weight:bold;border:1px solid #bbb;text-align:center;width:22%">Con Informe</td>
+        <td style="padding:3px 8px;font-size:9px;font-weight:bold;border:1px solid #bbb;text-align:center;width:23%">Sin Informe / Envío Mail</td>
+      </tr>`;
+
+    const row = (label:string, isChecked:boolean, col1:string="", col2:string="") =>
+      `<tr>
+        <td style="padding:4px 8px;font-size:10px;border:1px solid #ddd">${chk(isChecked)} ${label}</td>
+        <td style="padding:4px 8px;font-size:10px;border:1px solid #ddd;text-align:center">${col1}</td>
+        <td style="padding:4px 8px;font-size:10px;border:1px solid #ddd;text-align:center">${col2}</td>
+      </tr>`;
+
+    const noMailRow = (label:string, isChecked:boolean) =>
+      `<tr>
+        <td colspan="3" style="padding:4px 8px;font-size:10px;border:1px solid #ddd">${chk(isChecked)} ${label}</td>
+      </tr>`;
+
+    const addr = "Badajoz 100 Of. 918, Las Condes";
+    const phone = "+56 9 6279 3952";
+    const email = "contacto@clinicamagna.cl";
+    const web   = "www.clinicamagna.cl";
 
     return `
-      ${buildDocHeader()}
-      <div style="text-align:center;margin:10px 0 8px">
-        <div style="font-size:16px;font-weight:bold;letter-spacing:1px">SOLICITUD DE RADIOGRAFÍA / SCANNER</div>
+      <div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;font-size:11px">
+
+        <!-- HEADER -->
+        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #1f4e79;padding-bottom:10px;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <img src="/LOGO.jpeg" style="width:60px;height:60px;object-fit:contain" onerror="this.style.display='none'"/>
+            <div>
+              <div style="font-size:18px;font-weight:bold;color:#1f4e79">Clínica Magna</div>
+              <div style="font-size:9.5px;color:#555">${addr}</div>
+              <div style="font-size:9.5px;color:#555">${phone} · ${email} · ${web}</div>
+            </div>
+          </div>
+          <div style="text-align:right;background:#1f4e79;color:white;padding:8px 14px;border-radius:4px">
+            <div style="font-size:13px;font-weight:bold">SOLICITUD DE</div>
+            <div style="font-size:13px;font-weight:bold">RADIOGRAFÍA / SCANNER</div>
+            <div style="font-size:9.5px;margin-top:3px">${today}</div>
+          </div>
+        </div>
+
+        <!-- PROFESIONAL / PACIENTE -->
+        <table style="width:100%;border-collapse:collapse;margin-bottom:10px">
+          <tr>
+            <td style="width:50%;padding:6px 8px;border:1.5px solid #1f4e79;border-radius:4px 0 0 4px;background:#f0f6ff">
+              <div style="font-size:9px;font-weight:bold;color:#1f4e79;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Profesional</div>
+              <div style="font-size:12px;font-weight:bold;color:#1a1a1a">${professional?.name||"—"}</div>
+              ${professional?.rut?`<div style="font-size:9.5px;color:#555">RUT: ${professional.rut}</div>`:""}
+            </td>
+            <td style="width:50%;padding:6px 8px;border:1.5px solid #1f4e79;border-left:none;background:#fff8f0">
+              <div style="font-size:9px;font-weight:bold;color:#c0392b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Paciente</div>
+              <div style="font-size:12px;font-weight:bold;color:#1a1a1a">${patient.firstName} ${patient.lastName}</div>
+              <div style="font-size:9.5px;color:#555">RUT: ${patient.rut} · Fecha: ${today}</div>
+            </td>
+          </tr>
+        </table>
+
+        <!-- TABLAS -->
+        <table style="width:100%;border-collapse:collapse;margin-bottom:8px">
+          ${secHdr("RX INTRAORAL","#dce8f5")}
+          ${row(`Periapical Digital${f.rxi_piezas?` — Piezas: <strong>${f.rxi_piezas}</strong>`:" — Piezas: _______"}`,f.rxi_periapical, chk(f.rxi_mailCon), chk(f.rxi_mailSin))}
+          ${row("RX Total",f.rxi_total, chk(f.rxi_mailCon), chk(f.rxi_mailSin))}
+          ${row(`Bitewing${f.rxi_bitewingDer?" — Derecha":""}${f.rxi_bitewingIzq?" — Izquierda":""}`,f.rxi_bitewing, chk(f.rxi_mailCon), chk(f.rxi_mailSin))}
+
+          ${secHdr("RX EXTRAORAL","#fdefd8")}
+          ${row("Panorámica",f.rxe_panoramica, chk(f.rxe_mailCon), chk(f.rxe_mailSin))}
+          ${row(`Telerradiografía${f.rxe_telerLateral?" — Lateral":""}${f.rxe_telerAntero?" — Anteroposterior":""}`,f.rxe_telerLateral||f.rxe_telerAntero, chk(f.rxe_mailCon), chk(f.rxe_mailSin))}
+          ${row("RX Mano/Carpo",f.rxe_manoCarpo, chk(f.rxe_mailCon), chk(f.rxe_mailSin))}
+
+          ${secHdr("SCANNER INTRAORAL (ITERO-INVISALIGN)","#d8f5e4")}
+          ${noMailRow(`Arcada superior${f.sc_mordidaMIC?" — Mordida en MIC":""}${f.sc_STL?" — STL":""}`,f.sc_arcadaSup)}
+          ${noMailRow(`Arcada inferior${f.sc_invisalign?" — Asociar Invisalign Doctor":""}${f.sc_PLY?" — PLY":""}`,f.sc_arcadaInf)}
+
+          ${secHdr("TOMOGRAFÍA - CONE BEAM","#fce8e8")}
+          ${row(`Scanner Maxilar Superior — Para Evaluar: ${f.cb_paraEvaluar||"_______"}${f.cb_implantes?" — Implantes":""}`,f.cb_maxilarSup, chk(f.cb_mailCon), chk(f.cb_mailSin))}
+          ${row(`Scanner Mandíbula${f.cb_tercerosMolares?" — Terceros Molares":""}${f.cb_cortesPDF?" — Cortes en PDF":""}`,f.cb_mandibula, chk(f.cb_mailCon), chk(f.cb_mailSin))}
+          ${row(`Scanner Zona: ${f.cb_zona||"_______"}${f.cb_fractura?" — Fractura":""}`,!!(f.cb_zona||f.cb_fractura), chk(f.cb_mailCon), chk(f.cb_mailSin))}
+          ${noMailRow(`ATM${f.cb_bocaAbierta?" — Boca Abierta":""}${f.cb_bocaCerrada?" — Boca Cerrada":""}${f.cb_wetransfer?" — Wetransfer":""}`,f.cb_ATM)}
+        </table>
+
+        <!-- ANÁLISIS CEFALOMÉTRICOS -->
+        <table style="width:100%;border-collapse:collapse;margin-bottom:8px">
+          <tr style="background:#ece8f5">
+            <td style="padding:4px 8px;font-weight:bold;font-size:11px;border:1px solid #bbb">ANÁLISIS CEFALOMÉTRICOS</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 8px;font-size:10px;border:1px solid #ddd;line-height:2">
+              ${chk(f.cef_ricketts)} Ricketts &nbsp;&nbsp;
+              ${chk(f.cef_rothJarabak)} Roth-Jarabak &nbsp;&nbsp;
+              ${chk(f.cef_steiner)} Steiner &nbsp;&nbsp;
+              ${chk(f.cef_mcnamara)} Mcnamara &nbsp;&nbsp;
+              ${chk(f.cef_roth)} Roth &nbsp;&nbsp;
+              ${chk(f.cef_sassouniPlus)} Sassouni Plus &nbsp;&nbsp;
+              ${chk(f.cef_tweed)} Tweed &nbsp;&nbsp;
+              Otro: <span style="border-bottom:1px solid #999;display:inline-block;min-width:80px;padding:0 4px">${f.cef_otro||""}</span>
+            </td>
+          </tr>
+        </table>
+
+        <!-- ESTUDIO DE FOTOS -->
+        <table style="width:100%;border-collapse:collapse;margin-bottom:10px">
+          <tr style="background:#f0f0e8">
+            <td colspan="2" style="padding:4px 8px;font-weight:bold;font-size:11px;border:1px solid #bbb">ESTUDIO DE FOTOS</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 8px;font-size:10px;border:1px solid #ddd">
+              ${chk(f.foto_clinicas)} Fotos Clínicas &nbsp;&nbsp;
+              ${chk(f.foto_overjet)} Incluir Overjet
+            </td>
+            <td style="padding:6px 8px;font-size:10px;border:1px solid #ddd">
+              ${chk(f.foto_setPDF)} Set en PDF &nbsp;&nbsp;
+              ${chk(f.foto_unitarias)} Unitarias en JPG
+            </td>
+          </tr>
+        </table>
+
+        ${f.meInteresa ? `<div style="font-size:10px;border:1px solid #ccc;padding:5px 8px;margin-bottom:10px;background:#fffde7"><strong>ME INTERESA SABER:</strong> ${f.meInteresa}</div>` : ""}
+
+        <!-- FIRMAS -->
+        <div style="display:flex;justify-content:space-around;margin-top:24px;padding-top:10px">
+          <div style="text-align:center;width:40%">
+            <div style="border-top:1.5px solid #333;padding-top:6px;font-size:10px;color:#555">Firma y Timbre Profesional</div>
+          </div>
+          <div style="text-align:center;width:40%">
+            <div style="border-top:1.5px solid #333;padding-top:6px;font-size:10px;color:#555">Clínica Magna</div>
+          </div>
+        </div>
       </div>
-      ${buildDocProfPat({name:professional?.name||"",rut:professional?.rut||""}, [
-        {label:"Paciente",value:`${patient.firstName} ${patient.lastName}`},
-        {label:"RUT",value:patient.rut},
-        {label:"Fecha",value:today}
-      ])}
-      <table style="width:100%;border-collapse:collapse;margin-bottom:6px;table-layout:fixed">
-        <colgroup><col style="width:60%"><col style="width:20%"><col style="width:20%"></colgroup>
-        ${section("RX INTRAORAL","#f0f6ff",
-          row("Periapical Digital Piezas",f.rxi_periapical,f.rxi_piezas?` — Piezas: ${f.rxi_piezas}`:"",chk(f.rxi_mailCon)+" Con Informe",chk(f.rxi_mailSin)+" Sin Informe") +
-          row("RX Total",f.rxi_total,"",chk(f.rxi_mailCon),chk(f.rxi_mailSin)) +
-          row(`Bitewing ${f.rxi_bitewingDer?chk(true)+" Derecha":""} ${f.rxi_bitewingIzq?chk(true)+" Izquierda":""}`,f.rxi_bitewing,"",chk(f.rxi_mailCon),chk(f.rxi_mailSin))
-        )}
-        ${section("RX EXTRAORAL","#fff8f0",
-          row("Panorámica",f.rxe_panoramica,"",chk(f.rxe_mailCon)+" Con Informe",chk(f.rxe_mailSin)+" Sin Informe") +
-          row(`Telerradiografía ${f.rxe_telerLateral?chk(true)+" Lateral":""} ${f.rxe_telerAntero?chk(true)+" Anteroposterior":""}`,f.rxe_panoramica||f.rxe_telerLateral||f.rxe_telerAntero,"",chk(f.rxe_mailCon),chk(f.rxe_mailSin)) +
-          row("RX Mano/Carpo",f.rxe_manoCarpo,"",chk(f.rxe_mailCon),chk(f.rxe_mailSin))
-        )}
-        ${section("SCANNER INTRAORAL (ITERO-INVISALIGN)","#f0fff4",
-          row(`Arcada superior ${f.sc_mordidaMIC?chk(true)+" Mordida en MIC":""} ${f.sc_STL?chk(true)+" STL":""}`,f.sc_arcadaSup,"","","") +
-          row(`Arcada inferior ${f.sc_invisalign?chk(true)+" Asociar Invisalign Doctor":""} ${f.sc_PLY?chk(true)+" PLY":""}`,f.sc_arcadaInf,"","","")
-        ,"","") }
-        ${section("TOMOGRAFÍA - CONE BEAM","#fff0f0",
-          row(`Scanner Maxilar Superior — Para Evaluar: ${f.cb_paraEvaluar||"_______"} ${f.cb_implantes?chk(true)+" Implantes":""}`,f.cb_maxilarSup,"",chk(f.cb_mailCon)+" Con Informe",chk(f.cb_mailSin)+" Sin Informe") +
-          row(`Scanner Mandíbula ${f.cb_tercerosMolares?chk(true)+" Terceros Molares":""} ${f.cb_cortesPDF?chk(true)+" Cortes en PDF":""}`,f.cb_mandibula,"",chk(f.cb_mailCon),chk(f.cb_mailSin)) +
-          row(`Scanner Zona: ${f.cb_zona||"_______"} ${f.cb_fractura?chk(true)+" Fractura":""} ${f.cb_visualizadorCD?chk(true)+" Visualizador CD/DVD":""}`,!!(f.cb_zona||f.cb_fractura),"",chk(f.cb_mailCon),chk(f.cb_mailSin)) +
-          row(`${f.cb_zonaMax3?chk(true)+" Zona máx. 3 piezas":""} ${f.cb_dienteIncluido?chk(true)+" Diente Incluido":""} ${f.cb_DICOM?chk(true)+" DICOM nativos .DCM":""}`,!!(f.cb_zonaMax3||f.cb_dienteIncluido),"","","") +
-          row(`ATM ${f.cb_bocaAbierta?chk(true)+" Boca Abierta":""} ${f.cb_bocaCerrada?chk(true)+" Boca Cerrada":""} ${f.cb_wetransfer?chk(true)+" Visualizador por Wetransfer":""}`,f.cb_ATM,"","","")
-        )}
-      </table>
-      <table style="width:100%;border-collapse:collapse;margin-bottom:6px">
-        <tr style="background:#f0f0ff"><td style="padding:3px 6px;font-weight:bold;font-size:10px">ANÁLISIS CEFALOMÉTRICOS</td></tr>
-        <tr><td style="padding:3px 6px;font-size:10px;border:1px solid #ccc">
-          ${chk(f.cef_ricketts)} Ricketts &nbsp; ${chk(f.cef_rothJarabak)} Roth-Jarabak &nbsp; ${chk(f.cef_steiner)} Steiner &nbsp;
-          ${chk(f.cef_mcnamara)} Mcnamara &nbsp; ${chk(f.cef_roth)} Roth &nbsp; ${chk(f.cef_sassouniPlus)} Sassouni Plus &nbsp;
-          ${chk(f.cef_tweed)} Tweed &nbsp; Otro: ${f.cef_otro||"_____________"}
-        </td></tr>
-      </table>
-      <table style="width:100%;border-collapse:collapse;margin-bottom:6px">
-        <tr style="background:#f0f6f0"><td colspan="2" style="padding:3px 6px;font-weight:bold;font-size:10px">ESTUDIO DE FOTOS</td></tr>
-        <tr><td style="padding:3px 6px;font-size:10px;border:1px solid #ccc">
-          ${chk(f.foto_clinicas)} Fotos Clínicas &nbsp; ${chk(f.foto_overjet)} Incluir Overjet
-        </td><td style="padding:3px 6px;font-size:10px;border:1px solid #ccc">
-          ${chk(f.foto_setPDF)} Set en PDF &nbsp; ${chk(f.foto_unitarias)} Unitarias en JPG
-        </td></tr>
-      </table>
-      ${f.meInteresa ? `<div style="font-size:10px;border:1px solid #ccc;padding:4px 6px;margin-bottom:6px"><strong>ME INTERESA SABER:</strong> ${f.meInteresa}</div>` : ""}
-      ${buildDocFooter("Firma y Timbre Profesional","Clínica Magna")}
     `;
   }
 
@@ -2071,24 +2149,24 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                           <span className="text-[11px] text-[#9AA0B4]">{new Date(rx.date+"T12:00:00").toLocaleDateString("es-CL")}</span>
                           <span className="text-[11px] text-[#9AA0B4]">— {rx.user.name}</span>
                         </div>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-2">
                           <button onClick={()=>printSavedRxRequest(rx)}
-                            className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors border border-slate-200" title="Imprimir / PDF">
-                            <Printer size={12}/>
+                            className="p-2.5 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors border border-slate-200" title="Imprimir / PDF">
+                            <Printer size={16}/>
                           </button>
                           {patient.phone && (
                             <button onClick={()=>waSavedRxRequest(rx)}
-                              className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition-colors border border-emerald-200" title="Enviar por WhatsApp">
-                              <MessageCircle size={12}/>
+                              className="p-2.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition-colors border border-emerald-200" title="Enviar por WhatsApp">
+                              <MessageCircle size={16}/>
                             </button>
                           )}
                           {patient.email && (
                             <button onClick={()=>emailSavedRxRequest(rx)}
-                              className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors border border-blue-200" title="Enviar por email">
-                              <Mail size={12}/>
+                              className="p-2.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors border border-blue-200" title="Enviar por email">
+                              <Mail size={16}/>
                             </button>
                           )}
-                          {isAdmin && <button onClick={()=>deleteRx(rx.id)} className="p-1 text-[#D4C4A0] hover:text-red-500 transition-colors"><Trash2 size={12}/></button>}
+                          {isAdmin && <button onClick={()=>deleteRx(rx.id)} className="p-2 rounded-lg text-[#D4C4A0] hover:text-red-500 hover:bg-red-50 transition-colors border border-transparent hover:border-red-100"><Trash2 size={16}/></button>}
                         </div>
                       </div>
                       {/* New structured form display */}

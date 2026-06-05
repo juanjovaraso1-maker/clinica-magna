@@ -71,7 +71,7 @@ function BudgetToothPNG({ num, hasLine, hovered }: { num: number; hasLine: boole
     }}>
       <img src={src} alt="" draggable={false}
         style={{
-          width: 48, height: 108, objectFit: "contain",
+          width: 60, height: 135, objectFit: "contain",
           transform: mirror ? "scaleX(-1)" : undefined,
           display: "block",
         }}/>
@@ -250,21 +250,44 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
 
       {/* ── Zonas de tratamiento (agregan línea al presupuesto) ── */}
       <div className="px-4 py-2.5 border-b border-[#F0F2F7] bg-[#FAFBFD]">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[11px] font-bold text-[#9AA0B4] uppercase tracking-wide mr-1 flex-shrink-0">Zona:</span>
-          {["Boca completa","Maxilar superior","Maxilar inferior","Sextante 1","Sextante 2","Sextante 3","Sextante 4","Sextante 5","Sextante 6"].map(zona=>(
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-[11px] font-bold text-[#9AA0B4] uppercase tracking-wide flex-shrink-0">Zona:</span>
+          {/* Arch PNG buttons */}
+          {([
+            ["Boca completa",    "/teeth/boca-completa.png"],
+            ["Maxilar superior", "/teeth/maxilar-superior.png"],
+            ["Maxilar inferior", "/teeth/maxilar-inferior.png"],
+          ] as [string,string][]).map(([zona, src])=>(
             <button key={zona}
               onClick={()=>selTreat && addLine(undefined, zona)}
               disabled={!selTreat}
               title={selTreat ? `Agregar «${selTreat.name}» para ${zona}` : "Selecciona un tratamiento primero"}
-              className={`text-[12px] font-medium px-3 py-1.5 rounded-lg border transition-all ${
+              className={`flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-xl border transition-all ${
                 selTreat
-                  ? "bg-white text-[#4B5563] border-[#E3E8F0] hover:bg-[#EEF3FF] hover:text-[#0057FF] hover:border-[#0057FF]/40 cursor-pointer"
-                  : "bg-[#F0F2F7] text-[#C4C9D4] border-[#E3E8F0] cursor-not-allowed"
+                  ? "bg-white border-[#E3E8F0] hover:bg-[#EEF3FF] hover:border-[#0057FF]/40 cursor-pointer"
+                  : "bg-[#F0F2F7] border-[#E3E8F0] cursor-not-allowed opacity-50"
               }`}>
-              {zona}
+              <img src={src} alt={zona} style={{width:48,height:48,objectFit:"contain",display:"block"}}/>
+              <span className={`text-[10px] font-semibold whitespace-nowrap ${selTreat?"text-[#4B5563]":"text-[#C4C9D4]"}`}>{zona}</span>
             </button>
           ))}
+          {/* Sextant text buttons */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-bold text-[#9AA0B4] uppercase tracking-wide">Sextante:</span>
+            {["Sextante 1","Sextante 2","Sextante 3","Sextante 4","Sextante 5","Sextante 6"].map((zona,i)=>(
+              <button key={zona}
+                onClick={()=>selTreat && addLine(undefined, zona)}
+                disabled={!selTreat}
+                title={selTreat ? `Agregar «${selTreat.name}» para ${zona}` : "Selecciona un tratamiento primero"}
+                className={`w-10 h-8 text-[12px] font-bold rounded-lg border transition-all ${
+                  selTreat
+                    ? "bg-white text-[#4B5563] border-[#E3E8F0] hover:bg-[#EEF3FF] hover:text-[#0057FF] hover:border-[#0057FF]/40 cursor-pointer"
+                    : "bg-[#F0F2F7] text-[#C4C9D4] border-[#E3E8F0] cursor-not-allowed"
+                }`}>
+                S{i+1}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
       <div className="text-center py-1.5 border-b border-[#F0F2F7] bg-white">
