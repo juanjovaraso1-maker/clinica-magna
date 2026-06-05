@@ -773,29 +773,29 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     if (!patient) return "";
     const today = new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"});
     const chk = (v:boolean) => v
-      ? `<span style="display:inline-block;width:14px;height:14px;border:1.5px solid #1f4e79;border-radius:2px;background:#1f4e79;color:white;font-size:10px;line-height:14px;text-align:center;vertical-align:middle">✓</span>`
-      : `<span style="display:inline-block;width:14px;height:14px;border:1.5px solid #999;border-radius:2px;background:white;vertical-align:middle"></span>`;
+      ? `<span style="display:inline-block;width:18px;height:18px;border:1.5px solid #1f4e79;border-radius:2px;background:#1f4e79;color:white;font-size:15px;line-height:18px;text-align:center;vertical-align:middle">✓</span>`
+      : `<span style="display:inline-block;width:18px;height:18px;border:1.5px solid #999;border-radius:2px;background:white;vertical-align:middle"></span>`;
 
     const secHdr = (title:string, bg:string) =>
       `<tr style="background:${bg}">
-        <td colspan="3" style="padding:4px 8px;font-weight:bold;font-size:11px;letter-spacing:.5px;border:1px solid #bbb">${title}</td>
+        <td colspan="3" style="padding:4px 8px;font-weight:bold;font-size:16px;letter-spacing:.5px;border:1px solid #bbb">${title}</td>
       </tr>
       <tr style="background:#e8e8e8">
-        <td style="padding:3px 8px;font-size:9px;font-weight:bold;border:1px solid #bbb;width:55%">PROCEDIMIENTO</td>
-        <td style="padding:3px 8px;font-size:9px;font-weight:bold;border:1px solid #bbb;text-align:center;width:22%">Con Informe</td>
-        <td style="padding:3px 8px;font-size:9px;font-weight:bold;border:1px solid #bbb;text-align:center;width:23%">Sin Informe / Envío Mail</td>
+        <td style="padding:3px 8px;font-size:14px;font-weight:bold;border:1px solid #bbb;width:55%">PROCEDIMIENTO</td>
+        <td style="padding:3px 8px;font-size:14px;font-weight:bold;border:1px solid #bbb;text-align:center;width:22%">Con Informe</td>
+        <td style="padding:3px 8px;font-size:14px;font-weight:bold;border:1px solid #bbb;text-align:center;width:23%">Sin Informe / Envío Mail</td>
       </tr>`;
 
     const row = (label:string, isChecked:boolean, col1:string="", col2:string="") =>
       `<tr>
-        <td style="padding:4px 8px;font-size:10px;border:1px solid #ddd">${chk(isChecked)} ${label}</td>
-        <td style="padding:4px 8px;font-size:10px;border:1px solid #ddd;text-align:center">${col1}</td>
-        <td style="padding:4px 8px;font-size:10px;border:1px solid #ddd;text-align:center">${col2}</td>
+        <td style="padding:4px 8px;font-size:15px;border:1px solid #ddd">${chk(isChecked)} ${label}</td>
+        <td style="padding:4px 8px;font-size:15px;border:1px solid #ddd;text-align:center">${col1}</td>
+        <td style="padding:4px 8px;font-size:15px;border:1px solid #ddd;text-align:center">${col2}</td>
       </tr>`;
 
     const noMailRow = (label:string, isChecked:boolean) =>
       `<tr>
-        <td colspan="3" style="padding:4px 8px;font-size:10px;border:1px solid #ddd">${chk(isChecked)} ${label}</td>
+        <td colspan="3" style="padding:4px 8px;font-size:15px;border:1px solid #ddd">${chk(isChecked)} ${label}</td>
       </tr>`;
 
     const addr = "Badajoz 100 Of. 918, Las Condes";
@@ -804,22 +804,22 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     const web   = "www.clinicamagna.cl";
 
     return `
-      <div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;font-size:11px">
+      <div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;font-size:16px">
 
         <!-- HEADER -->
         <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #1f4e79;padding-bottom:10px;margin-bottom:10px">
           <div style="display:flex;align-items:center;gap:12px">
             <img src="/LOGO.jpeg" style="width:60px;height:60px;object-fit:contain" onerror="this.style.display='none'"/>
             <div>
-              <div style="font-size:18px;font-weight:bold;color:#1f4e79">Clínica Magna</div>
-              <div style="font-size:9.5px;color:#555">${addr}</div>
-              <div style="font-size:9.5px;color:#555">${phone} · ${email} · ${web}</div>
+              <div style="font-size:23px;font-weight:bold;color:#1f4e79">Clínica Magna</div>
+              <div style="font-size:14.5px;color:#555">${addr}</div>
+              <div style="font-size:14.5px;color:#555">${phone} · ${email} · ${web}</div>
             </div>
           </div>
           <div style="text-align:right;background:#1f4e79;color:white;padding:8px 14px;border-radius:4px">
-            <div style="font-size:13px;font-weight:bold">SOLICITUD DE</div>
-            <div style="font-size:13px;font-weight:bold">RADIOGRAFÍA / SCANNER</div>
-            <div style="font-size:9.5px;margin-top:3px">${today}</div>
+            <div style="font-size:18px;font-weight:bold">SOLICITUD DE</div>
+            <div style="font-size:18px;font-weight:bold">RADIOGRAFÍA / SCANNER</div>
+            <div style="font-size:14.5px;margin-top:3px">${today}</div>
           </div>
         </div>
 
@@ -827,14 +827,14 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         <table style="width:100%;border-collapse:collapse;margin-bottom:10px">
           <tr>
             <td style="width:50%;padding:6px 8px;border:1.5px solid #1f4e79;border-radius:4px 0 0 4px;background:#f0f6ff">
-              <div style="font-size:9px;font-weight:bold;color:#1f4e79;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Profesional</div>
-              <div style="font-size:12px;font-weight:bold;color:#1a1a1a">${professional?.name||"—"}</div>
-              ${professional?.rut?`<div style="font-size:9.5px;color:#555">RUT: ${professional.rut}</div>`:""}
+              <div style="font-size:14px;font-weight:bold;color:#1f4e79;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Profesional</div>
+              <div style="font-size:17px;font-weight:bold;color:#1a1a1a">${professional?.name||"—"}</div>
+              ${professional?.rut?`<div style="font-size:14.5px;color:#555">RUT: ${professional.rut}</div>`:""}
             </td>
             <td style="width:50%;padding:6px 8px;border:1.5px solid #1f4e79;border-left:none;background:#fff8f0">
-              <div style="font-size:9px;font-weight:bold;color:#c0392b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Paciente</div>
-              <div style="font-size:12px;font-weight:bold;color:#1a1a1a">${patient.firstName} ${patient.lastName}</div>
-              <div style="font-size:9.5px;color:#555">RUT: ${patient.rut} · Fecha: ${today}</div>
+              <div style="font-size:14px;font-weight:bold;color:#c0392b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Paciente</div>
+              <div style="font-size:17px;font-weight:bold;color:#1a1a1a">${patient.firstName} ${patient.lastName}</div>
+              <div style="font-size:14.5px;color:#555">RUT: ${patient.rut} · Fecha: ${today}</div>
             </td>
           </tr>
         </table>
@@ -865,10 +865,10 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         <!-- ANÁLISIS CEFALOMÉTRICOS -->
         <table style="width:100%;border-collapse:collapse;margin-bottom:8px">
           <tr style="background:#ece8f5">
-            <td style="padding:4px 8px;font-weight:bold;font-size:11px;border:1px solid #bbb">ANÁLISIS CEFALOMÉTRICOS</td>
+            <td style="padding:4px 8px;font-weight:bold;font-size:16px;border:1px solid #bbb">ANÁLISIS CEFALOMÉTRICOS</td>
           </tr>
           <tr>
-            <td style="padding:6px 8px;font-size:10px;border:1px solid #ddd;line-height:2">
+            <td style="padding:6px 8px;font-size:15px;border:1px solid #ddd;line-height:2">
               ${chk(f.cef_ricketts)} Ricketts &nbsp;&nbsp;
               ${chk(f.cef_rothJarabak)} Roth-Jarabak &nbsp;&nbsp;
               ${chk(f.cef_steiner)} Steiner &nbsp;&nbsp;
@@ -884,29 +884,29 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         <!-- ESTUDIO DE FOTOS -->
         <table style="width:100%;border-collapse:collapse;margin-bottom:10px">
           <tr style="background:#f0f0e8">
-            <td colspan="2" style="padding:4px 8px;font-weight:bold;font-size:11px;border:1px solid #bbb">ESTUDIO DE FOTOS</td>
+            <td colspan="2" style="padding:4px 8px;font-weight:bold;font-size:16px;border:1px solid #bbb">ESTUDIO DE FOTOS</td>
           </tr>
           <tr>
-            <td style="padding:6px 8px;font-size:10px;border:1px solid #ddd">
+            <td style="padding:6px 8px;font-size:15px;border:1px solid #ddd">
               ${chk(f.foto_clinicas)} Fotos Clínicas &nbsp;&nbsp;
               ${chk(f.foto_overjet)} Incluir Overjet
             </td>
-            <td style="padding:6px 8px;font-size:10px;border:1px solid #ddd">
+            <td style="padding:6px 8px;font-size:15px;border:1px solid #ddd">
               ${chk(f.foto_setPDF)} Set en PDF &nbsp;&nbsp;
               ${chk(f.foto_unitarias)} Unitarias en JPG
             </td>
           </tr>
         </table>
 
-        ${f.meInteresa ? `<div style="font-size:10px;border:1px solid #ccc;padding:5px 8px;margin-bottom:10px;background:#fffde7"><strong>ME INTERESA SABER:</strong> ${f.meInteresa}</div>` : ""}
+        ${f.meInteresa ? `<div style="font-size:15px;border:1px solid #ccc;padding:5px 8px;margin-bottom:10px;background:#fffde7"><strong>ME INTERESA SABER:</strong> ${f.meInteresa}</div>` : ""}
 
         <!-- FIRMAS -->
         <div style="display:flex;justify-content:space-around;margin-top:24px;padding-top:10px">
           <div style="text-align:center;width:40%">
-            <div style="border-top:1.5px solid #333;padding-top:6px;font-size:10px;color:#555">Firma y Timbre Profesional</div>
+            <div style="border-top:1.5px solid #333;padding-top:6px;font-size:15px;color:#555">Firma y Timbre Profesional</div>
           </div>
           <div style="text-align:center;width:40%">
-            <div style="border-top:1.5px solid #333;padding-top:6px;font-size:10px;color:#555">Clínica Magna</div>
+            <div style="border-top:1.5px solid #333;padding-top:6px;font-size:15px;color:#555">Clínica Magna</div>
           </div>
         </div>
       </div>
