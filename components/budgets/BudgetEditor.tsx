@@ -258,9 +258,10 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
           {selTreat ? `Haz clic en un diente o zona para agregar «${selTreat.name}»` : "Selecciona un tratamiento para agregar dientes o zonas al presupuesto"}
         </span>
       </div>
-      <div className="border-b border-[#E3E8F0] bg-white py-3 px-2">
+      <div className="overflow-x-auto scrollbar-hide border-b border-[#E3E8F0]">
+      <div className="bg-white py-3 px-2 min-w-[500px]">
         {/* Superior */}
-        <div style={{display:"grid", gridTemplateColumns:`repeat(${UPPER.length},1fr)`, gap:"3px", alignItems:"end"}} className="mb-1 px-1">
+        <div style={{display:"grid", gridTemplateColumns:`repeat(${UPPER.length}, minmax(0, 84px))`, gap:"3px", alignItems:"end"}} className="mb-1 px-1">
           {UPPER.map((num)=>(
             <div key={num} className="flex flex-col items-center gap-[4px] w-full">
               <ToothPNG
@@ -277,7 +278,7 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
         </div>
         <div className="border-t-2 border-dashed border-[#E8E0D4] mx-2 my-3"/>
         {/* Inferior */}
-        <div style={{display:"grid", gridTemplateColumns:`repeat(${LOWER.length},1fr)`, gap:"3px", alignItems:"start"}} className="mt-1 px-1">
+        <div style={{display:"grid", gridTemplateColumns:`repeat(${LOWER.length}, minmax(0, 84px))`, gap:"3px", alignItems:"start"}} className="mt-1 px-1">
           {LOWER.map((num)=>(
             <div key={num} className="flex flex-col items-center gap-[4px] w-full">
               <span className={`text-[11px] font-bold select-none leading-none ${toothHasLine(num)?"text-blue-600":"text-stone-400"}`}>{fmtTooth(num)}</span>
@@ -293,11 +294,12 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
           ))}
         </div>
       </div>
+      </div>
 
       {/* ── Tabla de ítems (ancho completo) ── */}
-      <div className="border-b border-[#E3E8F0]">
+      <div className="border-b border-[#E3E8F0] overflow-x-auto">
         {/* Header */}
-        <div className="grid text-[11px] font-bold text-[#9AA0B4] uppercase tracking-wide px-4 py-3 bg-[#F0F2F7] border-b border-[#E3E8F0]"
+        <div className="grid text-[11px] font-bold text-[#9AA0B4] uppercase tracking-wide px-4 py-3 bg-[#F0F2F7] border-b border-[#E3E8F0] min-w-[760px]"
           style={{gridTemplateColumns:gridCols}}>
           <span>Estado</span>
           <span>Tratamiento</span>
@@ -320,7 +322,7 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
           ) : lines.map((l,i)=>{
             const st = ITEM_STATUSES[l.status||"pending"];
             return (
-              <div key={l._key} className="grid items-center border-b border-[#F0F2F7] px-4 py-3 hover:bg-[#F8F9FC]"
+              <div key={l._key} className="grid items-center border-b border-[#F0F2F7] px-4 py-3 hover:bg-[#F8F9FC] min-w-[760px]"
                 style={{gridTemplateColumns:gridCols}}>
                 {/* Estado */}
                 <div className="relative pr-1">

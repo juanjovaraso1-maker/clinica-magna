@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
 
 async function createBackupData() {
@@ -74,7 +75,11 @@ async function storeBackup(json: string, summary: object, source: string) {
 }
 
 // GET — list stored backups (and trigger auto-backup if > 23h since last one)
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  if (!token || (token as any).role !== "ADMIN") {
+    return NextResponse.json({ error: "Acceso denegado — se requiere rol administrador" }, { status: 403 });
+  }
   const records = await prisma.backupRecord.findMany({
     orderBy: { createdAt: "desc" },
     select: { id: true, source: true, size: true, summary: true, createdAt: true },
@@ -102,7 +107,11 @@ export async function GET() {
 }
 
 // POST — create manual backup and return as downloadable file
-export async function POST(_req: NextRequest) {
+export async function POST(req: NextRequest) {
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  if (!token || (token as any).role !== "ADMIN") {
+    return NextResponse.json({ error: "Acceso denegado — se requiere rol administrador" }, { status: 403 });
+  }
   const { backup, summary } = await createBackupData();
   const json = JSON.stringify(backup, null, 2);
   await storeBackup(json, summary, "manual");

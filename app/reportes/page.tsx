@@ -387,7 +387,8 @@ export default function Reportes() {
               {data.debtors.length} pacientes
             </span>
           </div>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto scrollbar-hide">
+          <table className="w-full text-sm min-w-[480px]">
             <thead className="bg-slate-50 border-b border-slate-100">
               <tr>
                 <th className="text-left px-5 py-3 text-xs text-slate-500 uppercase tracking-wide">Paciente</th>
@@ -418,6 +419,7 @@ export default function Reportes() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
       </> /* end financiero tab */}

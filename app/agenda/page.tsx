@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { ChevronLeft, ChevronRight, Plus, MessageCircle, Mail, Trash2, ExternalLink, Calendar, Lock, X, AlertTriangle, RefreshCw } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useRole";
 import Modal from "@/components/ui/Modal";
@@ -66,6 +67,8 @@ const initForm = { patientId:"", userId:"", date:todayStr(), startTime:"09:00", 
 export default function Agenda() {
   const router  = useRouter();
   const isAdmin = useIsAdmin();
+  const { data: session } = useSession();
+  const sessionUserId = (session?.user as any)?.id ?? "";
   const [currentDate, setCurrentDate] = useState(todayStr());
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [patients, setPatients] = useState<Array<{id:string;firstName:string;lastName:string}>>([]);
@@ -181,7 +184,7 @@ export default function Agenda() {
     const d = date ?? currentDate;
     const h = hour ?? "09:00";
     const hNum = parseInt(h);
-    setForm({...initForm, date:d, startTime:h, endTime:`${String(hNum+1).padStart(2,"0")}:00`, userId: userId ?? ""});
+    setForm({...initForm, date:d, startTime:h, endTime:`${String(hNum+1).padStart(2,"0")}:00`, userId: userId ?? sessionUserId});
     setSelected(null); setOpen(true);
   }
 
@@ -892,7 +895,7 @@ export default function Agenda() {
       {/* ── Modal bloquear horario ── */}
       <Modal open={blockOpen} onClose={() => setBlockOpen(false)} title="Bloquear horario">
         <div className="p-6 space-y-4">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-[12px] font-semibold text-[#374151] mb-1">Fecha</label>
               <input

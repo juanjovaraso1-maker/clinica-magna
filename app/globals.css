@@ -65,6 +65,8 @@
 
 @layer utilities {
   .pt-18 { padding-top: 4.5rem; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
 }
 
 /* Prevent iOS auto-zoom */

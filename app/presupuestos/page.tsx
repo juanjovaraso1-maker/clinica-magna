@@ -7,6 +7,7 @@ import {
   AlertCircle, TrendingUp, Mail, MessageCircle,
 } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useRole";
+import { useSession } from "next-auth/react";
 import Modal from "@/components/ui/Modal";
 import Badge from "@/components/ui/Badge";
 
@@ -53,6 +54,8 @@ const METHOD_ICON: Record<string, string> = { efectivo: "💵", transferencia: "
 function PresupuestosContent() {
   const searchParams = useSearchParams();
   const isAdmin = useIsAdmin();
+  const { data: session } = useSession();
+  const sessionUserId = (session?.user as any)?.id ?? "";
   const router = useRouter();
   const fromPatientId = searchParams.get("patientId");
 
@@ -123,6 +126,10 @@ function PresupuestosContent() {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (fromPatientId) setOpen(true); }, [fromPatientId]);
+  useEffect(() => {
+    if (!sessionUserId) return;
+    setForm(f => f.userId ? f : { ...f, userId: sessionUserId });
+  }, [sessionUserId]);
 
   function applyBundle(bundle: { treatmentIds: string[] }) {
     const newItems = bundle.treatmentIds
@@ -394,7 +401,7 @@ function PresupuestosContent() {
             <p className="text-muted">{budgets.length} presupuestos registrados</p>
           </div>
         </div>
-        <button onClick={() => setOpen(true)} className="btn-primary">
+        <button onClick={() => { setEditId(null); setForm(f => ({ ...f, patientId: fromPatientId ?? "", userId: sessionUserId })); setItems([initItem()]); setOpen(true); }} className="btn-primary">
           <Plus size={16} /> <span className="hidden sm:inline">Nuevo Presupuesto</span><span className="sm:hidden">Nuevo</span>
         </button>
       </div>
@@ -873,7 +880,7 @@ function PresupuestosContent() {
                     </div>
 
                     {/* Cantidad + Precio + Descuento + Total */}
-                    <div className="grid grid-cols-4 gap-2 items-end">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 items-end">
                       <div>
                         <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Cant.</label>
                         <input className="input py-1.5 text-sm text-center" type="number" min="1" value={item.quantity}

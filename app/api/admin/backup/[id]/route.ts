@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  if (!token || (token as any).role !== "ADMIN") {
+    return NextResponse.json({ error: "Acceso denegado — se requiere rol administrador" }, { status: 403 });
+  }
   const record = await prisma.backupRecord.findUnique({ where: { id: params.id } });
   if (!record) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 

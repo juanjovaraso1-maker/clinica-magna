@@ -285,8 +285,9 @@ export default function Administracion() {
               </div>
             ) : (
               <>
+                <div className="overflow-x-auto scrollbar-hide">
                 {/* Table header */}
-                <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 grid grid-cols-12 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 grid grid-cols-12 text-xs font-semibold text-slate-500 uppercase tracking-wide min-w-[440px]">
                   <div className="col-span-5">Nombre</div>
                   <div className="col-span-3">Username</div>
                   <div className="col-span-2">Rol</div>
@@ -295,7 +296,7 @@ export default function Administracion() {
 
                 <div className="divide-y divide-slate-100">
                   {users.map(u => (
-                    <div key={u.id} className="px-5 py-4 grid grid-cols-12 items-center gap-2">
+                    <div key={u.id} className="px-5 py-4 grid grid-cols-12 items-center gap-2 min-w-[440px]">
                       {/* Name + avatar */}
                       <div className="col-span-5 flex items-center gap-3 min-w-0">
                         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center flex-shrink-0">
@@ -338,6 +339,7 @@ export default function Administracion() {
                     </div>
                   )}
                 </div>
+                </div>
               </>
             )}
           </div>
@@ -359,7 +361,8 @@ export default function Administracion() {
             </div>
           ) : (
             <div className="card overflow-hidden">
-              <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 grid grid-cols-12 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              <div className="overflow-x-auto scrollbar-hide">
+              <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 grid grid-cols-12 text-xs font-semibold text-slate-500 uppercase tracking-wide min-w-[440px]">
                 <div className="col-span-4">Profesional</div>
                 <div className="col-span-3 hidden md:block">Especialidad</div>
                 <div className="col-span-3 text-center">% Comisión</div>
@@ -371,7 +374,7 @@ export default function Administracion() {
                   const rate = comm?.global ?? 0;
                   const isEditing = editingUserId === u.id;
                   return (
-                    <div key={u.id} className="px-5 py-4 grid grid-cols-12 items-center gap-2">
+                    <div key={u.id} className="px-5 py-4 grid grid-cols-12 items-center gap-2 min-w-[440px]">
                       <div className="col-span-4 flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center flex-shrink-0">
                           <span className="text-white text-sm font-bold">{initials(u.name)}</span>
@@ -435,6 +438,7 @@ export default function Administracion() {
                 {data.users.length === 0 && (
                   <div className="px-5 py-10 text-center text-muted text-sm">No hay doctores registrados.</div>
                 )}
+              </div>
               </div>
             </div>
           )}

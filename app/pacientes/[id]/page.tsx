@@ -559,6 +559,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     if (!sessionUserId) return;
     setRxFreeForm(f => f.userId ? f : { ...f, userId: sessionUserId });
     setEvoForm(f => f.userId ? f : { ...f, userId: sessionUserId });
+    setBudgetForm(f => f.userId ? f : { ...f, userId: sessionUserId });
     setRxDocUserId(v => v || sessionUserId);
     setRxUserId(v => v || sessionUserId);
     setCuidadosUserId(v => v || sessionUserId);
@@ -1122,23 +1123,56 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     setRxFreeSaving(false);
   }
 
-  async function emailSavedPrescription(rx: {date:string;type:string;content:string;user:{name:string}}) {
+  async function emailSavedPrescription(rx: {date:string;type:string;content:string;user:{id:string;name:string}}) {
     if (!patient?.email) { showToast("❌ El paciente no tiene email"); return; }
-    const fullName = `${patient.firstName} ${patient.lastName}`;
-    const dateStr  = new Date(rx.date+"T12:00:00").toLocaleDateString("es-CL",{day:"numeric",month:"long",year:"numeric"});
-    const label    = rx.type === "recipe" ? "Receta Médica" : "Cuidados Post-Procedimiento";
-    const bodyHtml = `<div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto">
-      <div style="background:#1e3a5f;padding:18px 24px;border-radius:8px 8px 0 0">
-        <h2 style="color:white;margin:0;font-size:18px">${label}</h2>
-      </div>
-      <div style="padding:20px 24px;background:#f8fafc;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px">
-        <p style="margin:0 0 4px;font-size:13px;color:#64748b">Paciente: <strong style="color:#1e293b">${fullName}</strong></p>
-        <p style="margin:0 0 4px;font-size:13px;color:#64748b">Profesional: <strong style="color:#1e293b">${rx.user.name}</strong></p>
-        <p style="margin:0 0 16px;font-size:13px;color:#64748b">Fecha: <strong style="color:#1e293b">${dateStr}</strong></p>
-        <hr style="border:none;border-top:1px solid #e2e8f0;margin:0 0 16px"/>
-        <pre style="font-family:Arial,sans-serif;white-space:pre-wrap;font-size:13px;color:#1e293b;line-height:1.7;margin:0">${rx.content}</pre>
-      </div>
-    </div>`;
+    const fullName  = `${patient.firstName} ${patient.lastName}`;
+    const dateStr   = new Date(rx.date+"T12:00:00").toLocaleDateString("es-CL",{day:"numeric",month:"long",year:"numeric"});
+    const label     = rx.type === "recipe" ? "Receta Médica" : "Cuidados Post-Procedimiento";
+    const professional = users.find(u => u.id === rx.user.id) ?? { name: rx.user.name };
+    let bodyHtml: string;
+    let parsed: any = null;
+    try { if (rx.content.trim().startsWith("{")) parsed = JSON.parse(rx.content); } catch {}
+    if (parsed?.medications?.length) {
+      bodyHtml = buildRecetaBody({
+        professionalName: professional.name,
+        professionalRut: (professional as any).rut ?? "",
+        patientName: fullName,
+        patientRut: patient.rut,
+        date: dateStr,
+        medications: parsed.medications.map((m: any) => ({
+          drug: m.drug || m.name || "",
+          dose: m.dose || m.dosage || "",
+          freq: m.freq || m.frequency || "",
+          duration: m.duration ?? "",
+          qty: m.qty ?? "",
+          instructions: m.instructions ?? "",
+        })),
+        diagnosis: parsed.diagnosis ?? "",
+        notes: parsed.notes ?? parsed.observations ?? "",
+      }, "/LOGO.jpeg");
+    } else if (rx.type === "cuidados" && parsed?.sections) {
+      bodyHtml = buildIndicacionesBody({
+        professionalName: professional.name,
+        patientName: fullName,
+        date: dateStr,
+        procedimiento: parsed.procedimiento ?? "Post-procedimiento",
+        sections: parsed.sections,
+        observaciones: parsed.observaciones,
+      }, "/LOGO.jpeg");
+    } else {
+      bodyHtml = `<div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto">
+        <div style="background:#1e3a5f;padding:18px 24px;border-radius:8px 8px 0 0">
+          <h2 style="color:white;margin:0;font-size:18px">${label}</h2>
+        </div>
+        <div style="padding:20px 24px;background:#f8fafc;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px">
+          <p style="margin:0 0 4px;font-size:13px;color:#64748b">Paciente: <strong style="color:#1e293b">${fullName}</strong></p>
+          <p style="margin:0 0 4px;font-size:13px;color:#64748b">Profesional: <strong style="color:#1e293b">${professional.name}</strong></p>
+          <p style="margin:0 0 16px;font-size:13px;color:#64748b">Fecha: <strong style="color:#1e293b">${dateStr}</strong></p>
+          <hr style="border:none;border-top:1px solid #e2e8f0;margin:0 0 16px"/>
+          <pre style="font-family:Arial,sans-serif;white-space:pre-wrap;font-size:13px;color:#1e293b;line-height:1.7;margin:0">${rx.content}</pre>
+        </div>
+      </div>`;
+    }
     try {
       const pdfBase64 = await generatePdfBase64(bodyHtml);
       const r = await fetch("/api/send-document", { method:"POST", headers:{"Content-Type":"application/json"},
@@ -1204,13 +1238,49 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     const professional = users.find(u => u.id === rx.user.id) ?? { name: rx.user.name };
     const label = rx.type === "recipe" ? "Receta Médica" : "Cuidados Post-Procedimiento";
     const dateStr = new Date(rx.date+"T12:00:00").toLocaleDateString("es-CL",{day:"numeric",month:"long",year:"numeric"});
-    const body = `<div style="text-align:right;margin-bottom:24px"><b>Fecha:</b> ${dateStr}</div>
-      <div style="margin-bottom:8px"><b>Paciente:</b> ${patient.firstName} ${patient.lastName}</div>
-      <div style="margin-bottom:16px"><b>Profesional:</b> ${professional.name}</div>
-      <hr style="margin:16px 0"/>
-      <h2 style="font-size:13px;margin-bottom:12px">${label}</h2>
-      <pre style="font-family:inherit;font-size:11px;white-space:pre-wrap;line-height:1.7">${rx.content}</pre>
-      ${buildDocFooter(professional.name,"Clínica Magna")}`;
+    const logoSrc = window.location.origin + "/LOGO.jpeg";
+    let body: string;
+    let parsed: any = null;
+    try { if (rx.content.trim().startsWith("{")) parsed = JSON.parse(rx.content); } catch {}
+    if (parsed?.medications?.length) {
+      body = buildRecetaBody({
+        professionalName: professional.name,
+        professionalRut: (professional as any).rut ?? "",
+        patientName: `${patient.firstName} ${patient.lastName}`,
+        patientRut: patient.rut,
+        date: dateStr,
+        medications: parsed.medications.map((m: any) => ({
+          drug: m.drug || m.name || "",
+          dose: m.dose || m.dosage || "",
+          freq: m.freq || m.frequency || "",
+          duration: m.duration ?? "",
+          qty: m.qty ?? "",
+          instructions: m.instructions ?? "",
+        })),
+        diagnosis: parsed.diagnosis ?? "",
+        notes: parsed.notes ?? parsed.observations ?? "",
+      }, logoSrc);
+    } else if (rx.type === "cuidados" && parsed?.sections) {
+      body = buildIndicacionesBody({
+        professionalName: professional.name,
+        patientName: `${patient.firstName} ${patient.lastName}`,
+        date: dateStr,
+        procedimiento: parsed.procedimiento ?? "Post-procedimiento",
+        sections: parsed.sections,
+        observaciones: parsed.observaciones,
+      }, logoSrc);
+    } else {
+      body = `${buildDocHeader()}
+        <div style="text-align:center;margin:14px 0 10px">
+          <div style="font-size:17px;font-weight:bold;letter-spacing:1px">${label.toUpperCase()}</div>
+        </div>
+        ${buildDocProfPat({name:professional.name,showRut:false},[
+          {label:"Nombre",value:`${patient.firstName} ${patient.lastName}`},
+          {label:"Fecha",value:dateStr}
+        ])}
+        <pre style="font-family:inherit;font-size:11px;white-space:pre-wrap;line-height:1.7">${rx.content}</pre>
+        ${buildDocFooter(professional.name,"Clínica Magna")}`;
+    }
     openDocWindow(label, body);
   }
 
@@ -1406,7 +1476,8 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-[2px] bg-[#F0F2F7] rounded-[10px] p-[3px] w-fit border border-[#E3E8F0] mb-4 flex-wrap">
+      <div className="overflow-x-auto scrollbar-hide mb-4 -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div className="inline-flex gap-[2px] bg-[#F0F2F7] rounded-[10px] p-[3px] border border-[#E3E8F0] min-w-max">
           {TABS.map((t,i)=>(
             <button key={t} onClick={()=>{
               if (budgetEditorOpen && i !== 6) {
@@ -1415,7 +1486,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
               }
               setTab(i);
             }}
-              className={`px-3.5 py-[7px] text-[13px] rounded-[7px] transition-all duration-150 ${
+              className={`px-3 py-[9px] text-[13px] rounded-[7px] transition-all duration-150 whitespace-nowrap ${
                 tab===i
                   ? "bg-white text-[#1A1D2E] shadow-sm font-semibold"
                   : "text-[#9AA0B4] font-medium cursor-pointer hover:text-[#1A1D2E]"
@@ -1426,6 +1497,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
               )}
             </button>
           ))}
+        </div>
       </div>
 
       {/* ===== TAB 0: HISTORIAL (TIMELINE) ===== */}
@@ -3314,7 +3386,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                             </select>
                           </div>
                         </div>
-                        <div className="grid grid-cols-4 gap-2 items-end">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 items-end">
                           <div>
                             <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Cant.</label>
                             <input className="input py-1.5 text-sm text-center" type="number" min="1" value={item.quantity}

@@ -19,6 +19,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Cron jobs de Vercel — autenticados con CRON_SECRET, no con sesión de usuario
+  if (pathname.startsWith("/api/cron/")) {
+    const auth = request.headers.get("authorization");
+    const secret = process.env.CRON_SECRET;
+    if (secret && auth === `Bearer ${secret}`) return NextResponse.next();
+    // En desarrollo local (sin secret configurado) permitir paso libre
+    if (!secret) return NextResponse.next();
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   // Verificar JWT directamente — funciona en Edge Runtime
   const token = await getToken({
     req: request,
