@@ -560,6 +560,8 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     setRxFreeForm(f => f.userId ? f : { ...f, userId: sessionUserId });
     setEvoForm(f => f.userId ? f : { ...f, userId: sessionUserId });
     setRxDocUserId(v => v || sessionUserId);
+    setRxUserId(v => v || sessionUserId);
+    setCuidadosUserId(v => v || sessionUserId);
   }, [sessionUserId]);
 
   function openEvoModal() {
@@ -571,7 +573,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
       });
     });
     setEvoBudgetSelections(selections);
-    setEvoForm({ date:new Date().toISOString().split("T")[0], diagnosis:"", observations:"", userId:"", treatment:"", isPrivate:false });
+    setEvoForm({ date:new Date().toISOString().split("T")[0], diagnosis:"", observations:"", userId:sessionUserId, treatment:"", isPrivate:false });
     setEvoReminder(0);
     setEvoModal(true);
   }
@@ -605,7 +607,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
 
     setEvoModal(false);
     setEvoBudgetSelections({});
-    setEvoForm({ date:new Date().toISOString().split("T")[0], diagnosis:"", observations:"", userId:"", treatment:"", isPrivate:false });
+    setEvoForm({ date:new Date().toISOString().split("T")[0], diagnosis:"", observations:"", userId:sessionUserId, treatment:"", isPrivate:false });
     if (evoReminder > 0) {
       fetch("/api/reminders", { method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({ patientId: id, months: evoReminder }) });
@@ -1034,7 +1036,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ patientId: id, userId: rxFreeForm.userId, date: rxFreeForm.date, type: rxTabType, content: rxFreeForm.content }),
       });
-      if (!res.ok) { showToast(`❌ Error al guardar (${res.status})`); setRxFreeSaving(false); return; }
+      if (!res.ok) { const errJson = await res.json().catch(()=>null); showToast(`❌ ${errJson?.error ?? `Error ${res.status}`}`); setRxFreeSaving(false); return; }
       setRxFreeForm(f => ({ ...f, content: "" }));
       await load();
       showToast(rxTabType==="recipe" ? "✅ Receta guardada" : "✅ Cuidados guardados");
@@ -1971,7 +1973,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                 <option value="foto">Fotografía</option>
                 <option value="other">Otro</option>
               </select>
-              <button onClick={()=>{ setRxDocUserId(""); setRxForm({...EMPTY_RX_FORM}); setRxDocModal(true); }}
+              <button onClick={()=>{ setRxDocUserId(sessionUserId); setRxForm({...EMPTY_RX_FORM}); setRxDocModal(true); }}
                 className="inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-2 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-500 hover:text-white transition-all">
                 <FileText size={14}/> Solicitud Rx
               </button>
@@ -2583,7 +2585,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
               try {
                 const saveRes = await fetch("/api/prescriptions", { method:"POST", headers:{"Content-Type":"application/json"},
                   body:JSON.stringify({ patientId:id, userId:rxDocUserId, date:new Date().toISOString().split("T")[0], type:"rxrequest", content:JSON.stringify(rxForm) }) });
-                if(!saveRes.ok){ showToast(`❌ Error al guardar (${saveRes.status})`); setRxDocPdfSending(false); return; }
+                if(!saveRes.ok){ const errJson = await saveRes.json().catch(()=>null); showToast(`❌ ${errJson?.error ?? `Error ${saveRes.status}`}`); setRxDocPdfSending(false); return; }
                 await load();
                 showToast("✅ Solicitud guardada");
                 setRxDocModal(false);

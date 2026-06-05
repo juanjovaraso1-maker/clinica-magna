@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
@@ -13,15 +15,19 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { patientId, userId, date, type, content } = await req.json();
-    if (!patientId || !userId) return NextResponse.json({ error: "patientId and userId are required" }, { status: 400 });
+    const session = await getServerSession(authOptions);
+    const { patientId, userId: bodyUserId, date, type, content } = await req.json();
+    const userId = bodyUserId || (session?.user as any)?.id;
+    if (!patientId || !userId) return NextResponse.json({ error: "patientId y userId son requeridos. Por favor recarga la página o vuelve a iniciar sesión." }, { status: 400 });
+    const userExists = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!userExists) return NextResponse.json({ error: "El usuario de sesión no existe en la base de datos. Por favor cierra sesión y vuelve a ingresar." }, { status: 400 });
     const record = await prisma.prescriptionRecord.create({
       data: {
         patientId,
         userId,
         date: date ?? new Date().toISOString().split("T")[0],
         type: type ?? "recipe",
-        content,
+        content: content ?? "",
       },
       include: { user: true },
     });
