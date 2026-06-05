@@ -2,7 +2,6 @@
 import { useState, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { Plus, Trash2, Printer, ChevronDown } from "lucide-react";
-import { ToothIcon } from "./ToothSVG";
 
 /* ─── Tipos ─────────────────────────────────────────────────────────── */
 interface SurfaceState { cond: string }
@@ -80,35 +79,63 @@ function isUpper(num: number): boolean {
   return q === 1 || q === 2 || q === 5 || q === 6;
 }
 
-/* ─── SVG de diente — usa componente compartido con gradientes 3D ─────── */
-function ToothSVG({ num, wholeCond, selected }: { num: number; wholeCond?: string; selected?: boolean }) {
-  const baby = num >= 50;
-
-  /* Ausente: diente fantasma — gris claro, muy tenue, sin X */
-  if (wholeCond === "ausente") {
-    return (
-      <ToothIcon
-        num={num} baby={baby}
-        crownFill="#DDE3EC" rootFill="#C8D0DC"
-        crownStroke="#94A3B8" rootStroke="#94A3B8"
-        sw={0.7} hasX={false}
-        style={{ opacity: 0.42 }}
-      />
-    );
+/* ─── Mapeo FDI → PNG ────────────────────────────────────────────────── */
+function getToothPNG(num: number): { src: string; mirror: boolean } {
+  const q = Math.floor(num / 10);
+  const n = num % 10;
+  const mirror = q === 2 || q === 3 || q === 6 || q === 7;
+  const upper  = q === 1 || q === 2 || q === 5 || q === 6;
+  if (upper) {
+    if (n >= 6) return { src: "/teeth/molar-superior.png", mirror };
+    if (n >= 4) return { src: "/teeth/premolar-superior.png", mirror };
+    if (n === 3) return { src: "/teeth/canino-superior.png", mirror };
+    if (n === 2) return { src: "/teeth/incisivo-lateral-superior.png", mirror };
+    return { src: "/teeth/incisivo-central-superior.png", mirror };
   }
+  if (n >= 6) return { src: "/teeth/molar-inferior.png", mirror };
+  if (n >= 4) return { src: "/teeth/premolar-inferior.png", mirror };
+  if (n === 3) return { src: "/teeth/canino-inferior.png", mirror };
+  if (n === 2) return { src: "/teeth/incisivo-lateral-inferior.png", mirror };
+  return { src: "/teeth/incisivo-central-inferior.png", mirror };
+}
 
-  const cond  = wholeCond && wholeCond !== "sano" ? CONDITIONS[wholeCond] : null;
-  const hasX  = wholeCond === "extraccion";   // X solo para extracción
+/* ─── Diente como PNG ────────────────────────────────────────────────── */
+function ToothSVG({ num, wholeCond, selected }: { num: number; wholeCond?: string; selected?: boolean }) {
+  const { src, mirror } = getToothPNG(num);
+  const cond        = wholeCond && wholeCond !== "sano" ? CONDITIONS[wholeCond] : null;
+  const isAusente   = wholeCond === "ausente";
+  const isExtraccion= wholeCond === "extraccion";
   return (
-    <ToothIcon
-      num={num} baby={baby}
-      crownFill={cond ? cond.bg : undefined}
-      rootFill={cond ? cond.bg : undefined}
-      crownStroke={selected ? "#2563EB" : (cond ? cond.color : undefined)}
-      rootStroke={cond ? cond.color : undefined}
-      sw={selected ? 2.2 : cond ? 1.5 : 0}
-      hasX={hasX}
-    />
+    <div style={{
+      position: "relative", width: 24, height: 52, borderRadius: 4,
+      outline: selected ? "2.5px solid #2563EB" : "none",
+      outlineOffset: 2,
+      backgroundColor: cond && !isAusente ? `${cond.color}1A` : "transparent",
+    }}>
+      <img src={src} alt="" draggable={false}
+        style={{
+          width: "100%", height: "100%", objectFit: "contain",
+          transform: mirror ? "scaleX(-1)" : undefined,
+          opacity: isAusente ? 0.35 : 1,
+          filter: isAusente ? "grayscale(1)" : undefined,
+          display: "block",
+        }}/>
+      {cond && !isAusente && (
+        <div style={{
+          position: "absolute", inset: 0, borderRadius: 4,
+          border: `1.5px solid ${cond.color}`,
+          pointerEvents: "none",
+        }}/>
+      )}
+      {isExtraccion && (
+        <div style={{
+          position: "absolute", inset: 0,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          color: "#B91C1C", fontWeight: 900, fontSize: 18,
+          pointerEvents: "none", textShadow: "0 0 4px white",
+        }}>✕</div>
+      )}
+    </div>
   );
 }
 

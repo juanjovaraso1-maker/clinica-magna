@@ -1,7 +1,6 @@
 "use client";
 import { useState, useMemo } from "react";
 import { Plus, Trash2, X, ChevronLeft, Save, Mail, MessageCircle, ChevronDown } from "lucide-react";
-import { ToothIcon } from "@/components/odontogram/ToothSVG";
 
 /* ─── Tipos ─────────────────────────────────────────────────────────── */
 interface Treatment { id: string; name: string; category: string; price: number }
@@ -43,17 +42,87 @@ function fmtN(n: number) { return new Intl.NumberFormat("es-CL",{style:"currency
 function fmtTooth(n: number) { return `${Math.floor(n/10)}.${n%10}`; }
 function isUpperTooth(n: number) { const q=Math.floor(n/10); return q===1||q===2; }
 
+/* ─── Mapeo FDI → PNG ────────────────────────────────────────────────── */
+function getToothPNG(num: number): { src: string; mirror: boolean } {
+  const q = Math.floor(num / 10);
+  const n = num % 10;
+  const mirror = q === 2 || q === 3 || q === 6 || q === 7;
+  const upper  = q === 1 || q === 2 || q === 5 || q === 6;
+  if (upper) {
+    if (n >= 6) return { src: "/teeth/molar-superior.png", mirror };
+    if (n >= 4) return { src: "/teeth/premolar-superior.png", mirror };
+    if (n === 3) return { src: "/teeth/canino-superior.png", mirror };
+    if (n === 2) return { src: "/teeth/incisivo-lateral-superior.png", mirror };
+    return { src: "/teeth/incisivo-central-superior.png", mirror };
+  }
+  if (n >= 6) return { src: "/teeth/molar-inferior.png", mirror };
+  if (n >= 4) return { src: "/teeth/premolar-inferior.png", mirror };
+  if (n === 3) return { src: "/teeth/canino-inferior.png", mirror };
+  if (n === 2) return { src: "/teeth/incisivo-lateral-inferior.png", mirror };
+  return { src: "/teeth/incisivo-central-inferior.png", mirror };
+}
 
-function MiniTooth({ num, active, selected }: { num:number; active:boolean; selected:boolean }) {
+function BudgetToothPNG({ num, hasLine, hovered }: { num: number; hasLine: boolean; hovered: boolean }) {
+  const { src, mirror } = getToothPNG(num);
   return (
-    <ToothIcon
-      num={num}
-      crownFill={selected ? "#BFDBFE" : active ? "#DBEAFE" : undefined}
-      crownStroke={selected ? "#2563EB" : active ? "#3B82F6" : undefined}
-      sw={selected ? 2.2 : active ? 1.2 : 0}
-    />
+    <div style={{
+      position: "relative", width: 24, height: 52, borderRadius: 4,
+      outline: hovered ? "2.5px solid #2563EB" : hasLine ? "2px solid #3B82F6" : "none",
+      outlineOffset: 2,
+      backgroundColor: hovered ? "#DBEAFE" : hasLine ? "#EFF6FF" : "transparent",
+    }}>
+      <img src={src} alt="" draggable={false}
+        style={{
+          width: "100%", height: "100%", objectFit: "contain",
+          transform: mirror ? "scaleX(-1)" : undefined,
+          display: "block",
+        }}/>
+    </div>
   );
 }
+
+/* ─── SVG Ilustración de arcada dental (vista oclusal) ─────────────── */
+function ArchIllustration({ type }: { type: "full"|"upper"|"lower" }) {
+  const upperTeeth = [
+    {x:14,y:22,w:5,h:7},{x:20,y:18,w:5,h:7},{x:27,y:14,w:5,h:7},{x:34,y:11,w:5,h:7},
+    {x:41,y:9, w:4,h:6},{x:47,y:8, w:4,h:6},{x:52,y:8, w:4,h:6},{x:57,y:9, w:4,h:6},
+    {x:62,y:11,w:5,h:7},{x:68,y:14,w:5,h:7},{x:74,y:18,w:5,h:7},{x:80,y:22,w:5,h:7},
+  ];
+  const lowerTeeth = [
+    {x:16,y:2, w:5,h:7},{x:22,y:6, w:5,h:7},{x:29,y:10,w:5,h:7},{x:36,y:13,w:5,h:7},
+    {x:43,y:15,w:4,h:6},{x:49,y:16,w:4,h:6},{x:54,y:16,w:4,h:6},{x:59,y:15,w:4,h:6},
+    {x:63,y:13,w:5,h:7},{x:70,y:10,w:5,h:7},{x:77,y:6, w:5,h:7},{x:83,y:2, w:5,h:7},
+  ];
+  const showU = type==="full"||type==="upper";
+  const showL = type==="full"||type==="lower";
+  const h = type==="full" ? 58 : 32;
+  const lOffset = type==="full" ? 30 : 2;
+  return (
+    <svg viewBox={`0 0 99 ${h}`} width={72} height={h*0.85} style={{display:"block"}}>
+      {showU && (
+        <g opacity={1}>
+          <path d="M11,30 C9,14 22,2 49.5,2 C77,2 90,14 88,30" fill="none" stroke="#7BAFD4" strokeWidth="8" strokeLinecap="round"/>
+          {upperTeeth.map((t,i)=>(
+            <rect key={i} x={t.x} y={t.y-1} width={t.w+1} height={t.h+1} rx="1.5" fill="white" stroke="#7BAFD4" strokeWidth="0.8"/>
+          ))}
+        </g>
+      )}
+      {showL && (
+        <g transform={`translate(0,${lOffset})`} opacity={1}>
+          <path d="M13,2 C11,18 24,28 49.5,28 C75,28 88,18 86,2" fill="none" stroke="#9B7DB0" strokeWidth="8" strokeLinecap="round"/>
+          {lowerTeeth.map((t,i)=>(
+            <rect key={i} x={t.x} y={t.y+2} width={t.w+1} height={t.h+1} rx="1.5" fill="white" stroke="#9B7DB0" strokeWidth="0.8"/>
+          ))}
+        </g>
+      )}
+    </svg>
+  );
+}
+
+const SEXTANT_TEETH_BUDGET: Record<string, number[]> = {
+  S1: [18,17,16,15,14], S2: [13,12,11,21,22,23], S3: [24,25,26,27,28],
+  S4: [38,37,36,35,34], S5: [33,32,31,41,42,43], S6: [44,45,46,47,48],
+};
 
 
 export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUserId="", initDate, initValidUntil, initStatus="pending", initDiscount=0, initNotes="", initLines=[], users, treatments, convenios, onSave, onCancel, onDelete, onSendEmail, patientPhone, isSaving }: Props) {
@@ -76,6 +145,9 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
   const [hoveredTooth,setHov]         = useState<number|null>(null);
   /* selArea: area-context for the next treatment — never dims teeth */
   const [selArea,     setSelArea]     = useState("Boca completa");
+  const [viewFilter,  setViewFilter]  = useState<"full"|"upper"|"lower">("full");
+  const [selSextantFilter, setSelSextantFilter] = useState<string|null>(null);
+  const [gDiscountPct, setGDiscountPct] = useState(0);
 
   const categories  = useMemo(()=>Array.from(new Set(treatments.map(t=>t.category))).sort(),[treatments]);
   const filteredTr  = useMemo(()=>{
@@ -85,7 +157,7 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
   },[treatments,selCat,treatSearch]);
   const selTreat    = treatments.find(t=>t.id===selTreatId);
   const subtotal   = lines.reduce((s,l)=>s+l.total,0);
-  const total      = Math.max(0,subtotal-gDiscount);
+  const total      = Math.max(0, subtotal - gDiscount - Math.round(subtotal * gDiscountPct / 100));
 
   function addLine(toothNum?: number, area?: string) {
     if(!selTreat) return;
@@ -126,10 +198,18 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
       quantity:rest.quantity,unitPrice:rest.unitPrice,discount:rest.discount,discountAmt:rest.discountAmt??0,total:rest.total,
       status:rest.status||"pending",
     }));
-    await onSave({userId,date,validUntil,status,discount:gDiscount,notes,subtotal,total,items});
+    await onSave({userId,date,validUntil,status,discount:gDiscount + Math.round(subtotal * gDiscountPct / 100),notes,subtotal,total,items});
   }
 
   const toothHasLine=(num:number)=>lines.some(l=>l.toothNum===num);
+
+  function toothOpacityBudget(num: number): number {
+    const up = isUpperTooth(num);
+    if (selSextantFilter) return SEXTANT_TEETH_BUDGET[selSextantFilter]?.includes(num) ? 1 : 0.2;
+    if (viewFilter === "upper") return up ? 1 : 0.25;
+    if (viewFilter === "lower") return up ? 0.25 : 1;
+    return 1;
+  }
 
   /* ── Grid columns for items table ── */
   const gridCols = "100px minmax(120px,1fr) 70px 110px 60px 65px 90px 110px 36px";
@@ -251,42 +331,71 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
         </div>
       </div>
 
-      {/* ── Odontograma con selector de vista ── */}
-      <div className="border-b border-[#E3E8F0] bg-[#FAFBFD] py-3 px-4">
-        {!selTreat ? (
-          <p className="text-center text-[12px] text-[#9AA0B4] py-1">↑ Selecciona un tratamiento para agregar dientes al presupuesto</p>
-        ) : (
-          <p className="text-center text-[11px] text-[#0057FF] font-semibold mb-2">
-            Haz clic en un diente — o usa el botón «Agregar para {areaShort}»
-          </p>
-        )}
-        {/* Superior — distribuidos en todo el ancho */}
+      {/* ── Odontograma: selector de vista + sextantes ── */}
+      <div className="flex items-center gap-3 px-3 py-2 border-b border-[#F0F2F7] bg-[#FAFBFD] flex-wrap">
+        <div className="flex items-center gap-1.5">
+          {([["full","Boca completa"],["upper","Maxilar superior"],["lower","Maxilar inferior"]] as [string,string][]).map(([k,label])=>(
+            <button key={k} onClick={()=>{setViewFilter(k as any);setSelSextantFilter(null);}}
+              className={`flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-xl border transition-all ${
+                viewFilter===k && !selSextantFilter
+                  ? "bg-[#EEF3FF] border-[#0057FF] text-[#0057FF]"
+                  : "border-[#E3E8F0] text-[#6B7280] hover:border-[#C7D2FE] hover:bg-[#F0F2F7]"
+              }`}>
+              <ArchIllustration type={k as any}/>
+              <span className="text-[10px] font-semibold whitespace-nowrap">{label}</span>
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-1.5 ml-1">
+          <span className="text-[11px] font-bold text-[#9AA0B4] uppercase tracking-wide mr-0.5">Sextante:</span>
+          {["S1","S2","S3","S4","S5","S6"].map(s=>(
+            <button key={s} onClick={()=>setSelSextantFilter(prev=>prev===s?null:s)}
+              className={`w-10 h-8 text-[12px] font-bold rounded-lg border transition-all ${
+                selSextantFilter===s
+                  ? "bg-[#0057FF] text-white border-[#0057FF]"
+                  : "bg-white text-[#4B5563] border-[#E3E8F0] hover:border-[#0057FF]/40 hover:text-[#0057FF]"
+              }`}>{s}</button>
+          ))}
+          {selSextantFilter && (
+            <button onClick={()=>setSelSextantFilter(null)} className="text-[11px] text-[#9AA0B4] hover:text-red-500 ml-0.5 px-1.5">✕</button>
+          )}
+        </div>
+      </div>
+      <div className="text-center py-1.5 border-b border-[#F0F2F7] bg-white">
+        <span className="text-[10px] font-bold text-[#9AA0B4] tracking-widest uppercase">
+          {selTreat ? `Haz clic en un diente para agregar «${selTreat.name}»` : "Selecciona un tratamiento para agregar dientes al presupuesto"}
+        </span>
+      </div>
+      <div className="border-b border-[#E3E8F0] bg-white py-3 px-2">
+        {/* Superior */}
         <div className="flex items-end justify-between w-full mb-1 px-1">
           {UPPER.map((num,idx)=>(
-            <div key={num} className={idx===7?"mr-2":""}>
-              <div className="flex flex-col items-center gap-[3px]">
-                <span className={`text-[9px] font-bold select-none ${toothHasLine(num)?"text-[#0057FF]":"text-stone-300"}`}>{fmtTooth(num)}</span>
-                <div className={`cursor-pointer rounded-lg p-0.5 transition-all ${selTreat?"hover:bg-blue-100 hover:scale-105":""} ${hoveredTooth===num&&selTreat?"bg-blue-50 scale-105":""}`}
+            <div key={num} className={`${idx===7?"mr-2":""} transition-opacity`}
+              style={{opacity: toothOpacityBudget(num)}}>
+              <div className="flex flex-col items-center gap-[4px]">
+                <div className={`rounded-sm transition-all ${selTreat?"cursor-pointer":""}`}
                   onClick={()=>selTreat&&addLine(num)}
                   onMouseEnter={()=>setHov(num)} onMouseLeave={()=>setHov(null)}>
-                  <MiniTooth num={num} active={toothHasLine(num)} selected={hoveredTooth===num&&!!selTreat}/>
+                  <BudgetToothPNG num={num} hasLine={toothHasLine(num)} hovered={hoveredTooth===num&&!!selTreat}/>
                 </div>
+                <span className={`text-[11px] font-bold select-none leading-none ${toothHasLine(num)?"text-blue-600":"text-stone-400"}`}>{fmtTooth(num)}</span>
               </div>
             </div>
           ))}
         </div>
-        <div className="border-t-2 border-dashed border-[#E3E8F0] mx-2 my-3"/>
-        {/* Inferior — distribuidos en todo el ancho */}
+        <div className="border-t-2 border-dashed border-[#E8E0D4] mx-2 my-3"/>
+        {/* Inferior */}
         <div className="flex items-start justify-between w-full mt-1 px-1">
           {LOWER.map((num,idx)=>(
-            <div key={num} className={idx===7?"mr-2":""}>
-              <div className="flex flex-col items-center gap-[3px]">
-                <div className={`cursor-pointer rounded-lg p-0.5 transition-all ${selTreat?"hover:bg-blue-100 hover:scale-105":""} ${hoveredTooth===num&&selTreat?"bg-blue-50 scale-105":""}`}
+            <div key={num} className={`${idx===7?"mr-2":""} transition-opacity`}
+              style={{opacity: toothOpacityBudget(num)}}>
+              <div className="flex flex-col items-center gap-[4px]">
+                <span className={`text-[11px] font-bold select-none leading-none ${toothHasLine(num)?"text-blue-600":"text-stone-400"}`}>{fmtTooth(num)}</span>
+                <div className={`rounded-sm transition-all ${selTreat?"cursor-pointer":""}`}
                   onClick={()=>selTreat&&addLine(num)}
                   onMouseEnter={()=>setHov(num)} onMouseLeave={()=>setHov(null)}>
-                  <MiniTooth num={num} active={toothHasLine(num)} selected={hoveredTooth===num&&!!selTreat}/>
+                  <BudgetToothPNG num={num} hasLine={toothHasLine(num)} hovered={hoveredTooth===num&&!!selTreat}/>
                 </div>
-                <span className={`text-[9px] font-bold select-none ${toothHasLine(num)?"text-[#0057FF]":"text-stone-300"}`}>{fmtTooth(num)}</span>
               </div>
             </div>
           ))}
@@ -385,6 +494,12 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
             <input type="number" min="0"
               className="w-32 text-right border border-[#E3E8F0] rounded-lg px-3 py-1.5 text-[13px] focus:outline-none focus:ring-1 focus:ring-[#0057FF] bg-white font-medium"
               value={gDiscount} onChange={e=>setGDiscount(parseFloat(e.target.value)||0)}/>
+          </div>
+          <div className="flex items-center justify-between text-[13px] text-[#4B5563]">
+            <span>Descuento global (%)</span>
+            <input type="number" min="0" max="100"
+              className="w-32 text-right border border-[#E3E8F0] rounded-lg px-3 py-1.5 text-[13px] focus:outline-none focus:ring-1 focus:ring-[#0057FF] bg-white font-medium"
+              value={gDiscountPct} onChange={e=>setGDiscountPct(parseFloat(e.target.value)||0)}/>
           </div>
           <div className="flex justify-between font-bold text-[17px] border-t border-[#E3E8F0] pt-3 text-[#1A1D2E]">
             <span>Total</span><span className="text-[#0057FF]">{fmtN(total)}</span>

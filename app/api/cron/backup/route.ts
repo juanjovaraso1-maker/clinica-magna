@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import nodemailer from "nodemailer";
+import JSZip from "jszip";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -58,6 +59,12 @@ export async function GET() {
     };
 
     const json = JSON.stringify(backup, null, 2);
+    const dateStr = new Date().toISOString().slice(0, 10);
+
+    // Build ZIP
+    const zip = new JSZip();
+    zip.file(`respaldo-clinica-magna-${dateStr}.json`, json);
+    const zipBuffer = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE", compressionOptions: { level: 6 } });
 
     // Store in DB (keep last 7)
     const size = Buffer.byteLength(json, "utf8");
@@ -69,9 +76,9 @@ export async function GET() {
       await prisma.backupRecord.deleteMany({ where: { id: { in: all.slice(7).map(r => r.id) } } });
     }
 
-    // Send email to clinic
+    // Determine recipient — prefer BACKUP_EMAIL env var, fallback to clinic config email
     const cfg = Object.fromEntries(clinicConfig.map(r => [r.key, r.value]));
-    const clinicEmail = cfg.clinic_email || cfg.smtp_user;
+    const recipient = process.env.BACKUP_EMAIL || cfg.clinic_email || cfg.smtp_user;
     const host   = process.env.SMTP_HOST  || cfg.smtp_host;
     const port   = parseInt(process.env.SMTP_PORT  || cfg.smtp_port  || "465");
     const secure = (process.env.SMTP_SECURE || cfg.smtp_secure || "true") === "true";
@@ -80,11 +87,11 @@ export async function GET() {
     const name   = cfg.clinic_name ?? "Clínica Magna";
     const date   = new Date().toLocaleDateString("es-CL");
 
-    if (host && user && pass && clinicEmail) {
+    if (host && user && pass && recipient) {
       const transporter = nodemailer.createTransport({ host, port, secure, auth: { user, pass } });
       await transporter.sendMail({
         from: `"${name}" <${user}>`,
-        to: clinicEmail,
+        to: recipient,
         subject: `Respaldo automático ${name} — ${date}`,
         html: `
           <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto">
@@ -99,16 +106,17 @@ export async function GET() {
                 <tr><td style="padding:6px;color:#6b7280">Citas</td><td style="padding:6px;font-weight:600">${summary.appointments}</td></tr>
                 <tr><td style="padding:6px;color:#6b7280">Evoluciones</td><td style="padding:6px;font-weight:600">${summary.evolutions}</td></tr>
                 <tr><td style="padding:6px;color:#6b7280">Presupuestos</td><td style="padding:6px;font-weight:600">${summary.budgets}</td></tr>
-                <tr><td style="padding:6px;color:#6b7280">Tamaño</td><td style="padding:6px;font-weight:600">${(size/1024).toFixed(1)} KB</td></tr>
+                <tr><td style="padding:6px;color:#6b7280">Tamaño (JSON)</td><td style="padding:6px;font-weight:600">${(size/1024).toFixed(1)} KB</td></tr>
+                <tr><td style="padding:6px;color:#6b7280">Tamaño (ZIP)</td><td style="padding:6px;font-weight:600">${(zipBuffer.length/1024).toFixed(1)} KB</td></tr>
               </table>
-              <p style="color:#6b7280;font-size:13px">Este respaldo fue generado automáticamente a las 20:00. Guárdalo en un lugar seguro.</p>
+              <p style="color:#6b7280;font-size:13px">Este respaldo fue generado automáticamente a las 20:00 hora Chile. Guárdalo en un lugar seguro.</p>
             </div>
           </div>
         `,
         attachments: [{
-          filename: `backup-${new Date().toISOString().slice(0,10)}.json`,
-          content: json,
-          contentType: "application/json",
+          filename: `respaldo-clinica-magna-${dateStr}.zip`,
+          content: zipBuffer,
+          contentType: "application/zip",
         }],
       });
     }
