@@ -3,17 +3,21 @@ import { useEffect, useState } from "react";
 import {
   Save, Info, Plus, Pencil, X, Check, Users, Building2,
   Calendar, Mail, Trash2, Shield, Stethoscope, Clock,
+  HardDrive, Download, Upload, RefreshCw, AlertTriangle,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 
 type User = { id: string; name: string; email: string; rut?: string; username?: string; role: string; specialty: string | null; active: boolean };
 
 const TABS = [
-  { key: "general",  label: "General",   icon: Building2 },
-  { key: "usuarios", label: "Usuarios",  icon: Users },
-  { key: "agenda",   label: "Agenda",    icon: Calendar },
-  { key: "correo",   label: "Correo",    icon: Mail },
+  { key: "general",   label: "General",   icon: Building2 },
+  { key: "usuarios",  label: "Usuarios",  icon: Users },
+  { key: "agenda",    label: "Agenda",    icon: Calendar },
+  { key: "correo",    label: "Correo",    icon: Mail },
+  { key: "respaldos", label: "Respaldos", icon: HardDrive },
 ];
+
+type BackupMeta = { id: string; source: string; size: number; summary: string; createdAt: string };
 
 const SPECIALTIES = [
   "Estética Orofacial","Implantología","Rehabilitación Oral","Endodoncia",
@@ -64,6 +68,10 @@ export default function Configuracion() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [userModal, setUserModal] = useState(false);
+  const [backups, setBackups] = useState<BackupMeta[]>([]);
+  const [backupLoading, setBackupLoading] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreMsg, setRestoreMsg] = useState("");
   const [editing, setEditing] = useState<User | null>(null);
   const [form, setForm] = useState(EMPTY_USER);
   const [formError, setFormError] = useState("");
@@ -78,6 +86,70 @@ export default function Configuracion() {
       }
     });
   }, []);
+
+  useEffect(() => {
+    if (tab === "respaldos") loadBackups();
+  }, [tab]);
+
+  function loadBackups() {
+    fetch("/api/admin/backup").then(r => r.json()).then(setBackups).catch(() => {});
+  }
+
+  async function createBackup() {
+    setBackupLoading(true);
+    try {
+      const res = await fetch("/api/admin/backup", { method: "POST" });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `clinica-magna-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      loadBackups();
+    } finally {
+      setBackupLoading(false);
+    }
+  }
+
+  async function downloadBackup(id: string, date: string) {
+    const res = await fetch(`/api/admin/backup/${id}`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `clinica-magna-backup-${date}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function restoreBackup(file: File) {
+    setRestoring(true);
+    setRestoreMsg("");
+    try {
+      const text = await file.text();
+      const json = JSON.parse(text);
+      const res = await fetch("/api/admin/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(json),
+      });
+      const data = await res.json();
+      if (!res.ok) { setRestoreMsg("Error: " + (data.error || "desconocido")); return; }
+      setRestoreMsg(`✅ Restauración exitosa desde respaldo del ${new Date(data.timestamp).toLocaleString("es-CL")}`);
+      loadBackups();
+    } catch (e: any) {
+      setRestoreMsg("Error: " + e.message);
+    } finally {
+      setRestoring(false);
+    }
+  }
+
+  function fmtSize(bytes: number) {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / 1024 / 1024).toFixed(1) + " MB";
+  }
 
   function loadUsers() {
     fetch("/api/users").then(r => r.json()).then(setUsers);
@@ -459,7 +531,111 @@ export default function Configuracion() {
         </div>
       )}
 
-      {/* Save button */}
+      {/* ===== TAB RESPALDOS ===== */}
+      {tab === "respaldos" && (
+        <div className="space-y-5">
+          {/* Manual backup */}
+          <div className="card p-6 space-y-4">
+            <div>
+              <h2 className="section-title">Respaldo manual</h2>
+              <p className="text-xs text-slate-400 mt-0.5">Descarga un archivo JSON con todos los datos de la clínica</p>
+            </div>
+            <div className="flex items-center gap-4">
+              <button onClick={createBackup} disabled={backupLoading}
+                className="btn-primary gap-2">
+                {backupLoading ? <RefreshCw size={15} className="animate-spin" /> : <Download size={15} />}
+                {backupLoading ? "Generando..." : "Crear respaldo ahora"}
+              </button>
+              <p className="text-xs text-slate-400">El archivo se descarga directamente a tu computador</p>
+            </div>
+          </div>
+
+          {/* Auto backup info */}
+          <div className="card p-4 flex items-start gap-3 bg-emerald-50 border-emerald-200">
+            <Check size={16} className="text-emerald-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-emerald-800">Respaldo automático activo</p>
+              <p className="text-xs text-emerald-600 mt-0.5">
+                Se genera automáticamente cada vez que abres esta sección (máximo 1 por día). Se guardan los últimos 7 respaldos.
+              </p>
+            </div>
+          </div>
+
+          {/* Restore */}
+          <div className="card p-6 space-y-4">
+            <div>
+              <h2 className="section-title flex items-center gap-2">
+                <AlertTriangle size={16} className="text-amber-500" /> Restaurar desde respaldo
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Esto reemplazará <strong>todos</strong> los datos actuales con los del archivo seleccionado.
+              </p>
+            </div>
+            <label className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed cursor-pointer transition-colors
+              ${restoring ? "border-slate-200 opacity-60 pointer-events-none" : "border-amber-300 hover:border-amber-400 hover:bg-amber-50"}`}>
+              <Upload size={18} className="text-amber-500 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-slate-800">{restoring ? "Restaurando..." : "Seleccionar archivo de respaldo"}</p>
+                <p className="text-xs text-slate-400">Archivos .json generados por esta aplicación</p>
+              </div>
+              <input type="file" accept=".json" className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) restoreBackup(f); e.target.value = ""; }} />
+            </label>
+            {restoreMsg && (
+              <div className={`px-4 py-3 rounded-xl text-sm ${restoreMsg.startsWith("✅") ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+                {restoreMsg}
+              </div>
+            )}
+          </div>
+
+          {/* Backup history */}
+          <div className="card p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="section-title">Historial de respaldos</h2>
+              <button onClick={loadBackups} className="text-xs text-primary-600 hover:underline flex items-center gap-1">
+                <RefreshCw size={12} /> Actualizar
+              </button>
+            </div>
+            {backups.length === 0 ? (
+              <p className="text-sm text-slate-400 text-center py-6">No hay respaldos almacenados aún</p>
+            ) : (
+              <div className="space-y-2">
+                {backups.map((b) => {
+                  const summary = (() => { try { return JSON.parse(b.summary); } catch { return {}; } })();
+                  const date = new Date(b.createdAt);
+                  return (
+                    <div key={b.id} className="flex items-center gap-4 p-3 rounded-xl border border-slate-200 hover:border-slate-300 bg-white">
+                      <HardDrive size={16} className={b.source === "auto" ? "text-blue-400" : "text-emerald-500"} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-slate-800">
+                            {date.toLocaleDateString("es-CL", { day: "2-digit", month: "short", year: "numeric" })}
+                            {" "}
+                            {date.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${b.source === "auto" ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"}`}>
+                            {b.source === "auto" ? "Automático" : "Manual"}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {summary.patients ?? 0} pacientes · {summary.users ?? 0} usuarios · {summary.appointments ?? 0} citas · {fmtSize(b.size)}
+                        </p>
+                      </div>
+                      <button onClick={() => downloadBackup(b.id, date.toISOString().slice(0, 10))}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
+                        <Download size={13} /> Descargar
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Save button — hidden on Respaldos tab */}
+      {tab !== "respaldos" && (
       <div className="flex justify-end pt-2">
         <button onClick={saveCfg} disabled={saving}
           className={`btn-primary gap-2 ${saved ? "bg-emerald-600 hover:bg-emerald-700" : ""}`}>
@@ -467,6 +643,7 @@ export default function Configuracion() {
           {saved ? "¡Guardado!" : saving ? "Guardando..." : "Guardar cambios"}
         </button>
       </div>
+      )}
 
       {/* User modal */}
       <Modal open={userModal} onClose={() => setUserModal(false)} title={editing ? "Editar usuario" : "Nuevo usuario"}>

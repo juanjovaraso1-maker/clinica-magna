@@ -2,6 +2,7 @@
 import { useState, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { Plus, Trash2, Printer, ChevronDown } from "lucide-react";
+import { ToothIcon } from "./ToothSVG";
 
 /* ─── Tipos ─────────────────────────────────────────────────────────── */
 interface SurfaceState { cond: string }
@@ -30,22 +31,22 @@ const CONDITIONS: Record<string, { label: string; color: string; bg: string }> =
   obturacion:    { label: "Obturación",                   color: "#3B82F6", bg: "#DBEAFE" },
   sellante:      { label: "Sellante",                     color: "#22C55E", bg: "#DCFCE7" },
   endodoncia:    { label: "Endodoncia",                   color: "#7C3AED", bg: "#F3E8FF" },
-  corona:        { label: "Corona",                       color: "#2563EB", bg: "#DBEAFE" },
-  implante:      { label: "Implante",                     color: "#16A34A", bg: "#DCFCE7" },
-  ausente:       { label: "Pieza ausente",                color: "#374151", bg: "#F9FAFB" },
-  extraccion:    { label: "Extracción indicada",          color: "#DC2626", bg: "#FEF2F2" },
+  corona:        { label: "Corona",                       color: "#F59E0B", bg: "#FEF3C7" },  // amber — distinto de azul
+  implante:      { label: "Implante",                     color: "#0891B2", bg: "#CFFAFE" },  // cyan — distinto de verde
+  ausente:       { label: "Pieza ausente",                color: "#94A3B8", bg: "#F1F5F9" },  // slate
+  extraccion:    { label: "Extracción indicada",          color: "#B91C1C", bg: "#FEF2F2" },  // rojo oscuro — distinto de caries
   fractura:      { label: "Fractura dentaria",            color: "#EA580C", bg: "#FFF7ED" },
-  amalgama:      { label: "Amalgama",                     color: "#6B7280", bg: "#F3F4F6" },
+  amalgama:      { label: "Amalgama",                     color: "#64748B", bg: "#F1F5F9" },
   incrustacion:  { label: "Incrustación",                 color: "#0D9488", bg: "#CCFBF1" },
   composite:     { label: "Composite",                    color: "#4F46E5", bg: "#EEF2FF" },
   lcnc:          { label: "Lesión cervical no cariosa",   color: "#DB2777", bg: "#FDF2F8" },
-  hipoplasia:    { label: "Hipoplasia / Fluorosis",       color: "#F59E0B", bg: "#FFFBEB" },
-  movilidad:     { label: "Movilidad",                    color: "#7C3AED", bg: "#F5F3FF" },
+  hipoplasia:    { label: "Hipoplasia / Fluorosis",       color: "#CA8A04", bg: "#FEFCE8" },  // amarillo dorado — distinto de amber
+  movilidad:     { label: "Movilidad",                    color: "#A855F7", bg: "#FAF5FF" },  // violeta claro — distinto de endodoncia
   pulpotomia:    { label: "Pulpotomía",                   color: "#9D174D", bg: "#FDF2F8" },
-  corona_acero:  { label: "Corona acero inoxidable",      color: "#92400E", bg: "#FEF3C7" },
-  fluoruro:      { label: "Fluoruro de plata",            color: "#1D4ED8", bg: "#EFF6FF" },
-  impactado:     { label: "Impactado / Retenido",         color: "#1E3A5F", bg: "#DBEAFE" },
-  supernumerario:{ label: "Supernumerario",               color: "#065F46", bg: "#D1FAE5" },
+  corona_acero:  { label: "Corona acero inox.",           color: "#78350F", bg: "#FEF3C7" },
+  fluoruro:      { label: "Fluoruro de plata",            color: "#0EA5E9", bg: "#E0F2FE" },  // sky — distinto de obturación
+  impactado:     { label: "Impactado / Retenido",         color: "#1E3A8A", bg: "#EFF6FF" },  // navy — distinto de obturación
+  supernumerario:{ label: "Supernumerario",               color: "#059669", bg: "#ECFDF5" },  // esmeralda — distinto de implante
 };
 
 const COND_KEYS = Object.keys(CONDITIONS);
@@ -57,15 +58,17 @@ const PERM_LOWER = [48,47,46,45,44,43,42,41,31,32,33,34,35,36,37,38];
 const TEMP_UPPER = [55,54,53,52,51,61,62,63,64,65];
 const TEMP_LOWER = [85,84,83,82,81,71,72,73,74,75];
 
+const SEXTANT_TEETH: Record<string, number[]> = {
+  S1: [18,17,16,15,14],
+  S2: [13,12,11,21,22,23],
+  S3: [24,25,26,27,28],
+  S4: [38,37,36,35,34],
+  S5: [33,32,31,41,42,43],
+  S6: [44,45,46,47,48],
+};
+
 function emptyChart(): ChartData { return { teeth: {}, observations: "" }; }
 
-function getType(num: number): "i"|"c"|"p"|"m" {
-  const pos = num % 10;
-  if (pos <= 2) return "i";
-  if (pos === 3) return "c";
-  if (pos <= 5) return "p";
-  return "m";
-}
 
 function fmtTooth(n: number): string {
   const q = Math.floor(n / 10);
@@ -77,95 +80,96 @@ function isUpper(num: number): boolean {
   return q === 1 || q === 2 || q === 5 || q === 6;
 }
 
-/* ─── SVG de diente anatómico ────────────────────────────────────────── */
+/* ─── SVG de diente — usa componente compartido con gradientes 3D ─────── */
 function ToothSVG({ num, wholeCond, selected }: { num: number; wholeCond?: string; selected?: boolean }) {
-  const type  = getType(num);
-  const upper = isUpper(num);
-  const baby  = num >= 50;
-  const sc    = baby ? 0.82 : 1;
+  const baby = num >= 50;
 
-  const cond   = wholeCond ? CONDITIONS[wholeCond] : null;
-  const crown  = cond ? cond.bg : "#F5F5F4";
-  const stroke = selected ? "#2563EB" : (cond ? cond.color : "#A8A29E");
-  const rootF  = "#EDD9A3";
-  const rootS  = cond ? cond.color : "#C8A870";
-  const sw     = selected ? 2.2 : 1.3;
-  const hasX   = wholeCond === "ausente" || wholeCond === "extraccion";
-  const flip: React.CSSProperties = upper ? { transform: "scaleY(-1)" } : {};
+  /* Ausente: diente fantasma — gris claro, muy tenue, sin X */
+  if (wholeCond === "ausente") {
+    return (
+      <ToothIcon
+        num={num} baby={baby}
+        crownFill="#DDE3EC" rootFill="#C8D0DC"
+        crownStroke="#94A3B8" rootStroke="#94A3B8"
+        sw={0.7} hasX={false}
+        style={{ opacity: 0.42 }}
+      />
+    );
+  }
 
-  if (type === "i") {
-    const [vw,vh,rw,rh] = [18,56, Math.round(16*sc), Math.round(48*sc)];
-    return (
-      <svg viewBox={`0 0 ${vw} ${vh}`} width={rw} height={rh} style={{display:"block",...flip}}>
-        <path d="M5,24 Q4,37 9,50 Q14,37 13,24 Z" fill={rootF} stroke={rootS} strokeWidth={sw*0.85}/>
-        <path d="M1,3 Q1,0 9,0 Q17,0 17,3 L16,22 Q16,24 9,24 Q2,24 2,22 Z" fill={crown} stroke={stroke} strokeWidth={sw}/>
-        <line x1="3" y1="21" x2="15" y2="21" stroke={stroke} strokeWidth="0.5" opacity="0.4"/>
-        {hasX && <><line x1="2" y1="2" x2="16" y2="22" stroke={stroke} strokeWidth="2.5" strokeLinecap="round"/><line x1="16" y1="2" x2="2" y2="22" stroke={stroke} strokeWidth="2.5" strokeLinecap="round"/></>}
-      </svg>
-    );
-  }
-  if (type === "c") {
-    const [vw,vh,rw,rh] = [18,62, Math.round(16*sc), Math.round(54*sc)];
-    return (
-      <svg viewBox={`0 0 ${vw} ${vh}`} width={rw} height={rh} style={{display:"block",...flip}}>
-        <path d="M5,29 Q4,44 9,58 Q14,44 13,29 Z" fill={rootF} stroke={rootS} strokeWidth={sw*0.85}/>
-        <path d="M1,3 Q1,0 9,0 Q17,0 17,3 L15,20 Q13,26 9,29 Q5,26 3,20 Z" fill={crown} stroke={stroke} strokeWidth={sw}/>
-        {hasX && <><line x1="2" y1="2" x2="16" y2="27" stroke={stroke} strokeWidth="2.5" strokeLinecap="round"/><line x1="16" y1="2" x2="2" y2="27" stroke={stroke} strokeWidth="2.5" strokeLinecap="round"/></>}
-      </svg>
-    );
-  }
-  if (type === "p") {
-    const [vw,vh,rw,rh] = [20,54, Math.round(18*sc), Math.round(46*sc)];
-    return (
-      <svg viewBox={`0 0 ${vw} ${vh}`} width={rw} height={rh} style={{display:"block",...flip}}>
-        <path d="M5,22 Q4,34 10,46 Q16,34 15,22 Z" fill={rootF} stroke={rootS} strokeWidth={sw*0.85}/>
-        <path d="M2,3 Q3,0 10,0 Q17,0 18,3 L18,20 Q18,22 10,22 Q2,22 2,20 Z" fill={crown} stroke={stroke} strokeWidth={sw}/>
-        <path d="M5,0 Q7,2 10,1 Q13,2 15,0" fill="none" stroke={stroke} strokeWidth="0.7" opacity="0.5"/>
-        <line x1="10" y1="0" x2="10" y2="13" stroke={stroke} strokeWidth="0.6" opacity="0.35"/>
-        {hasX && <><line x1="2" y1="2" x2="18" y2="22" stroke={stroke} strokeWidth="2.5" strokeLinecap="round"/><line x1="18" y1="2" x2="2" y2="22" stroke={stroke} strokeWidth="2.5" strokeLinecap="round"/></>}
-      </svg>
-    );
-  }
-  // molar
-  const [vw,vh,rw,rh] = [28,54, Math.round(26*sc), Math.round(46*sc)];
+  const cond  = wholeCond && wholeCond !== "sano" ? CONDITIONS[wholeCond] : null;
+  const hasX  = wholeCond === "extraccion";   // X solo para extracción
   return (
-    <svg viewBox={`0 0 ${vw} ${vh}`} width={rw} height={rh} style={{display:"block",...flip}}>
-      <path d="M4,22 Q3,34 8,46 Q12,34 11,22 Z" fill={rootF} stroke={rootS} strokeWidth={sw*0.85}/>
-      <path d="M17,22 Q16,34 20,46 Q25,34 24,22 Z" fill={rootF} stroke={rootS} strokeWidth={sw*0.85}/>
-      <path d="M2,4 Q3,0 14,0 Q25,0 26,4 L26,20 Q26,22 14,22 Q2,22 2,20 Z" fill={crown} stroke={stroke} strokeWidth={sw}/>
-      <path d="M5,0 Q8,3 11,1 Q14,3 17,1 Q20,3 23,0" fill="none" stroke={stroke} strokeWidth="0.7" opacity="0.5"/>
-      <line x1="10" y1="0" x2="10" y2="14" stroke={stroke} strokeWidth="0.6" opacity="0.3"/>
-      <line x1="18" y1="0" x2="18" y2="14" stroke={stroke} strokeWidth="0.6" opacity="0.3"/>
-      {hasX && <><line x1="2" y1="2" x2="26" y2="22" stroke={stroke} strokeWidth="2.5" strokeLinecap="round"/><line x1="26" y1="2" x2="2" y2="22" stroke={stroke} strokeWidth="2.5" strokeLinecap="round"/></>}
-    </svg>
+    <ToothIcon
+      num={num} baby={baby}
+      crownFill={cond ? cond.bg : undefined}
+      rootFill={cond ? cond.bg : undefined}
+      crownStroke={selected ? "#2563EB" : (cond ? cond.color : undefined)}
+      rootStroke={cond ? cond.color : undefined}
+      sw={selected ? 2.2 : cond ? 1.5 : 0}
+      hasX={hasX}
+    />
   );
 }
 
-/* ─── Círculos de superficie en patrón de cruz ───────────────────────── */
-function SurfaceDots({ num, toothState, selSurf, onSurf, readonly }: {
+/* ─── Diagrama circular de superficies (5 cuñas) ─────────────────────── */
+function SurfaceDiagram({ num, toothState, selSurf, onSurf, readonly }: {
   num: number; toothState?: ToothState; selSurf?: string|null;
   onSurf?: (s:string)=>void; readonly?: boolean;
 }) {
-  const pos: Record<string,[number,number]> = { V:[11,2], M:[2,11], O:[11,11], D:[20,11], P:[11,20] };
-  const label: Record<string,string> = { V:"V", M:"M", O:"O", D:"D", P: isUpper(num)?"P":"L" };
+  const upper = isUpper(num);
+  const size = 26, cx = 13, cy = 13, r = 11, ri = 4.5;
+
+  function wedgePath(a1: number, a2: number): string {
+    const rad = (d: number) => (d * Math.PI) / 180;
+    const x1=cx+r*Math.cos(rad(a1)), y1=cy+r*Math.sin(rad(a1));
+    const x2=cx+r*Math.cos(rad(a2)), y2=cy+r*Math.sin(rad(a2));
+    const xi1=cx+ri*Math.cos(rad(a1)), yi1=cy+ri*Math.sin(rad(a1));
+    const xi2=cx+ri*Math.cos(rad(a2)), yi2=cy+ri*Math.sin(rad(a2));
+    return `M ${xi1} ${yi1} L ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2} L ${xi2} ${yi2} A ${ri} ${ri} 0 0 0 ${xi1} ${yi1} Z`;
+  }
+
+  const wedges = [
+    { key:"V", path:wedgePath(-112,-68), lx:cx,     ly:cy-8.2 },
+    { key:"D", path:wedgePath(-68,  22), lx:cx+8.2, ly:cy     },
+    { key:"P", path:wedgePath( 22, 112), label: upper?"P":"L", lx:cx,     ly:cy+8.2 },
+    { key:"M", path:wedgePath(112, 202), lx:cx-8.2, ly:cy     },
+  ];
+
+  function cc(surf: string) {
+    const sc = toothState?.surfaces?.[surf];
+    return sc?.cond ? CONDITIONS[sc.cond] : null;
+  }
+
   return (
-    <svg width="23" height="23" viewBox="0 0 23 23" style={{display:"block"}}>
-      {SURFACES.map(s => {
-        const [cx,cy] = pos[s];
-        const sc   = toothState?.surfaces?.[s];
-        const c    = sc?.cond && sc.cond !== "" ? CONDITIONS[sc.cond] : null;
-        const isSel = selSurf === s;
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{display:"block"}}>
+      <circle cx={cx} cy={cy} r={r} fill="white" stroke="#D4C8B8" strokeWidth="0.8"/>
+      {wedges.map(w => {
+        const c = cc(w.key); const isSel = selSurf===w.key;
+        const lbl = (w as any).label ?? w.key;
         return (
-          <circle key={s} cx={cx} cy={cy} r="4"
-            fill={c ? c.color : (isSel ? "#2563EB" : "white")}
-            stroke={c ? c.color : (isSel ? "#2563EB" : "#C8A870")}
-            strokeWidth="1.2"
-            className={readonly ? "" : "cursor-pointer hover:opacity-75 transition-opacity"}
-            onClick={() => !readonly && onSurf?.(s)}>
-            <title>{label[s]}{c ? ` — ${c.label}` : ""}</title>
-          </circle>
+          <g key={w.key}>
+            <path d={w.path} fill={c?c.color:(isSel?"#2563EB":"#F0EBE3")} stroke={c?c.color:(isSel?"#2563EB":"#C8B89A")} strokeWidth="0.5"
+              className={readonly?"":"cursor-pointer hover:brightness-95 transition-all"}
+              onClick={()=>!readonly&&onSurf?.(w.key)}>
+              <title>{lbl}{c?` — ${c.label}`:""}</title>
+            </path>
+            <text x={w.lx} y={w.ly} textAnchor="middle" dominantBaseline="middle" fontSize="3.5" fontWeight="700"
+              fill={c?"white":(isSel?"white":"#8B7D6E")} style={{pointerEvents:"none",userSelect:"none"}}>{lbl}</text>
+          </g>
         );
       })}
+      {/* Center O */}
+      {(() => { const c=cc("O"); const isSel=selSurf==="O"; return (
+        <g>
+          <circle cx={cx} cy={cy} r={ri} fill={c?c.color:(isSel?"#2563EB":"white")} stroke={c?c.color:(isSel?"#2563EB":"#C8B89A")} strokeWidth="0.7"
+            className={readonly?"":"cursor-pointer hover:brightness-95"} onClick={()=>!readonly&&onSurf?.("O")}>
+            <title>O{c?` — ${c.label}`:""}</title>
+          </circle>
+          <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" fontSize="3.5" fontWeight="700"
+            fill={c?"white":(isSel?"white":"#8B7D6E")} style={{pointerEvents:"none",userSelect:"none"}}>O</text>
+        </g>
+      );})()}
     </svg>
   );
 }
@@ -180,27 +184,72 @@ function ToothCell({ num, chart, upper, selTooth, selSurf, onTooth, onSurf, read
   const isSel = selTooth === num;
 
   const svg = (
-    <div className={`cursor-pointer rounded-md p-0.5 transition-all ${isSel ? "ring-2 ring-blue-500 ring-offset-1 bg-blue-50" : "hover:bg-stone-100"} ${readonly?"pointer-events-none":""}`}
+    <div className={`cursor-pointer rounded-sm transition-all ${isSel?"ring-2 ring-blue-500 ring-offset-1 bg-blue-50/60":"hover:bg-amber-50/40"} ${readonly?"pointer-events-none":""}`}
       onClick={() => !readonly && onTooth(num)}>
       <ToothSVG num={num} wholeCond={state?.wholeCond} selected={isSel}/>
     </div>
   );
-  const dots = (
-    <SurfaceDots num={num} toothState={state}
+  const diag = (
+    <SurfaceDiagram num={num} toothState={state}
       selSurf={isSel ? selSurf : null}
       onSurf={s => !readonly && onSurf(num,s)}
       readonly={readonly}/>
   );
   const label = (
-    <span className={`text-[9px] font-bold select-none leading-none ${isSel?"text-blue-600":"text-stone-400"}`}>
+    <span className={`text-[11px] font-bold select-none leading-none ${isSel?"text-blue-600":"text-stone-400"}`}>
       {fmtTooth(num)}
     </span>
   );
 
   return (
-    <div className="flex flex-col items-center gap-0.5">
-      {upper ? <>{svg}{dots}{label}</> : <>{label}{dots}{svg}</>}
+    <div className="flex flex-col items-center gap-[4px]">
+      {upper ? <>{svg}{diag}{label}</> : <>{label}{diag}{svg}</>}
     </div>
+  );
+}
+
+/* ─── SVG Ilustración de arcada dental (vista oclusal) ─────────────── */
+function ArchIllustration({ type }: { type: "full"|"upper"|"lower" }) {
+  /* Teeth positions along the arches */
+  const upperTeeth = [
+    {x:14,y:22,w:5,h:7},{x:20,y:18,w:5,h:7},{x:27,y:14,w:5,h:7},{x:34,y:11,w:5,h:7},
+    {x:41,y:9, w:4,h:6},{x:47,y:8, w:4,h:6},{x:52,y:8, w:4,h:6},{x:57,y:9, w:4,h:6},
+    {x:62,y:11,w:5,h:7},{x:68,y:14,w:5,h:7},{x:74,y:18,w:5,h:7},{x:80,y:22,w:5,h:7},
+  ];
+  const lowerTeeth = [
+    {x:16,y:2, w:5,h:7},{x:22,y:6, w:5,h:7},{x:29,y:10,w:5,h:7},{x:36,y:13,w:5,h:7},
+    {x:43,y:15,w:4,h:6},{x:49,y:16,w:4,h:6},{x:54,y:16,w:4,h:6},{x:59,y:15,w:4,h:6},
+    {x:63,y:13,w:5,h:7},{x:70,y:10,w:5,h:7},{x:77,y:6, w:5,h:7},{x:83,y:2, w:5,h:7},
+  ];
+
+  const showU = type==="full"||type==="upper";
+  const showL = type==="full"||type==="lower";
+  const h = type==="full" ? 58 : 32;
+  const lOffset = type==="full" ? 30 : 2;
+
+  return (
+    <svg viewBox={`0 0 99 ${h}`} width={72} height={h*0.85} style={{display:"block"}}>
+      {/* Upper arch */}
+      {showU && (
+        <g opacity={1}>
+          <path d="M11,30 C9,14 22,2 49.5,2 C77,2 90,14 88,30" fill="none" stroke="#7BAFD4" strokeWidth="8" strokeLinecap="round"/>
+          {upperTeeth.map((t,i)=>(
+            <rect key={i} x={t.x} y={t.y-1} width={t.w+1} height={t.h+1} rx="1.5"
+              fill="white" stroke="#7BAFD4" strokeWidth="0.8"/>
+          ))}
+        </g>
+      )}
+      {/* Lower arch */}
+      {showL && (
+        <g transform={`translate(0,${lOffset})`} opacity={1}>
+          <path d="M13,2 C11,18 24,28 49.5,28 C75,28 88,18 86,2" fill="none" stroke="#9B7DB0" strokeWidth="8" strokeLinecap="round"/>
+          {lowerTeeth.map((t,i)=>(
+            <rect key={i} x={t.x} y={t.y+2} width={t.w+1} height={t.h+1} rx="1.5"
+              fill="white" stroke="#9B7DB0" strokeWidth="0.8"/>
+          ))}
+        </g>
+      )}
+    </svg>
   );
 }
 
@@ -219,6 +268,9 @@ export default function DentalChart({ records, onSave, onDelete, isSaving, reado
   const [selSurf,    setSelSurf]    = useState<string|null>(null);
   const [selCond,    setSelCond]    = useState("caries");
   const [mode,       setMode]       = useState<"diag"|"info">("diag");
+  /* view = highlight focus, NOT filter. All teeth always visible. */
+  const [view,       setView]       = useState<"full"|"upper"|"lower">("full");
+  const [selSextant, setSelSextant] = useState<string|null>(null);
 
   const currentRecs = teethType === "permanent" ? permRecs : tempRecs;
   const upper = teethType === "permanent" ? PERM_UPPER : TEMP_UPPER;
@@ -240,13 +292,13 @@ export default function DentalChart({ records, onSave, onDelete, isSaving, reado
 
   function handleToothClick(num: number) {
     if (mode !== "diag") return;
-    if (selTooth === num) {
-      const key = String(num);
-      setChart(prev => {
-        const ex  = prev.teeth[key] ?? { wholeCond:"", surfaces:{}, note:"" };
-        return { ...prev, teeth: { ...prev.teeth, [key]: { ...ex, wholeCond: ex.wholeCond === selCond ? "" : selCond } } };
-      });
-    } else { setSelTooth(num); setSelSurf(null); }
+    const key = String(num);
+    setChart(prev => {
+      const ex = prev.teeth[key] ?? { wholeCond:"", surfaces:{}, note:"" };
+      return { ...prev, teeth: { ...prev.teeth, [key]: { ...ex, wholeCond: ex.wholeCond===selCond?"":selCond } } };
+    });
+    setSelTooth(num);
+    setSelSurf(null);
   }
 
   function handleSurfClick(num: number, surf: string) {
@@ -276,12 +328,28 @@ export default function DentalChart({ records, onSave, onDelete, isSaving, reado
 
   const selState = selTooth ? chart.teeth[String(selTooth)] : null;
 
+  /* Compute dimming: dim if view restricts and tooth is in the "other" arch */
+  function toothOpacity(num: number): number {
+    const up = isUpper(num);
+    if (selSextant) {
+      return SEXTANT_TEETH[selSextant]?.includes(num) ? 1 : 0.2;
+    }
+    if (view === "upper") return up ? 1 : 0.25;
+    if (view === "lower") return up ? 0.25 : 1;
+    return 1;
+  }
+
+  const VIEW_OPTIONS: Array<{ k: "full"|"upper"|"lower"; label: string }> = [
+    { k:"full",  label:"Boca completa"    },
+    { k:"upper", label:"Maxilar superior" },
+    { k:"lower", label:"Maxilar inferior" },
+  ];
+
   return (
     <div className="bg-white border border-[#E3E8F0] rounded-2xl overflow-hidden shadow-sm">
 
       {/* ── Barra superior ── */}
       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-[#E3E8F0] bg-[#F8F9FC] flex-wrap">
-        {/* Tabs Permanente / Temporal */}
         <div className="flex rounded-lg border border-[#E3E8F0] overflow-hidden flex-shrink-0">
           {([["permanent","Permanente"],["temporary","Temporal"]] as [string,string][]).map(([k,label]) => {
             const cnt = (k==="permanent" ? permRecs : tempRecs).length;
@@ -295,14 +363,13 @@ export default function DentalChart({ records, onSave, onDelete, isSaving, reado
           })}
         </div>
 
-        {/* Selector fecha */}
         {currentRecs.length > 0 && (
           <div className="relative flex-shrink-0">
             <select className="appearance-none text-[12px] border border-[#E3E8F0] rounded-lg px-3 py-1.5 pr-7 focus:outline-none focus:ring-1 focus:ring-[#0057FF] bg-white text-[#1A1D2E] font-medium cursor-pointer"
               value={selId ?? ""} onChange={e => selectRecord(e.target.value)}>
               {currentRecs.map(r => (
                 <option key={r.id} value={r.id}>
-                  Ver: {new Date(r.date+"T12:00:00").toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"})}
+                  {new Date(r.date+"T12:00:00").toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"})}
                 </option>
               ))}
             </select>
@@ -310,7 +377,6 @@ export default function DentalChart({ records, onSave, onDelete, isSaving, reado
           </div>
         )}
 
-        {/* Modo */}
         {!readonly && (
           <div className="flex rounded-lg border border-[#E3E8F0] overflow-hidden flex-shrink-0">
             <button onClick={() => setMode("diag")}
@@ -324,7 +390,6 @@ export default function DentalChart({ records, onSave, onDelete, isSaving, reado
           </div>
         )}
 
-        {/* Acciones */}
         <div className="flex items-center gap-1.5 ml-auto">
           {!readonly && (
             <button onClick={handleNewOdontogram}
@@ -345,20 +410,56 @@ export default function DentalChart({ records, onSave, onDelete, isSaving, reado
         </div>
       </div>
 
+      {/* ── Selector de vista (con ilustraciones) + Sextantes ── */}
+      <div className="flex items-center gap-3 px-3 py-2 border-b border-[#F0F2F7] bg-[#FAFBFD] flex-wrap">
+        {/* Vista — illustraciones de arcada */}
+        <div className="flex items-center gap-1.5">
+          {VIEW_OPTIONS.map(({ k, label }) => (
+            <button key={k} onClick={() => { setView(k); setSelSextant(null); }}
+              className={`flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-xl border transition-all ${
+                view===k && !selSextant
+                  ? "bg-[#EEF3FF] border-[#0057FF] text-[#0057FF]"
+                  : "border-[#E3E8F0] text-[#6B7280] hover:border-[#C7D2FE] hover:bg-[#F0F2F7]"
+              }`}>
+              <ArchIllustration type={k}/>
+              <span className="text-[10px] font-semibold whitespace-nowrap">{label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Sextantes S1-S6 */}
+        <div className="flex items-center gap-1.5 ml-1">
+          <span className="text-[11px] font-bold text-[#9AA0B4] uppercase tracking-wide mr-0.5">Sextante:</span>
+          {["S1","S2","S3","S4","S5","S6"].map(s => (
+            <button key={s} onClick={() => { setSelSextant(prev => prev===s?null:s); }}
+              className={`w-10 h-8 text-[12px] font-bold rounded-lg border transition-all ${
+                selSextant===s
+                  ? "bg-[#0057FF] text-white border-[#0057FF]"
+                  : "bg-white text-[#4B5563] border-[#E3E8F0] hover:border-[#0057FF]/40 hover:text-[#0057FF]"
+              }`}>
+              {s}
+            </button>
+          ))}
+          {selSextant && (
+            <button onClick={()=>setSelSextant(null)}
+              className="text-[11px] text-[#9AA0B4] hover:text-red-500 ml-0.5 px-1.5">✕</button>
+          )}
+        </div>
+      </div>
+
       {/* Título */}
-      <div className="text-center py-1.5 border-b border-[#F0F2F7]">
+      <div className="text-center py-1.5 border-b border-[#F0F2F7] bg-white">
         <span className="text-[10px] font-bold text-[#9AA0B4] tracking-widest uppercase">Odontograma Internacional FDI</span>
       </div>
 
-      {/* ── Grilla de dientes + panel derecho ── */}
+      {/* ── Grilla de dientes + panel ── */}
       <div className="flex">
-
-        {/* Odontograma */}
-        <div className="flex-1 min-w-0 overflow-x-auto py-3 px-2">
-          {/* Superior */}
-          <div className="flex items-end justify-center gap-1 mb-1">
+        <div className="flex-1 min-w-0 py-3 px-2 bg-white">
+          {/* Superior — distribuidos en todo el ancho */}
+          <div className="flex items-end justify-between w-full mb-1 px-1">
             {upper.map((num,idx) => (
-              <div key={num} className={idx===Math.floor(upper.length/2)-1?"mr-3":""}>
+              <div key={num} className={`${idx===Math.floor(upper.length/2)-1?"mr-2":""} transition-opacity`}
+                style={{opacity: toothOpacity(num)}}>
                 <ToothCell num={num} chart={chart} upper={true}
                   selTooth={selTooth} selSurf={selSurf}
                   onTooth={handleToothClick} onSurf={handleSurfClick}
@@ -366,12 +467,12 @@ export default function DentalChart({ records, onSave, onDelete, isSaving, reado
               </div>
             ))}
           </div>
-          {/* Línea de mediodía */}
-          <div className="border-t-2 border-dashed border-[#E3E8F0] mx-8 my-1"/>
-          {/* Inferior */}
-          <div className="flex items-start justify-center gap-1 mt-1">
+          <div className="border-t-2 border-dashed border-[#E8E0D4] mx-2 my-3"/>
+          {/* Inferior — distribuidos en todo el ancho */}
+          <div className="flex items-start justify-between w-full mt-1 px-1">
             {lower.map((num,idx) => (
-              <div key={num} className={idx===Math.floor(lower.length/2)-1?"mr-3":""}>
+              <div key={num} className={`${idx===Math.floor(lower.length/2)-1?"mr-2":""} transition-opacity`}
+                style={{opacity: toothOpacity(num)}}>
                 <ToothCell num={num} chart={chart} upper={false}
                   selTooth={selTooth} selSurf={selSurf}
                   onTooth={handleToothClick} onSurf={handleSurfClick}
@@ -383,15 +484,16 @@ export default function DentalChart({ records, onSave, onDelete, isSaving, reado
 
         {/* Panel condiciones */}
         {!readonly && mode==="diag" && (
-          <div className="w-[190px] flex-shrink-0 border-l border-[#E3E8F0] overflow-y-auto bg-[#FAFBFD]" style={{maxHeight:430}}>
+          <div className="w-[200px] flex-shrink-0 border-l border-[#E3E8F0] overflow-y-auto bg-[#FAFBFD]" style={{maxHeight:460}}>
             <div className="px-2.5 pt-2.5 pb-2">
               <p className="text-[10px] font-bold text-[#9AA0B4] uppercase tracking-wide mb-2">Condición activa</p>
               {COND_KEYS.map(k => {
                 const c = CONDITIONS[k];
                 return (
                   <button key={k} onClick={() => setSelCond(k)}
-                    className={`w-full flex items-center gap-2 text-left px-2 py-1.5 rounded-lg mb-0.5 transition-colors text-[11px] font-medium ${selCond===k?"bg-[#EEF3FF] text-[#0057FF] font-semibold":"hover:bg-[#F0F2F7] text-[#4B5563]"}`}>
-                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{backgroundColor:c.color}}/>
+                    className={`w-full flex items-center gap-2 text-left px-2.5 py-1.5 rounded-lg mb-0.5 text-[11.5px] font-medium transition-all border ${selCond===k?"font-bold border-current":"border-transparent hover:bg-[#F0F2F7] text-[#4B5563]"}`}
+                    style={selCond===k ? {backgroundColor:`${c.color}15`, color:c.color} : {}}>
+                    <span className="w-3 h-3 rounded-full flex-shrink-0" style={{backgroundColor:c.color}}/>
                     {c.label}
                   </button>
                 );
@@ -424,7 +526,7 @@ export default function DentalChart({ records, onSave, onDelete, isSaving, reado
       </div>
 
       {/* ── Leyenda ── */}
-      <div className="border-t border-[#F0F2F7] px-4 py-2 flex flex-wrap gap-3">
+      <div className="border-t border-[#F0F2F7] px-4 py-2 flex flex-wrap gap-3 bg-[#FAFBFD]">
         {["caries","obturacion","endodoncia","sellante","corona","ausente","fractura","amalgama"].map(k => (
           <div key={k} className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{backgroundColor:CONDITIONS[k].color}}/>
@@ -443,8 +545,7 @@ export default function DentalChart({ records, onSave, onDelete, isSaving, reado
               rows={2}
               value={chart.observations}
               onChange={e => setChart(prev => ({ ...prev, observations: e.target.value }))}
-              placeholder="Observaciones generales del odontograma..."
-            />
+              placeholder="Observaciones generales del odontograma..."/>
           </div>
           <div className="flex flex-col gap-2 pt-5 flex-shrink-0">
             <button onClick={() => onSave(chart, selId, teethType)} disabled={isSaving}

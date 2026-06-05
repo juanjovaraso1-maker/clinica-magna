@@ -8,7 +8,6 @@ import { LogOut, Menu, X } from "lucide-react";
 const NAV_ITEMS = [
   { href: "/agenda",         label: "Agenda" },
   { href: "/pacientes",      label: "Pacientes" },
-  { href: "/presupuestos",   label: "Presupuestos" },
   { href: "/finanzas",       label: "Finanzas" },
   { href: "/prestaciones",   label: "Prestaciones" },
   { href: "/reportes",       label: "Reportes" },

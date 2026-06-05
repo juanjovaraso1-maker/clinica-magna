@@ -13,8 +13,9 @@ import Badge from "@/components/ui/Badge";
 import DentalChart from "@/components/odontogram/DentalChart";
 import FacialChart from "@/components/odontogram/FacialChart";
 import BudgetEditor from "@/components/budgets/BudgetEditor";
-import { buildRecetaBody, buildPresupuestoBody, buildIndicacionesBody, buildRadiografiaBody } from "@/lib/pdf-templates";
+import { buildRecetaBody, buildPresupuestoBody, buildIndicacionesBody } from "@/lib/pdf-templates";
 import { useIsAdmin } from "@/hooks/useRole";
+import { useSession } from "next-auth/react";
 
 // Renders a body HTML string in a hidden A4-width div, captures it with html2canvas,
 // converts to PDF via jsPDF, and returns the PDF as a base64 string.
@@ -85,7 +86,7 @@ interface Patient {
   email: string; phone: string; gender: string; address: string; city: string;
   healthInsurance: string; birthDate: string; notes: string;
   clinicalRecord?: { bloodType:string; allergies:string; currentMedications:string; medicalBackground:string; dentalBackground:string; habits:string; observations:string };
-  evolutions: Array<{ id:string; date:string; diagnosis:string; treatment:string; tooth:string; observations:string; cost:number; user:{name:string} }>;
+  evolutions: Array<{ id:string; date:string; diagnosis:string; treatment:string; tooth:string; observations:string; cost:number; user:{id:string;name:string} }>;
   budgets: Array<{ id:string; number:number; date:string; validUntil:string; status:string; subtotal:number; total:number; discount:number; notes:string; items:BudgetItem[]; payments:Array<{id:string;amount:number;date:string;method:string;notes:string}>; user:{id:string;name:string} }>;
   payments: Array<{ id:string; date:string; amount:number; method:string; notes:string; reference?:string; budget?:{number:number} }>;
   appointments: Array<{ id:string; date:string; startTime:string; type:string; status:string; user:{name:string} }>;
@@ -96,6 +97,57 @@ const TABS = ["Historial","Ficha Clínica","Odontograma","Estética Facial","Evo
 
 function fmt(n:number) { return new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(n); }
 function fmtShort(n:number) { const abs=Math.abs(n); const sign=n<0?"-":""; if(abs>=1000000) return `${sign}$${(abs/1000000).toFixed(1)}M`; if(abs>=1000) return `${sign}$${Math.round(abs/1000)}K`; return fmt(n); }
+
+interface RxFormData {
+  rxi_periapical:boolean; rxi_piezas:string;
+  rxi_total:boolean;
+  rxi_bitewing:boolean; rxi_bitewingDer:boolean; rxi_bitewingIzq:boolean;
+  rxi_mailCon:boolean; rxi_mailSin:boolean;
+  rxe_panoramica:boolean;
+  rxe_telerLateral:boolean; rxe_telerAntero:boolean;
+  rxe_manoCarpo:boolean;
+  rxe_mailCon:boolean; rxe_mailSin:boolean;
+  sc_arcadaSup:boolean; sc_mordidaMIC:boolean; sc_STL:boolean;
+  sc_arcadaInf:boolean; sc_invisalign:boolean; sc_PLY:boolean;
+  sc_mail:boolean;
+  cb_maxilarSup:boolean; cb_paraEvaluar:string; cb_implantes:boolean;
+  cb_mandibula:boolean; cb_tercerosMolares:boolean; cb_cortesPDF:boolean;
+  cb_zona:string; cb_fractura:boolean; cb_visualizadorCD:boolean;
+  cb_zonaMax3:boolean; cb_dienteIncluido:boolean; cb_DICOM:boolean;
+  cb_ATM:boolean; cb_bocaAbierta:boolean; cb_bocaCerrada:boolean; cb_wetransfer:boolean;
+  cb_mailCon:boolean; cb_mailSin:boolean;
+  cef_ricketts:boolean; cef_rothJarabak:boolean; cef_steiner:boolean;
+  cef_mcnamara:boolean; cef_roth:boolean; cef_sassouniPlus:boolean;
+  cef_tweed:boolean; cef_otro:string;
+  foto_clinicas:boolean; foto_overjet:boolean;
+  foto_setPDF:boolean; foto_unitarias:boolean;
+  meInteresa:string;
+}
+const EMPTY_RX_FORM: RxFormData = {
+  rxi_periapical:false, rxi_piezas:"",
+  rxi_total:false,
+  rxi_bitewing:false, rxi_bitewingDer:false, rxi_bitewingIzq:false,
+  rxi_mailCon:false, rxi_mailSin:false,
+  rxe_panoramica:false,
+  rxe_telerLateral:false, rxe_telerAntero:false,
+  rxe_manoCarpo:false,
+  rxe_mailCon:false, rxe_mailSin:false,
+  sc_arcadaSup:false, sc_mordidaMIC:false, sc_STL:false,
+  sc_arcadaInf:false, sc_invisalign:false, sc_PLY:false,
+  sc_mail:false,
+  cb_maxilarSup:false, cb_paraEvaluar:"", cb_implantes:false,
+  cb_mandibula:false, cb_tercerosMolares:false, cb_cortesPDF:false,
+  cb_zona:"", cb_fractura:false, cb_visualizadorCD:false,
+  cb_zonaMax3:false, cb_dienteIncluido:false, cb_DICOM:false,
+  cb_ATM:false, cb_bocaAbierta:false, cb_bocaCerrada:false, cb_wetransfer:false,
+  cb_mailCon:false, cb_mailSin:false,
+  cef_ricketts:false, cef_rothJarabak:false, cef_steiner:false,
+  cef_mcnamara:false, cef_roth:false, cef_sassouniPlus:false,
+  cef_tweed:false, cef_otro:"",
+  foto_clinicas:false, foto_overjet:false,
+  foto_setPDF:false, foto_unitarias:false,
+  meInteresa:"",
+};
 
 const CARE_TEMPLATES: Record<string, string> = {
   "Post-exodoncia": "• Morder el algodón firmemente 30–40 minutos y luego retirarlo sin escupir.\n• Evitar enjuagarse la boca las primeras 24 horas.\n• Aplicar hielo externo (20 min sí / 20 min no) durante las primeras 2–3 horas.\n• No consumir alimentos calientes, picantes ni duros por 24 horas. Dieta blanda 2–3 días.\n• No fumar ni consumir alcohol por al menos 48 horas.\n• Tomar los medicamentos indicados según prescripción.\n• Si presenta sangrado abundante, inflamación intensa o fiebre, contactar a la clínica.",
@@ -180,6 +232,8 @@ export default function PatientDetail() {
   const { id } = useParams<{id:string}>();
   const router  = useRouter();
   const isAdmin = useIsAdmin();
+  const { data: session } = useSession();
+  const sessionUserId = (session?.user as any)?.id ?? "";
   const [patient, setPatient] = useState<Patient|null>(null);
   const [tab, setTab] = useState(0);
   const [users, setUsers] = useState<Array<{id:string;name:string;rut?:string}>>([]);
@@ -189,9 +243,7 @@ export default function PatientDetail() {
   const [evoReminder, setEvoReminder] = useState(0);
   const [rxDocModal, setRxDocModal] = useState(false);
   const [rxDocUserId, setRxDocUserId] = useState("");
-  const [rxDocItems, setRxDocItems] = useState([{ type:"", zone:"" }]);
-  const [rxDocIndication, setRxDocIndication] = useState("");
-  const [rxDocObservations, setRxDocObservations] = useState("");
+  const [rxForm, setRxForm] = useState<RxFormData>({...EMPTY_RX_FORM});
   const [rxDocPdfSending, setRxDocPdfSending] = useState(false);
   const [saving, setSaving] = useState(false);
   const [rxModal, setRxModal] = useState(false);
@@ -208,7 +260,7 @@ export default function PatientDetail() {
   const [odontogram, setOdontogram] = useState<any>({});
   const [facial, setFacial] = useState<any>({});
   const [oSaving, setOSaving] = useState(false);
-  const [prescriptions, setPrescriptions] = useState<Array<{id:string;date:string;type:string;content:string;user:{name:string};createdAt:string}>>([]);
+  const [prescriptions, setPrescriptions] = useState<Array<{id:string;date:string;type:string;content:string;user:{id:string;name:string};createdAt:string}>>([]);
   const [rxTabType, setRxTabType] = useState<"recipe"|"care">("recipe");
   const [rxFreeForm, setRxFreeForm] = useState({ userId:"", date:new Date().toISOString().split("T")[0], content:"" });
   const [rxFreeSaving, setRxFreeSaving] = useState(false);
@@ -235,6 +287,8 @@ export default function PatientDetail() {
   const [budgetCreateOpen, setBudgetCreateOpen] = useState(false);
   const [budgetEditorOpen, setBudgetEditorOpen] = useState(false);
   const [budgetEditorEditId, setBudgetEditorEditId] = useState<string|null>(null);
+  const [editBudgetNameId, setEditBudgetNameId] = useState<string|null>(null);
+  const [editBudgetNameVal, setEditBudgetNameVal] = useState("");
   const [budgetForm, setBudgetForm] = useState({ userId:"", date:new Date().toISOString().split("T")[0], validUntil:new Date(Date.now()+30*86400000).toISOString().split("T")[0], status:"pending", discount:0, notes:"" });
   const [budgetItems, setBudgetItems] = useState([{ description:"", tooth:"", area:"", quantity:1, unitPrice:0, discount:0, total:0 }]);
   const [budgetEditId, setBudgetEditId] = useState<string|null>(null);
@@ -244,6 +298,10 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
   const [payEditSaving, setPayEditSaving] = useState(false);
   const [budgetDropIdx, setBudgetDropIdx] = useState<number|null>(null);
   const [deletingPatient, setDeletingPatient] = useState(false);
+  const [evoEditModal,  setEvoEditModal]  = useState(false);
+  const [evoEditId,     setEvoEditId]     = useState<string|null>(null);
+  const [evoEditForm,   setEvoEditForm]   = useState({ date:"", diagnosis:"", treatment:"", tooth:"", observations:"", cost:"0", userId:"" });
+  const [evoEditSaving, setEvoEditSaving] = useState(false);
   const [rxPdfSending, setRxPdfSending] = useState(false);
   const [carePdfSending, setCarePdfSending] = useState(false);
   const [budgetPdfSending, setBudgetPdfSending] = useState<string|null>(null);
@@ -298,10 +356,16 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     load();
   }
 
+  async function saveBudgetName(budgetId: string) {
+    await fetch(`/api/budgets/${budgetId}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({notes:editBudgetNameVal})});
+    setEditBudgetNameId(null);
+    load();
+  }
+
   function openBudgetCreate() {
     setBudgetEditorEditId(null);
     setBudgetEditorOpen(true);
-    setTab(5);
+    setTab(6);
   }
 
   function openBudgetEdit(b: Patient["budgets"][0]) {
@@ -311,7 +375,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     setBudgetEditorEditId(b.id);
     setBudgetDetailId(null);
     setBudgetEditorOpen(true);
-    setTab(5);
+    setTab(6);
   }
 
   async function saveBudget() {
@@ -491,6 +555,13 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
 
   useEffect(() => { load(); }, [id]);
 
+  useEffect(() => {
+    if (!sessionUserId) return;
+    setRxFreeForm(f => f.userId ? f : { ...f, userId: sessionUserId });
+    setEvoForm(f => f.userId ? f : { ...f, userId: sessionUserId });
+    setRxDocUserId(v => v || sessionUserId);
+  }, [sessionUserId]);
+
   function openEvoModal() {
     if (!patient) return;
     const selections: Record<string,{selected:boolean;newStatus:string}> = {};
@@ -547,6 +618,21 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     if (!confirm("¿Eliminar esta evolución?")) return;
     await fetch("/api/evolutions", { method:"DELETE", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ id: evoId }) });
     load();
+  }
+
+  function openEvoEdit(e: Patient["evolutions"][0]) {
+    setEvoEditId(e.id);
+    setEvoEditForm({ date:e.date, diagnosis:e.diagnosis||"", treatment:e.treatment, tooth:e.tooth||"", observations:e.observations||"", cost:String(e.cost), userId:e.user.id });
+    setEvoEditModal(true);
+  }
+
+  async function saveEvoEdit() {
+    if (!evoEditId) return;
+    setEvoEditSaving(true);
+    await fetch("/api/evolutions", { method:"PUT", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ id:evoEditId, date:evoEditForm.date, diagnosis:evoEditForm.diagnosis, treatment:evoEditForm.treatment, tooth:evoEditForm.tooth, observations:evoEditForm.observations, cost:parseFloat(evoEditForm.cost)||0, userId:evoEditForm.userId }) });
+    setEvoEditModal(false); setEvoEditId(null); setEvoEditSaving(false);
+    load(); showToast("✅ Evolución actualizada");
   }
 
   function buildDocHeader(): string {
@@ -679,6 +765,72 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
   function printRx() {
     if (!patient) return;
     openDocWindow("Receta Médica", buildRxDocBody());
+  }
+
+  function buildRxRequestHtml(f: RxFormData, professional: {name:string;rut?:string}|undefined): string {
+    if (!patient) return "";
+    const today = new Date().toLocaleDateString("es-CL",{day:"numeric",month:"long",year:"numeric"});
+    const chk = (v:boolean) => v ? "☑" : "☐";
+    const row = (label:string, checked:boolean, extra="", mail1="", mail2="") =>
+      `<tr><td style="padding:3px 6px;border:1px solid #ccc;font-size:10px">${chk(checked)} ${label}${extra?"<span style='margin-left:8px'>${extra}</span>":""}</td><td style="padding:3px 6px;border:1px solid #ccc;font-size:10px;text-align:center;white-space:nowrap">${mail1}</td><td style="padding:3px 6px;border:1px solid #ccc;font-size:10px;text-align:center;white-space:nowrap">${mail2}</td></tr>`;
+    const section = (title:string, color:string, rows:string, mailHdr1="Con Informe", mailHdr2="Sin Informe") =>
+      `<tr style="background:${color}"><td colspan="3" style="padding:3px 6px;font-weight:bold;font-size:10px;letter-spacing:.5px">${title}<span style="float:right;background:#1f4e79;color:white;padding:1px 8px;font-size:9px;border-radius:3px">ENVÍO POR MAIL</span></td></tr>
+       <tr style="background:#ddd"><td style="padding:2px 6px;font-size:9px;font-weight:bold"></td><td style="padding:2px 6px;font-size:9px;font-weight:bold;text-align:center">${mailHdr1}</td><td style="padding:2px 6px;font-size:9px;font-weight:bold;text-align:center">${mailHdr2}</td></tr>
+       ${rows}`;
+
+    return `
+      ${buildDocHeader()}
+      <div style="text-align:center;margin:10px 0 8px">
+        <div style="font-size:16px;font-weight:bold;letter-spacing:1px">SOLICITUD DE RADIOGRAFÍA / SCANNER</div>
+      </div>
+      ${buildDocProfPat({name:professional?.name||"",rut:professional?.rut||""}, [
+        {label:"Paciente",value:`${patient.firstName} ${patient.lastName}`},
+        {label:"RUT",value:patient.rut},
+        {label:"Fecha",value:today}
+      ])}
+      <table style="width:100%;border-collapse:collapse;margin-bottom:6px;table-layout:fixed">
+        <colgroup><col style="width:60%"><col style="width:20%"><col style="width:20%"></colgroup>
+        ${section("RX INTRAORAL","#f0f6ff",
+          row("Periapical Digital Piezas",f.rxi_periapical,f.rxi_piezas?` — Piezas: ${f.rxi_piezas}`:"",chk(f.rxi_mailCon)+" Con Informe",chk(f.rxi_mailSin)+" Sin Informe") +
+          row("RX Total",f.rxi_total,"",chk(f.rxi_mailCon),chk(f.rxi_mailSin)) +
+          row(`Bitewing ${f.rxi_bitewingDer?chk(true)+" Derecha":""} ${f.rxi_bitewingIzq?chk(true)+" Izquierda":""}`,f.rxi_bitewing,"",chk(f.rxi_mailCon),chk(f.rxi_mailSin))
+        )}
+        ${section("RX EXTRAORAL","#fff8f0",
+          row("Panorámica",f.rxe_panoramica,"",chk(f.rxe_mailCon)+" Con Informe",chk(f.rxe_mailSin)+" Sin Informe") +
+          row(`Telerradiografía ${f.rxe_telerLateral?chk(true)+" Lateral":""} ${f.rxe_telerAntero?chk(true)+" Anteroposterior":""}`,f.rxe_panoramica||f.rxe_telerLateral||f.rxe_telerAntero,"",chk(f.rxe_mailCon),chk(f.rxe_mailSin)) +
+          row("RX Mano/Carpo",f.rxe_manoCarpo,"",chk(f.rxe_mailCon),chk(f.rxe_mailSin))
+        )}
+        ${section("SCANNER INTRAORAL (ITERO-INVISALIGN)","#f0fff4",
+          row(`Arcada superior ${f.sc_mordidaMIC?chk(true)+" Mordida en MIC":""} ${f.sc_STL?chk(true)+" STL":""}`,f.sc_arcadaSup,"","","") +
+          row(`Arcada inferior ${f.sc_invisalign?chk(true)+" Asociar Invisalign Doctor":""} ${f.sc_PLY?chk(true)+" PLY":""}`,f.sc_arcadaInf,"","","")
+        ,"","") }
+        ${section("TOMOGRAFÍA - CONE BEAM","#fff0f0",
+          row(`Scanner Maxilar Superior — Para Evaluar: ${f.cb_paraEvaluar||"_______"} ${f.cb_implantes?chk(true)+" Implantes":""}`,f.cb_maxilarSup,"",chk(f.cb_mailCon)+" Con Informe",chk(f.cb_mailSin)+" Sin Informe") +
+          row(`Scanner Mandíbula ${f.cb_tercerosMolares?chk(true)+" Terceros Molares":""} ${f.cb_cortesPDF?chk(true)+" Cortes en PDF":""}`,f.cb_mandibula,"",chk(f.cb_mailCon),chk(f.cb_mailSin)) +
+          row(`Scanner Zona: ${f.cb_zona||"_______"} ${f.cb_fractura?chk(true)+" Fractura":""} ${f.cb_visualizadorCD?chk(true)+" Visualizador CD/DVD":""}`,!!(f.cb_zona||f.cb_fractura),"",chk(f.cb_mailCon),chk(f.cb_mailSin)) +
+          row(`${f.cb_zonaMax3?chk(true)+" Zona máx. 3 piezas":""} ${f.cb_dienteIncluido?chk(true)+" Diente Incluido":""} ${f.cb_DICOM?chk(true)+" DICOM nativos .DCM":""}`,!!(f.cb_zonaMax3||f.cb_dienteIncluido),"","","") +
+          row(`ATM ${f.cb_bocaAbierta?chk(true)+" Boca Abierta":""} ${f.cb_bocaCerrada?chk(true)+" Boca Cerrada":""} ${f.cb_wetransfer?chk(true)+" Visualizador por Wetransfer":""}`,f.cb_ATM,"","","")
+        )}
+      </table>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:6px">
+        <tr style="background:#f0f0ff"><td style="padding:3px 6px;font-weight:bold;font-size:10px">ANÁLISIS CEFALOMÉTRICOS</td></tr>
+        <tr><td style="padding:3px 6px;font-size:10px;border:1px solid #ccc">
+          ${chk(f.cef_ricketts)} Ricketts &nbsp; ${chk(f.cef_rothJarabak)} Roth-Jarabak &nbsp; ${chk(f.cef_steiner)} Steiner &nbsp;
+          ${chk(f.cef_mcnamara)} Mcnamara &nbsp; ${chk(f.cef_roth)} Roth &nbsp; ${chk(f.cef_sassouniPlus)} Sassouni Plus &nbsp;
+          ${chk(f.cef_tweed)} Tweed &nbsp; Otro: ${f.cef_otro||"_____________"}
+        </td></tr>
+      </table>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:6px">
+        <tr style="background:#f0f6f0"><td colspan="2" style="padding:3px 6px;font-weight:bold;font-size:10px">ESTUDIO DE FOTOS</td></tr>
+        <tr><td style="padding:3px 6px;font-size:10px;border:1px solid #ccc">
+          ${chk(f.foto_clinicas)} Fotos Clínicas &nbsp; ${chk(f.foto_overjet)} Incluir Overjet
+        </td><td style="padding:3px 6px;font-size:10px;border:1px solid #ccc">
+          ${chk(f.foto_setPDF)} Set en PDF &nbsp; ${chk(f.foto_unitarias)} Unitarias en JPG
+        </td></tr>
+      </table>
+      ${f.meInteresa ? `<div style="font-size:10px;border:1px solid #ccc;padding:4px 6px;margin-bottom:6px"><strong>ME INTERESA SABER:</strong> ${f.meInteresa}</div>` : ""}
+      ${buildDocFooter("Firma y Timbre Profesional","Clínica Magna")}
+    `;
   }
 
   async function savePay() {
@@ -877,14 +1029,109 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
   async function saveRxFree() {
     if (!rxFreeForm.userId || !rxFreeForm.content.trim()) return;
     setRxFreeSaving(true);
-    await fetch("/api/prescriptions", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ patientId: id, userId: rxFreeForm.userId, date: rxFreeForm.date, type: rxTabType, content: rxFreeForm.content }),
-    });
-    setRxFreeForm(f => ({ ...f, content: "" }));
+    try {
+      const res = await fetch("/api/prescriptions", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patientId: id, userId: rxFreeForm.userId, date: rxFreeForm.date, type: rxTabType, content: rxFreeForm.content }),
+      });
+      if (!res.ok) { showToast(`❌ Error al guardar (${res.status})`); setRxFreeSaving(false); return; }
+      setRxFreeForm(f => ({ ...f, content: "" }));
+      await load();
+      showToast(rxTabType==="recipe" ? "✅ Receta guardada" : "✅ Cuidados guardados");
+    } catch(e) { showToast(`❌ Error: ${String(e)}`); }
     setRxFreeSaving(false);
-    const r = await fetch(`/api/prescriptions?patientId=${id}`);
-    if (r.ok) setPrescriptions(await r.json());
+  }
+
+  async function emailSavedPrescription(rx: {date:string;type:string;content:string;user:{name:string}}) {
+    if (!patient?.email) { showToast("❌ El paciente no tiene email"); return; }
+    const fullName = `${patient.firstName} ${patient.lastName}`;
+    const dateStr  = new Date(rx.date+"T12:00:00").toLocaleDateString("es-CL",{day:"numeric",month:"long",year:"numeric"});
+    const label    = rx.type === "recipe" ? "Receta Médica" : "Cuidados Post-Procedimiento";
+    const bodyHtml = `<div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto">
+      <div style="background:#1e3a5f;padding:18px 24px;border-radius:8px 8px 0 0">
+        <h2 style="color:white;margin:0;font-size:18px">${label}</h2>
+      </div>
+      <div style="padding:20px 24px;background:#f8fafc;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px">
+        <p style="margin:0 0 4px;font-size:13px;color:#64748b">Paciente: <strong style="color:#1e293b">${fullName}</strong></p>
+        <p style="margin:0 0 4px;font-size:13px;color:#64748b">Profesional: <strong style="color:#1e293b">${rx.user.name}</strong></p>
+        <p style="margin:0 0 16px;font-size:13px;color:#64748b">Fecha: <strong style="color:#1e293b">${dateStr}</strong></p>
+        <hr style="border:none;border-top:1px solid #e2e8f0;margin:0 0 16px"/>
+        <pre style="font-family:Arial,sans-serif;white-space:pre-wrap;font-size:13px;color:#1e293b;line-height:1.7;margin:0">${rx.content}</pre>
+      </div>
+    </div>`;
+    try {
+      const pdfBase64 = await generatePdfBase64(bodyHtml);
+      const r = await fetch("/api/send-document", { method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ pdfBase64, to: patient.email, subject:`${label} — ${fullName}`,
+          filename:`${label.replace(/ /g,"_")}_${patient.firstName}_${patient.lastName}`,
+          patientName:fullName, bodyText:`Estimado/a ${fullName}, adjuntamos su ${label.toLowerCase()}. Saludos, Clínica Magna.` }) });
+      const d = await r.json();
+      showToast(d.ok ? `✅ ${label} enviada por email` : `❌ ${d.error}`);
+    } catch(e) { showToast(`❌ Error: ${String(e)}`); }
+  }
+
+  async function emailSavedRxRequest(rx: {date:string;content:string;user:{id:string;name:string}}) {
+    if (!patient?.email) { showToast("❌ El paciente no tiene email"); return; }
+    let parsed: any = {};
+    try { parsed = JSON.parse(rx.content); } catch {}
+    const professional = users.find(u => u.id === rx.user.id) ?? { name: rx.user.name };
+    const bodyHtml = buildRxRequestHtml(parsed as RxFormData, professional);
+    try {
+      const pdfBase64 = await generatePdfBase64(bodyHtml);
+      const fullName = `${patient.firstName} ${patient.lastName}`;
+      const r = await fetch("/api/send-document", { method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ pdfBase64, to: patient.email, subject:`Solicitud de Radiografía — ${fullName}`,
+          filename:`SolicitudRx_${patient.firstName}_${patient.lastName}`,
+          patientName:fullName, bodyText:`Estimado/a ${fullName}, adjuntamos su solicitud de radiografía/scanner. Saludos, Clínica Magna.` }) });
+      const d = await r.json();
+      showToast(d.ok ? "✅ Solicitud enviada por email" : `❌ ${d.error}`);
+    } catch(e) { showToast(`❌ Error: ${String(e)}`); }
+  }
+
+  function waSavedRxRequest(rx: {date:string;content:string;user:{name:string}}) {
+    if (!patient?.phone) { showToast("❌ El paciente no tiene teléfono"); return; }
+    let parsed: any = {};
+    try { parsed = JSON.parse(rx.content); } catch {}
+    const items: string[] = [];
+    if (parsed.rxi_periapical) items.push(`• Periapical Digital${parsed.rxi_piezas?` piezas: ${parsed.rxi_piezas}`:""}`);
+    if (parsed.rxi_total) items.push("• RX Total");
+    if (parsed.rxi_bitewing) items.push(`• Bitewing${parsed.rxi_bitewingDer?" Der":""}${parsed.rxi_bitewingIzq?" Izq":""}`);
+    if (parsed.rxe_panoramica) items.push("• Panorámica");
+    if (parsed.rxe_telerLateral||parsed.rxe_telerAntero) items.push(`• Telerradiografía${parsed.rxe_telerLateral?" Lateral":""}${parsed.rxe_telerAntero?" Anteroposterior":""}`);
+    if (parsed.rxe_manoCarpo) items.push("• RX Mano/Carpo");
+    if (parsed.sc_arcadaSup||parsed.sc_arcadaInf||parsed.sc_STL||parsed.sc_PLY||parsed.sc_invisalign) items.push(`• Scanner${parsed.sc_arcadaSup?" Arcada Sup":""}${parsed.sc_arcadaInf?" Arcada Inf":""}${parsed.sc_STL?" STL":""}${parsed.sc_PLY?" PLY":""}${parsed.sc_invisalign?" Invisalign":""}`);
+    if (parsed.cb_maxilarSup||parsed.cb_mandibula||parsed.cb_ATM) items.push(`• Cone Beam${parsed.cb_maxilarSup?" Maxilar Sup":""}${parsed.cb_mandibula?" Mandíbula":""}${parsed.cb_ATM?" ATM":""}${parsed.cb_zona?` zona ${parsed.cb_zona}`:""}`);
+    if (parsed.meInteresa) items.push(`Notas: ${parsed.meInteresa}`);
+    const fullName = `${patient.firstName} ${patient.lastName}`;
+    const dateStr  = new Date(rx.date+"T12:00:00").toLocaleDateString("es-CL");
+    const msg = `*Solicitud de Radiografía / Scanner*\nPaciente: ${fullName}\nFecha: ${dateStr}\nProfesional: ${rx.user.name}\n\n${items.join("\n") || "Sin ítems seleccionados"}\n\nClínica Magna`;
+    const clean = patient.phone.replace(/\D/g,"");
+    const num   = clean.startsWith("56") ? clean : `56${clean}`;
+    window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, "_blank");
+  }
+
+  function printSavedRxRequest(rx: {content:string;user:{id:string;name:string}}) {
+    let parsed: any = {};
+    try { parsed = JSON.parse(rx.content); } catch {}
+    const professional = users.find(u => u.id === rx.user.id) ?? { name: rx.user.name };
+    const bodyHtml = buildRxRequestHtml(parsed as RxFormData, professional);
+    const win = window.open("","_blank","width=860,height=1100");
+    if (win) { win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/><title>Solicitud Rx</title><style>@page{margin:14mm;size:A4 portrait}*{box-sizing:border-box}body{font-family:'Times New Roman',Times,serif;font-size:11px;color:#1a1a1a;margin:0}@media print{.noprint{display:none!important}}</style></head><body>${bodyHtml}<button class="noprint" onclick="window.print()" style="position:fixed;top:14px;right:14px;padding:8px 18px;background:#1f4e79;color:white;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-family:sans-serif">🖨 Imprimir / PDF</button></body></html>`); win.document.close(); }
+  }
+
+  function printSavedPrescription(rx: {date:string;type:string;content:string;user:{id:string;name:string}}) {
+    if (!patient) return;
+    const professional = users.find(u => u.id === rx.user.id) ?? { name: rx.user.name };
+    const label = rx.type === "recipe" ? "Receta Médica" : "Cuidados Post-Procedimiento";
+    const dateStr = new Date(rx.date+"T12:00:00").toLocaleDateString("es-CL",{day:"numeric",month:"long",year:"numeric"});
+    const body = `<div style="text-align:right;margin-bottom:24px"><b>Fecha:</b> ${dateStr}</div>
+      <div style="margin-bottom:8px"><b>Paciente:</b> ${patient.firstName} ${patient.lastName}</div>
+      <div style="margin-bottom:16px"><b>Profesional:</b> ${professional.name}</div>
+      <hr style="margin:16px 0"/>
+      <h2 style="font-size:13px;margin-bottom:12px">${label}</h2>
+      <pre style="font-family:inherit;font-size:11px;white-space:pre-wrap;line-height:1.7">${rx.content}</pre>
+      ${buildDocFooter(professional.name,"Clínica Magna")}`;
+    openDocWindow(label, body);
   }
 
   async function deleteRx(rxId: string) {
@@ -1003,11 +1250,15 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
               <h1 className="text-[20px] font-bold text-white leading-tight">{patient.firstName} {patient.lastName}</h1>
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 <span className="text-blue-100 text-[13px]">RUT {patient.rut}</span>
-                {patient.gender && <span className="text-blue-200 text-[13px]">| {patient.gender === "M" ? "Masculino" : "Femenino"}</span>}
-                {age && <span className="text-blue-200 text-[13px]">| {age} años{patient.birthDate ? `, ${Math.floor((Date.now()-new Date(patient.birthDate).getTime())/(1000*60*60*24*30.5)%12)}M` : ""}</span>}
-                {patient.healthInsurance && (
-                  <span className="ml-1 px-2 py-0.5 bg-white/20 text-white text-[11px] font-semibold rounded-full">{patient.healthInsurance}</span>
-                )}
+                {patient.gender && <span className="text-blue-200 text-[13px]">| {patient.gender}</span>}
+                {age !== null && patient.birthDate && (() => {
+                  const bd = new Date(patient.birthDate);
+                  const now = new Date();
+                  let mos = (now.getFullYear() - bd.getFullYear()) * 12 + (now.getMonth() - bd.getMonth());
+                  if (now.getDate() < bd.getDate()) mos--;
+                  const yrs = Math.floor(mos / 12); const rem = mos % 12;
+                  return <span className="text-blue-200 text-[13px]">| {yrs} año{yrs !== 1 ? "s" : ""}{rem > 0 ? `, ${rem} mes${rem !== 1 ? "es" : ""}` : ""}</span>;
+                })()}
               </div>
             </div>
 
@@ -1041,8 +1292,8 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         {/* Barra de acciones rápidas bajo el header */}
         <div className="bg-white border-b border-[#E3E8F0] px-4 sm:px-6 py-2 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex gap-1.5 flex-wrap">
-            <button onClick={()=>{ setTab(5); }} className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-600 hover:text-white transition-all">
-              <Printer size={13}/> Receta / Cuidados
+            <button onClick={()=>openEvoModal()} className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-[#EEF3FF] text-[#0057FF] border border-[#0057FF]/20 hover:bg-[#0057FF] hover:text-white transition-all">
+              <Activity size={13}/> Nueva evolución
             </button>
             <button onClick={()=>router.push(`/agenda?patientId=${patient.id}`)} className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-[#F0F2F7] text-[#4B5563] border border-[#E3E8F0] hover:bg-[#E3E8F0] transition-all">
               <CalendarPlus size={13}/> Agendar
@@ -1072,18 +1323,18 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
           </span>
         </div>
 
-        {/* Acciones secundarias */}
-        <div className="bg-[#F8F9FC] px-4 sm:px-6 py-1.5 flex gap-1.5 flex-wrap rounded-b-2xl border-t border-[#E3E8F0]">
-          <button onClick={()=>setTab(4)} className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-3 py-1.5 rounded-lg bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-600 hover:text-white transition-all">
-            <Activity size={12}/> Nueva evolución
-          </button>
-        </div>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-[2px] bg-[#F0F2F7] rounded-[10px] p-[3px] w-fit border border-[#E3E8F0] mb-4 flex-wrap">
           {TABS.map((t,i)=>(
-            <button key={t} onClick={()=>setTab(i)}
+            <button key={t} onClick={()=>{
+              if (budgetEditorOpen && i !== 6) {
+                if (!confirm("Tienes un presupuesto abierto con cambios sin guardar. ¿Salir sin guardar?")) return;
+                setBudgetEditorOpen(false);
+              }
+              setTab(i);
+            }}
               className={`px-3.5 py-[7px] text-[13px] rounded-[7px] transition-all duration-150 ${
                 tab===i
                   ? "bg-white text-[#1A1D2E] shadow-sm font-semibold"
@@ -1251,15 +1502,9 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         <div className="space-y-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <p className="text-sm text-muted">{patient.evolutions.length} evoluciones registradas</p>
-            <div className="flex gap-2 flex-wrap">
-              <button onClick={()=>{ setRxUserId(""); setRxItems([{drug:"",dose:"",freq:"",duration:"",route:"oral",instructions:"",qty:""}]); setRxNotes(""); setRxModal(true); }}
-                className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-xl bg-violet-50 text-violet-700 hover:bg-violet-100 border border-violet-200 transition-colors">
-                <Printer size={13}/> Receta médica
-              </button>
-              <button onClick={()=>openEvoModal()} className="btn-primary text-sm">
-                <Plus size={14}/> Nueva Evolución
-              </button>
-            </div>
+            <button onClick={()=>openEvoModal()} className="btn-primary text-sm">
+              <Plus size={14}/> Nueva Evolución
+            </button>
           </div>
           {patient.evolutions.length===0 ? (
             <div className="card py-12 text-center">
@@ -1296,6 +1541,9 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                             {fmt(e.cost)}
                           </span>
                         )}
+                        <button onClick={()=>openEvoEdit(e)} className="w-7 h-7 flex items-center justify-center rounded-lg text-[#C8D0E0] hover:text-[#0057FF] hover:bg-[#EEF3FF] transition-colors">
+                            <Pencil size={13}/>
+                          </button>
                         {isAdmin && (
                           <button onClick={()=>deleteEvolution(e.id)} className="w-7 h-7 flex items-center justify-center rounded-lg text-[#C8D0E0] hover:text-[#E53935] hover:bg-[#FDECEA] transition-colors">
                             <Trash2 size={13}/>
@@ -1415,8 +1663,29 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                       <p className="text-[10px] text-[#9AA0B4]">{new Date(rx.date+"T12:00:00").toLocaleDateString("es-CL",{day:"numeric",month:"short",year:"numeric"})}</p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button onClick={()=>{ setRxFreeForm({userId:"",date:new Date().toISOString().split("T")[0],content:rx.content}); window.scrollTo(0,0); }}
+                  <div className="flex gap-2 items-center">
+                    <button onClick={()=>printSavedPrescription(rx)}
+                      className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors border border-slate-200" title="Imprimir / PDF">
+                      <Printer size={13}/>
+                    </button>
+                    {patient.phone && (
+                      <button onClick={()=>{
+                        const clean=patient.phone!.replace(/\D/g,"");
+                        const num=clean.startsWith("56")?clean:`56${clean}`;
+                        const label=rxTabType==="recipe"?"Receta":"Cuidados post-procedimiento";
+                        const msg=`*${label}*\n${patient.firstName} ${patient.lastName}\n${new Date(rx.date+"T12:00:00").toLocaleDateString("es-CL")}\n\n${rx.content}\n\nClínica Magna`;
+                        window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`,"_blank");
+                      }} className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition-colors border border-emerald-200" title="Enviar por WhatsApp">
+                        <MessageCircle size={13}/>
+                      </button>
+                    )}
+                    {patient.email && (
+                      <button onClick={()=>emailSavedPrescription(rx)}
+                        className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors border border-blue-200" title="Enviar por email">
+                        <Mail size={13}/>
+                      </button>
+                    )}
+                    <button onClick={()=>{ setRxFreeForm({userId:sessionUserId,date:new Date().toISOString().split("T")[0],content:rx.content}); window.scrollTo(0,0); }}
                       className="text-[11px] font-semibold text-[#0057FF] hover:underline">
                       Reutilizar
                     </button>
@@ -1441,13 +1710,13 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
               patientId={id}
               budgetId={budgetEditorEditId ?? undefined}
               budgetNumber={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.number : undefined}
-              initUserId={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.user.id : ""}
+              initUserId={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.user.id : sessionUserId}
               initDate={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.date : undefined}
               initValidUntil={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.validUntil ?? undefined : undefined}
               initStatus={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.status : "pending"}
               initDiscount={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.discount : 0}
               initNotes={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.notes ?? "" : ""}
-              initLines={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.items.map((i,idx)=>({_key:String(idx),toothNum:undefined,surfaces:[],description:i.description,quantity:i.quantity,unitPrice:i.unitPrice,discount:i.discount??0,total:i.total})) : []}
+              initLines={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.items.map((i,idx)=>({_key:String(idx),toothNum:undefined,surfaces:[],description:i.description,quantity:i.quantity,unitPrice:i.unitPrice,discount:i.discount??0,discountAmt:(i as any).discountAmt??0,total:i.total,status:(i as any).status||"pending"})) : []}
               users={users}
               treatments={treatments}
               convenios={convenios}
@@ -1455,16 +1724,17 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
               onCancel={()=>setBudgetEditorOpen(false)}
               onSave={async(data)=>{
                 setBudgetSaving(true);
+                const wasNew = !budgetEditorEditId;
                 if(budgetEditorEditId){
                   await fetch(`/api/budgets/${budgetEditorEditId}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});
                 } else {
-                  await fetch("/api/budgets",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...data,patientId:id})});
+                  const res = await fetch("/api/budgets",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...data,patientId:id})});
+                  const created = await res.json();
+                  if(created?.id) setBudgetEditorEditId(created.id);
                 }
                 setBudgetSaving(false);
-                setBudgetEditorOpen(false);
-                setBudgetEditorEditId(null);
                 load();
-                showToast(budgetEditorEditId?"✅ Presupuesto actualizado":"✅ Presupuesto creado");
+                showToast(wasNew?"✅ Presupuesto creado":"✅ Presupuesto actualizado");
               }}
             />
           )}
@@ -1520,10 +1790,27 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-0.5">
                               <span className="text-[14px] font-bold text-[#0057FF]">#{String(b.number).padStart(5,"0")}</span>
-                              <span className="text-[14px] font-bold text-[#1A1D2E]">{b.notes || "Sin nombre"}</span>
-                              <button onClick={()=>openBudgetEdit(b)} className="text-[#9AA0B4] hover:text-[#0057FF] transition-colors">
-                                <Pencil size={12}/>
-                              </button>
+                              {editBudgetNameId===b.id ? (
+                                <>
+                                  <input autoFocus className="text-[14px] font-bold text-[#1A1D2E] border-b border-[#0057FF] bg-transparent outline-none w-40"
+                                    value={editBudgetNameVal}
+                                    onChange={e=>setEditBudgetNameVal(e.target.value)}
+                                    onKeyDown={e=>{ if(e.key==="Enter") saveBudgetName(b.id); if(e.key==="Escape") setEditBudgetNameId(null); }}/>
+                                  <button onClick={()=>saveBudgetName(b.id)} className="p-1 rounded-lg text-emerald-600 hover:bg-emerald-50"><Check size={13}/></button>
+                                  <button onClick={()=>setEditBudgetNameId(null)} className="p-1 rounded-lg text-[#9AA0B4] hover:bg-[#F0F2F7]"><X size={13}/></button>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="text-[14px] font-bold text-[#1A1D2E] cursor-pointer hover:text-[#0057FF]"
+                                    onClick={()=>{ setEditBudgetNameId(b.id); setEditBudgetNameVal(b.notes||""); }}
+                                    title="Haz clic para editar el nombre">
+                                    {b.notes || "Sin nombre"}
+                                  </span>
+                                  <button onClick={()=>{ setEditBudgetNameId(b.id); setEditBudgetNameVal(b.notes||""); }} className="p-1 rounded-lg text-[#9AA0B4] hover:text-[#0057FF] hover:bg-[#EEF3FF] transition-colors">
+                                    <Pencil size={13}/>
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </div>
                           {isAdmin && (
@@ -1575,13 +1862,23 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                         {/* Fechas + acciones */}
                         <div className="flex items-center justify-between flex-wrap gap-2">
                           <span className="text-[11px] text-[#9AA0B4]">Creado: {b.date}{b.validUntil?` · Válido hasta: ${b.validUntil}`:""}</span>
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 items-center">
+                            {patient.phone && (
+                              <button onClick={()=>sendBudgetWA(b)} className="p-2.5 rounded-xl border border-emerald-200 text-emerald-600 hover:bg-emerald-50 transition-colors min-h-[40px]" title="Enviar por WhatsApp">
+                                <MessageCircle size={18}/>
+                              </button>
+                            )}
+                            {patient.email && (
+                              <button onClick={()=>emailPdfBudget(b)} className="p-2.5 rounded-xl border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors min-h-[40px]" title="Enviar por email">
+                                <Mail size={18}/>
+                              </button>
+                            )}
                             <button onClick={()=>openBudgetEdit(b)}
-                              className="text-[13px] font-semibold px-4 py-2 rounded-xl bg-[#F0F2F7] text-[#4B5563] hover:bg-[#E3E8F0] transition-colors">
+                              className="text-[13px] font-semibold px-4 py-2.5 rounded-xl bg-[#F0F2F7] text-[#4B5563] hover:bg-[#E3E8F0] transition-colors min-h-[40px]">
                               Editar
                             </button>
                             <button onClick={()=>setBudgetDetailId(b.id)}
-                              className="text-[13px] font-semibold px-4 py-2 rounded-xl bg-[#0057FF] text-white hover:bg-[#0041CC] transition-colors">
+                              className="text-[13px] font-semibold px-4 py-2.5 rounded-xl bg-[#0057FF] text-white hover:bg-[#0041CC] transition-colors min-h-[40px]">
                               Ver detalle
                             </button>
                           </div>
@@ -1604,21 +1901,48 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                     const bBalance = b.total - bPaid;
                     return (
                       <div key={b.id} className="bg-white border border-[#E3E8F0] rounded-2xl p-4 mb-3 shadow-sm opacity-80">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-between gap-3 flex-wrap">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-[13px] font-bold text-[#9AA0B4]">#{String(b.number).padStart(5,"0")}</span>
-                              <span className="text-[13px] text-[#4B5563]">{b.notes || "Sin nombre"}</span>
+                              {editBudgetNameId===b.id ? (
+                                <>
+                                  <input autoFocus className="text-[13px] font-medium text-[#4B5563] border-b border-[#0057FF] bg-transparent outline-none w-36"
+                                    value={editBudgetNameVal}
+                                    onChange={e=>setEditBudgetNameVal(e.target.value)}
+                                    onKeyDown={e=>{ if(e.key==="Enter") saveBudgetName(b.id); if(e.key==="Escape") setEditBudgetNameId(null); }}/>
+                                  <button onClick={()=>saveBudgetName(b.id)} className="p-0.5 rounded text-emerald-600 hover:bg-emerald-50"><Check size={12}/></button>
+                                  <button onClick={()=>setEditBudgetNameId(null)} className="p-0.5 rounded text-[#9AA0B4] hover:bg-[#F0F2F7]"><X size={12}/></button>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="text-[13px] text-[#4B5563] cursor-pointer hover:text-[#0057FF]"
+                                    onClick={()=>{ setEditBudgetNameId(b.id); setEditBudgetNameVal(b.notes||""); }}>{b.notes || "Sin nombre"}</span>
+                                  <button onClick={()=>{ setEditBudgetNameId(b.id); setEditBudgetNameVal(b.notes||""); }} className="p-0.5 rounded text-[#9AA0B4] hover:text-[#0057FF]">
+                                    <Pencil size={11}/>
+                                  </button>
+                                </>
+                              )}
                               <Badge value={b.status}/>
                             </div>
                             <p className="text-[11px] text-[#9AA0B4] mt-0.5">{b.user.name} · {b.date} · Total: {fmt(b.total)}</p>
                           </div>
-                          <div className="flex gap-2 flex-shrink-0">
-                            <button onClick={()=>openBudgetEdit(b)} className="text-[11px] font-semibold text-[#0057FF] hover:underline">Editar</button>
+                          <div className="flex gap-2 flex-shrink-0 items-center">
+                            {patient.phone && (
+                              <button onClick={()=>sendBudgetWA(b)} className="p-2.5 rounded-xl border border-emerald-200 text-emerald-600 hover:bg-emerald-50 transition-colors min-h-[40px]" title="WhatsApp">
+                                <MessageCircle size={17}/>
+                              </button>
+                            )}
+                            {patient.email && (
+                              <button onClick={()=>emailPdfBudget(b)} className="p-2.5 rounded-xl border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors min-h-[40px]" title="Enviar email">
+                                <Mail size={17}/>
+                              </button>
+                            )}
+                            <button onClick={()=>openBudgetEdit(b)} className="text-[13px] font-semibold px-4 py-2.5 rounded-xl bg-[#F0F2F7] text-[#0057FF] hover:bg-[#EEF3FF] transition-colors min-h-[40px]">Editar</button>
                             {isAdmin && (
                               <button onClick={async()=>{ if(!confirm("¿Eliminar?"))return; await fetch(`/api/budgets/${b.id}`,{method:"DELETE"}); load(); }}
-                                className="text-red-400 hover:text-red-600 transition-colors">
-                                <Trash2 size={13}/>
+                                className="p-2.5 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 border border-red-100 transition-colors min-h-[40px] flex items-center">
+                                <Trash2 size={17}/>
                               </button>
                             )}
                           </div>
@@ -1647,7 +1971,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                 <option value="foto">Fotografía</option>
                 <option value="other">Otro</option>
               </select>
-              <button onClick={()=>{ setRxDocUserId(""); setRxDocItems([{type:"",zone:""}]); setRxDocIndication(""); setRxDocObservations(""); setRxDocModal(true); }}
+              <button onClick={()=>{ setRxDocUserId(""); setRxForm({...EMPTY_RX_FORM}); setRxDocModal(true); }}
                 className="inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-2 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-500 hover:text-white transition-all">
                 <FileText size={14}/> Solicitud Rx
               </button>
@@ -1693,6 +2017,63 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+          {/* Solicitudes Rx guardadas */}
+          {prescriptions.filter(p=>p.type==="rxrequest").length > 0 && (
+            <div className="mt-4">
+              <h4 className="text-[12px] font-bold text-[#9AA0B4] uppercase tracking-wide mb-2">Solicitudes guardadas</h4>
+              <div className="space-y-2">
+                {prescriptions.filter(p=>p.type==="rxrequest").map(rx=>{
+                  let parsed: any = {};
+                  try { parsed = JSON.parse(rx.content); } catch {}
+                  return (
+                    <div key={rx.id} className="bg-white border border-[#E3E8F0] rounded-xl p-3 shadow-sm">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] bg-amber-100 text-amber-700 font-semibold px-2 py-0.5 rounded-full">Solicitud Rx</span>
+                          <span className="text-[11px] text-[#9AA0B4]">{new Date(rx.date+"T12:00:00").toLocaleDateString("es-CL")}</span>
+                          <span className="text-[11px] text-[#9AA0B4]">— {rx.user.name}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <button onClick={()=>printSavedRxRequest(rx)}
+                            className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors border border-slate-200" title="Imprimir / PDF">
+                            <Printer size={12}/>
+                          </button>
+                          {patient.phone && (
+                            <button onClick={()=>waSavedRxRequest(rx)}
+                              className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition-colors border border-emerald-200" title="Enviar por WhatsApp">
+                              <MessageCircle size={12}/>
+                            </button>
+                          )}
+                          {patient.email && (
+                            <button onClick={()=>emailSavedRxRequest(rx)}
+                              className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors border border-blue-200" title="Enviar por email">
+                              <Mail size={12}/>
+                            </button>
+                          )}
+                          {isAdmin && <button onClick={()=>deleteRx(rx.id)} className="p-1 text-[#D4C4A0] hover:text-red-500 transition-colors"><Trash2 size={12}/></button>}
+                        </div>
+                      </div>
+                      {/* New structured form display */}
+                      {parsed.rxi_periapical && <div className="text-[11px] text-[#1A1D2E]">• Periapical Digital{parsed.rxi_piezas?` — Piezas: ${parsed.rxi_piezas}`:""}</div>}
+                      {parsed.rxi_total && <div className="text-[11px] text-[#1A1D2E]">• RX Total</div>}
+                      {parsed.rxi_bitewing && <div className="text-[11px] text-[#1A1D2E]">• Bitewing{parsed.rxi_bitewingDer?" Derecha":""}{parsed.rxi_bitewingIzq?" Izquierda":""}</div>}
+                      {parsed.rxe_panoramica && <div className="text-[11px] text-[#1A1D2E]">• Panorámica</div>}
+                      {(parsed.rxe_telerLateral||parsed.rxe_telerAntero) && <div className="text-[11px] text-[#1A1D2E]">• Telerradiografía{parsed.rxe_telerLateral?" Lateral":""}{parsed.rxe_telerAntero?" Anteroposterior":""}</div>}
+                      {parsed.rxe_manoCarpo && <div className="text-[11px] text-[#1A1D2E]">• RX Mano/Carpo</div>}
+                      {(parsed.sc_arcadaSup||parsed.sc_arcadaInf) && <div className="text-[11px] text-[#1A1D2E]">• Scanner Intraoral{parsed.sc_arcadaSup?" Sup":""}{parsed.sc_arcadaInf?" Inf":""}</div>}
+                      {(parsed.cb_maxilarSup||parsed.cb_mandibula||parsed.cb_ATM) && <div className="text-[11px] text-[#1A1D2E]">• Cone Beam{parsed.cb_maxilarSup?" Maxilar Sup":""}{parsed.cb_mandibula?" Mandíbula":""}{parsed.cb_ATM?" ATM":""}{parsed.cb_zona?` Zona: ${parsed.cb_zona}`:""}</div>}
+                      {/* Legacy format support */}
+                      {parsed.items?.map((item: any, i: number) => (
+                        <div key={i} className="text-[11px] text-[#1A1D2E]">• {item.type}{item.zone?` — ${item.zone}`:""}</div>
+                      ))}
+                      {parsed.indication && <p className="text-[11px] text-[#9AA0B4] mt-1">Indicación: {parsed.indication}</p>}
+                      {parsed.meInteresa && <p className="text-[11px] text-[#9AA0B4] mt-1">Notas: {parsed.meInteresa}</p>}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
@@ -1971,141 +2352,248 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         </div>
       </Modal>
 
-      {/* ===== MODAL SOLICITUD RADIOGRAFÍA ===== */}
-      <Modal open={rxDocModal} onClose={()=>setRxDocModal(false)} title="Solicitud de Radiografía / Scanner" size="lg">
-        <div className="p-4 sm:p-6 space-y-4 overflow-y-auto max-h-[75vh]">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-slate-50 rounded-xl p-3">
-              <p className="text-xs text-slate-500">Paciente</p>
-              <p className="font-semibold text-slate-900">{patient.firstName} {patient.lastName}</p>
-              <p className="text-xs text-slate-400 font-mono">{patient.rut}</p>
+      {/* ===== MODAL EDITAR EVOLUCIÓN ===== */}
+      <Modal open={evoEditModal} onClose={()=>setEvoEditModal(false)} title="Editar evolución" size="lg">
+        <div className="overflow-y-auto max-h-[80vh]">
+          <div className="px-6 pt-5 pb-4 border-b border-[#E3E8F0] grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-semibold text-[#9AA0B4] uppercase tracking-wide mb-1.5">Profesional</label>
+              <select className="select text-[13px]" value={evoEditForm.userId} onChange={e=>setEvoEditForm(f=>({...f,userId:e.target.value}))}>
+                <option value="">Seleccionar...</option>
+                {users.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}
+              </select>
             </div>
             <div>
-              <label className="label text-xs">Profesional *</label>
-              <select className="select" value={rxDocUserId} onChange={e=>setRxDocUserId(e.target.value)}>
+              <label className="block text-[11px] font-semibold text-[#9AA0B4] uppercase tracking-wide mb-1.5">Fecha</label>
+              <input className="input text-[13px]" type="date" value={evoEditForm.date} onChange={e=>setEvoEditForm(f=>({...f,date:e.target.value}))}/>
+            </div>
+          </div>
+          <div className="px-6 py-4 space-y-3">
+            <input className="input text-[13px]" value={evoEditForm.diagnosis} onChange={e=>setEvoEditForm(f=>({...f,diagnosis:e.target.value}))} placeholder="Diagnóstico (opcional)..."/>
+            <input className="input text-[13px]" value={evoEditForm.treatment} onChange={e=>setEvoEditForm(f=>({...f,treatment:e.target.value}))} placeholder="Tratamiento *"/>
+            <input className="input text-[13px]" value={evoEditForm.tooth} onChange={e=>setEvoEditForm(f=>({...f,tooth:e.target.value}))} placeholder="Diente (ej: 1.6)"/>
+            <textarea className="input resize-none text-[13px]" rows={5} value={evoEditForm.observations} onChange={e=>setEvoEditForm(f=>({...f,observations:e.target.value}))} placeholder="Observaciones..."/>
+            <input type="number" className="input text-[13px]" value={evoEditForm.cost} onChange={e=>setEvoEditForm(f=>({...f,cost:e.target.value}))} placeholder="Costo ($)"/>
+          </div>
+          <div className="px-6 py-3 border-t border-[#E3E8F0] bg-[#F8F9FC] flex justify-end gap-2">
+            <button className="text-[13px] font-medium px-4 py-2 rounded-lg border border-[#E3E8F0] bg-white text-[#4B5563] hover:bg-[#F0F2F7] transition-colors" onClick={()=>setEvoEditModal(false)}>Cancelar</button>
+            <button className="text-[13px] font-semibold px-4 py-2 rounded-lg bg-[#0057FF] text-white hover:bg-[#0041CC] transition-colors disabled:opacity-60"
+              onClick={saveEvoEdit} disabled={evoEditSaving||!evoEditForm.userId||!evoEditForm.treatment.trim()}>
+              {evoEditSaving?"Guardando...":"Guardar cambios"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ===== MODAL SOLICITUD RADIOGRAFÍA ===== */}
+      <Modal open={rxDocModal} onClose={()=>setRxDocModal(false)} title="Solicitud de Radiografía / Scanner" size="xl">
+        <div className="overflow-y-auto max-h-[85vh]">
+          {/* Header */}
+          <div className="px-5 py-3 border-b border-[#E3E8F0] grid grid-cols-2 gap-4">
+            <div className="bg-slate-50 rounded-xl p-3">
+              <p className="text-[10px] text-slate-400 uppercase font-semibold mb-1">Paciente</p>
+              <p className="font-semibold text-slate-900 text-[13px]">{patient.firstName} {patient.lastName}</p>
+              <p className="text-[11px] text-slate-400 font-mono">{patient.rut}</p>
+            </div>
+            <div>
+              <label className="text-[11px] font-semibold text-[#9AA0B4] uppercase block mb-1">Profesional *</label>
+              <select className="select text-[13px]" value={rxDocUserId} onChange={e=>setRxDocUserId(e.target.value)}>
                 <option value="">Seleccionar...</option>
                 {users.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}
               </select>
             </div>
           </div>
 
-          {/* Exámenes */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="label font-semibold mb-0">Exámenes solicitados</label>
-              <button type="button" onClick={()=>setRxDocItems(i=>[...i,{type:"",zone:""}])}
-                className="flex items-center gap-1.5 text-xs font-medium text-sky-700 bg-sky-50 hover:bg-sky-100 px-2.5 py-1.5 rounded-lg transition-colors border border-sky-200">
-                <Plus size={12}/> Agregar
-              </button>
-            </div>
-            <div className="border border-slate-200 rounded-xl overflow-hidden">
-              <div className="grid grid-cols-12 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-100">
-                <div className="col-span-1">N°</div>
-                <div className="col-span-6">Tipo de Examen</div>
-                <div className="col-span-5">Zona / Diente</div>
-              </div>
-              <div className="divide-y divide-slate-100">
-                {rxDocItems.map((item,i)=>(
-                  <div key={i} className="grid grid-cols-12 items-center px-3 py-2 gap-2">
-                    <span className="col-span-1 text-xs font-bold text-slate-400">{i+1}</span>
-                    <div className="col-span-6">
-                      <input className="input py-1.5 text-sm" value={item.type}
-                        onChange={e=>setRxDocItems(its=>its.map((x,j)=>j===i?{...x,type:e.target.value}:x))}
-                        placeholder="Rx periapical, Panorámica, TAC, Scanner..."/>
+          <div className="px-4 py-3 space-y-2.5">
+            {/* Helper inline */}
+            {(()=>{
+              const ck = (key: keyof RxFormData) => (e: React.ChangeEvent<HTMLInputElement>) => setRxForm(f=>({...f,[key]:e.target.checked}));
+              const tx = (key: keyof RxFormData) => (e: React.ChangeEvent<HTMLInputElement>) => setRxForm(f=>({...f,[key]:e.target.value}));
+              const mailHdr = (con: keyof RxFormData, sin: keyof RxFormData) => (
+                <div className="flex items-center gap-2 ml-auto">
+                  <label className="flex items-center gap-1 text-[10px] font-semibold text-[#1e40af] bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded cursor-pointer">
+                    <input type="checkbox" checked={rxForm[con] as boolean} onChange={ck(con)} className="w-2.5 h-2.5"/> Con Informe
+                  </label>
+                  <label className="flex items-center gap-1 text-[10px] font-semibold text-[#1e40af] bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded cursor-pointer">
+                    <input type="checkbox" checked={rxForm[sin] as boolean} onChange={ck(sin)} className="w-2.5 h-2.5"/> Sin Informe
+                  </label>
+                </div>
+              );
+              return (
+                <>
+                  {/* RX INTRAORAL */}
+                  <div className="border border-blue-100 rounded-xl overflow-hidden">
+                    <div className="flex items-center gap-3 px-3 py-2 bg-blue-50">
+                      <span className="text-[11px] font-bold text-[#1e40af] uppercase tracking-wide flex-1">RX INTRAORAL</span>
+                      {mailHdr("rxi_mailCon","rxi_mailSin")}
                     </div>
-                    <div className="col-span-4">
-                      <input className="input py-1.5 text-sm" value={item.zone}
-                        onChange={e=>setRxDocItems(its=>its.map((x,j)=>j===i?{...x,zone:e.target.value}:x))}
-                        placeholder="Diente 16, sector posterior..."/>
+                    <div className="divide-y divide-[#F0F2F7]">
+                      <div className="flex items-center gap-2 px-3 py-2">
+                        <input type="checkbox" checked={rxForm.rxi_periapical} onChange={ck("rxi_periapical")} className="w-3.5 h-3.5 flex-shrink-0 cursor-pointer"/>
+                        <span className="text-[12px] font-medium text-[#1A1D2E] flex-shrink-0">Periapical Digital Piezas</span>
+                        <input type="text" value={rxForm.rxi_piezas} onChange={tx("rxi_piezas")} placeholder="ej: 1.6, 2.5, 3.7..." className="flex-1 border-b border-[#E3E8F0] bg-transparent text-[12px] outline-none px-1 min-w-0"/>
+                      </div>
+                      <div className="flex items-center gap-2 px-3 py-2">
+                        <input type="checkbox" checked={rxForm.rxi_total} onChange={ck("rxi_total")} className="w-3.5 h-3.5 flex-shrink-0 cursor-pointer"/>
+                        <span className="text-[12px] font-medium text-[#1A1D2E]">RX Total</span>
+                      </div>
+                      <div className="flex items-center gap-3 px-3 py-2 flex-wrap">
+                        <input type="checkbox" checked={rxForm.rxi_bitewing} onChange={ck("rxi_bitewing")} className="w-3.5 h-3.5 flex-shrink-0 cursor-pointer"/>
+                        <span className="text-[12px] font-medium text-[#1A1D2E]">Bitewing</span>
+                        <label className="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked={rxForm.rxi_bitewingDer} onChange={ck("rxi_bitewingDer")} className="w-3 h-3"/> Derecha</label>
+                        <label className="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked={rxForm.rxi_bitewingIzq} onChange={ck("rxi_bitewingIzq")} className="w-3 h-3"/> Izquierda</label>
+                      </div>
                     </div>
-                    {rxDocItems.length > 1 && (
-                      <button onClick={()=>setRxDocItems(its=>its.filter((_,j)=>j!==i))}
-                        className="col-span-1 w-6 h-6 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors">
-                        <X size={12}/>
-                      </button>
-                    )}
                   </div>
-                ))}
-              </div>
-            </div>
-          </div>
 
-          <div>
-            <label className="label">Indicación clínica</label>
-            <textarea className="input resize-none text-sm" rows={2} value={rxDocIndication}
-              onChange={e=>setRxDocIndication(e.target.value)}
-              placeholder="Diagnóstico o motivo de la solicitud..."/>
-          </div>
-          <div>
-            <label className="label">Observaciones</label>
-            <textarea className="input resize-none text-sm" rows={2} value={rxDocObservations}
-              onChange={e=>setRxDocObservations(e.target.value)}
-              placeholder="Indicaciones especiales para el técnico..."/>
+                  {/* RX EXTRAORAL */}
+                  <div className="border border-amber-100 rounded-xl overflow-hidden">
+                    <div className="flex items-center gap-3 px-3 py-2 bg-amber-50">
+                      <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wide flex-1">RX EXTRAORAL</span>
+                      {mailHdr("rxe_mailCon","rxe_mailSin")}
+                    </div>
+                    <div className="divide-y divide-[#F0F2F7]">
+                      <div className="flex items-center gap-2 px-3 py-2">
+                        <input type="checkbox" checked={rxForm.rxe_panoramica} onChange={ck("rxe_panoramica")} className="w-3.5 h-3.5 flex-shrink-0 cursor-pointer"/>
+                        <span className="text-[12px] font-medium text-[#1A1D2E]">Panorámica</span>
+                      </div>
+                      <div className="flex items-center gap-3 px-3 py-2 flex-wrap">
+                        <input type="checkbox" checked={rxForm.rxe_telerLateral||rxForm.rxe_telerAntero} onChange={e=>{setRxForm(f=>({...f,rxe_telerLateral:e.target.checked,rxe_telerAntero:false}))}} className="w-3.5 h-3.5 flex-shrink-0 cursor-pointer"/>
+                        <span className="text-[12px] font-medium text-[#1A1D2E]">Telerradiografía</span>
+                        <label className="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked={rxForm.rxe_telerLateral} onChange={ck("rxe_telerLateral")} className="w-3 h-3"/> Lateral</label>
+                        <label className="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked={rxForm.rxe_telerAntero} onChange={ck("rxe_telerAntero")} className="w-3 h-3"/> Anteroposterior</label>
+                      </div>
+                      <div className="flex items-center gap-2 px-3 py-2">
+                        <input type="checkbox" checked={rxForm.rxe_manoCarpo} onChange={ck("rxe_manoCarpo")} className="w-3.5 h-3.5 flex-shrink-0 cursor-pointer"/>
+                        <span className="text-[12px] font-medium text-[#1A1D2E]">RX Mano/Carpo</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SCANNER INTRAORAL */}
+                  <div className="border border-emerald-100 rounded-xl overflow-hidden">
+                    <div className="flex items-center gap-3 px-3 py-2 bg-emerald-50">
+                      <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wide flex-1">SCANNER INTRAORAL (ITERO-INVISALIGN)</span>
+                      <label className="flex items-center gap-1 text-[10px] font-semibold text-emerald-800 bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded cursor-pointer">
+                        <input type="checkbox" checked={rxForm.sc_mail} onChange={ck("sc_mail")} className="w-2.5 h-2.5"/> Envío por Mail
+                      </label>
+                    </div>
+                    <div className="divide-y divide-[#F0F2F7]">
+                      <div className="flex items-center gap-3 px-3 py-2 flex-wrap">
+                        <input type="checkbox" checked={rxForm.sc_arcadaSup} onChange={ck("sc_arcadaSup")} className="w-3.5 h-3.5 flex-shrink-0 cursor-pointer"/>
+                        <span className="text-[12px] font-medium text-[#1A1D2E]">Arcada superior</span>
+                        <label className="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked={rxForm.sc_mordidaMIC} onChange={ck("sc_mordidaMIC")} className="w-3 h-3"/> Mordida en MIC</label>
+                        <label className="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked={rxForm.sc_STL} onChange={ck("sc_STL")} className="w-3 h-3"/> STL</label>
+                      </div>
+                      <div className="flex items-center gap-3 px-3 py-2 flex-wrap">
+                        <input type="checkbox" checked={rxForm.sc_arcadaInf} onChange={ck("sc_arcadaInf")} className="w-3.5 h-3.5 flex-shrink-0 cursor-pointer"/>
+                        <span className="text-[12px] font-medium text-[#1A1D2E]">Arcada inferior</span>
+                        <label className="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked={rxForm.sc_invisalign} onChange={ck("sc_invisalign")} className="w-3 h-3"/> Asociar a Invisalign Doctor</label>
+                        <label className="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked={rxForm.sc_PLY} onChange={ck("sc_PLY")} className="w-3 h-3"/> PLY</label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* TOMOGRAFÍA CONE BEAM */}
+                  <div className="border border-red-100 rounded-xl overflow-hidden">
+                    <div className="flex items-center gap-3 px-3 py-2 bg-red-50">
+                      <span className="text-[11px] font-bold text-red-800 uppercase tracking-wide flex-1">TOMOGRAFÍA — CONE BEAM</span>
+                      {mailHdr("cb_mailCon","cb_mailSin")}
+                    </div>
+                    <div className="divide-y divide-[#F0F2F7]">
+                      <div className="flex items-center gap-3 px-3 py-2 flex-wrap">
+                        <input type="checkbox" checked={rxForm.cb_maxilarSup} onChange={ck("cb_maxilarSup")} className="w-3.5 h-3.5 flex-shrink-0 cursor-pointer"/>
+                        <span className="text-[12px] font-medium text-[#1A1D2E] flex-shrink-0">Scanner Maxilar Superior</span>
+                        <span className="text-[11px] text-[#9AA0B4] flex-shrink-0">Para Evaluar:</span>
+                        <input type="text" value={rxForm.cb_paraEvaluar} onChange={tx("cb_paraEvaluar")} className="w-28 border-b border-[#E3E8F0] bg-transparent text-[11px] outline-none px-1"/>
+                        <label className="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked={rxForm.cb_implantes} onChange={ck("cb_implantes")} className="w-3 h-3"/> Implantes</label>
+                        <label className="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked={rxForm.cb_cortesPDF} onChange={ck("cb_cortesPDF")} className="w-3 h-3"/> Cortes en PDF</label>
+                      </div>
+                      <div className="flex items-center gap-3 px-3 py-2 flex-wrap">
+                        <input type="checkbox" checked={rxForm.cb_mandibula} onChange={ck("cb_mandibula")} className="w-3.5 h-3.5 flex-shrink-0 cursor-pointer"/>
+                        <span className="text-[12px] font-medium text-[#1A1D2E] flex-shrink-0">Scanner Mandíbula</span>
+                        <label className="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked={rxForm.cb_tercerosMolares} onChange={ck("cb_tercerosMolares")} className="w-3 h-3"/> Terceros Molares</label>
+                        <label className="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked={rxForm.cb_visualizadorCD} onChange={ck("cb_visualizadorCD")} className="w-3 h-3"/> Visualizador en CD/DVD</label>
+                      </div>
+                      <div className="flex items-center gap-3 px-3 py-2 flex-wrap">
+                        <span className="text-[12px] font-medium text-[#1A1D2E] flex-shrink-0 pl-5">Scanner Zona:</span>
+                        <input type="text" value={rxForm.cb_zona} onChange={tx("cb_zona")} className="w-28 border-b border-[#E3E8F0] bg-transparent text-[11px] outline-none px-1"/>
+                        <label className="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked={rxForm.cb_fractura} onChange={ck("cb_fractura")} className="w-3 h-3"/> Fractura</label>
+                        <label className="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked={rxForm.cb_DICOM} onChange={ck("cb_DICOM")} className="w-3 h-3"/> DICOM nativos .DCM</label>
+                      </div>
+                      <div className="flex items-center gap-3 px-3 py-2 flex-wrap">
+                        <span className="pl-5"/>
+                        <label className="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked={rxForm.cb_zonaMax3} onChange={ck("cb_zonaMax3")} className="w-3 h-3"/> Zona máx. 3 piezas contiguas</label>
+                        <label className="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked={rxForm.cb_dienteIncluido} onChange={ck("cb_dienteIncluido")} className="w-3 h-3"/> Diente Incluido</label>
+                        <label className="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked={rxForm.cb_wetransfer} onChange={ck("cb_wetransfer")} className="w-3 h-3"/> Visualizador por Wetransfer</label>
+                      </div>
+                      <div className="flex items-center gap-3 px-3 py-2 flex-wrap">
+                        <input type="checkbox" checked={rxForm.cb_ATM} onChange={ck("cb_ATM")} className="w-3.5 h-3.5 flex-shrink-0 cursor-pointer"/>
+                        <span className="text-[12px] font-medium text-[#1A1D2E] flex-shrink-0">ATM</span>
+                        <label className="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked={rxForm.cb_bocaAbierta} onChange={ck("cb_bocaAbierta")} className="w-3 h-3"/> Boca Abierta</label>
+                        <label className="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked={rxForm.cb_bocaCerrada} onChange={ck("cb_bocaCerrada")} className="w-3 h-3"/> Boca Cerrada</label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ANÁLISIS CEFALOMÉTRICOS */}
+                  <div className="border border-purple-100 rounded-xl overflow-hidden">
+                    <div className="px-3 py-2 bg-purple-50">
+                      <span className="text-[11px] font-bold text-purple-800 uppercase tracking-wide">ANÁLISIS CEFALOMÉTRICOS</span>
+                    </div>
+                    <div className="flex items-center gap-3 px-3 py-2.5 flex-wrap">
+                      {([["cef_ricketts","Ricketts"],["cef_rothJarabak","Roth-Jarabak"],["cef_steiner","Steiner"],["cef_mcnamara","Mcnamara"],["cef_roth","Roth"],["cef_sassouniPlus","Sassouni Plus"],["cef_tweed","Tweed"]] as [keyof RxFormData,string][]).map(([k,l])=>(
+                        <label key={k} className="flex items-center gap-1 text-[11px] cursor-pointer">
+                          <input type="checkbox" checked={rxForm[k] as boolean} onChange={ck(k)} className="w-3 h-3"/> {l}
+                        </label>
+                      ))}
+                      <span className="text-[11px] text-[#9AA0B4]">Otro:</span>
+                      <input type="text" value={rxForm.cef_otro} onChange={e=>setRxForm(f=>({...f,cef_otro:e.target.value}))} className="flex-1 min-w-[80px] border-b border-[#E3E8F0] bg-transparent text-[11px] outline-none px-1"/>
+                    </div>
+                  </div>
+
+                  {/* ESTUDIO DE FOTOS */}
+                  <div className="border border-slate-100 rounded-xl overflow-hidden">
+                    <div className="px-3 py-2 bg-slate-50">
+                      <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wide">ESTUDIO DE FOTOS</span>
+                    </div>
+                    <div className="flex items-center gap-3 px-3 py-2.5 flex-wrap">
+                      <label className="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked={rxForm.foto_clinicas} onChange={ck("foto_clinicas")} className="w-3 h-3"/> Fotos Clínicas</label>
+                      <label className="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked={rxForm.foto_overjet} onChange={ck("foto_overjet")} className="w-3 h-3"/> Incluir Overjet</label>
+                      <label className="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked={rxForm.foto_setPDF} onChange={ck("foto_setPDF")} className="w-3 h-3"/> Set en PDF</label>
+                      <label className="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked={rxForm.foto_unitarias} onChange={ck("foto_unitarias")} className="w-3 h-3"/> Unitarias en JPG</label>
+                    </div>
+                  </div>
+
+                  {/* ME INTERESA SABER */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-[#9AA0B4] uppercase block mb-1">Me interesa saber</label>
+                    <input type="text" value={rxForm.meInteresa} onChange={e=>setRxForm(f=>({...f,meInteresa:e.target.value}))}
+                      className="input text-[12px] w-full" placeholder="Observaciones adicionales..."/>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
-        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 flex justify-between items-center gap-3 flex-wrap">
-          <button className="btn-secondary" onClick={()=>setRxDocModal(false)}>Cancelar</button>
-          <div className="flex gap-2">
-            <button disabled={rxDocPdfSending||!rxDocUserId} onClick={async()=>{
+        <div className="px-5 py-3 border-t border-[#E3E8F0] flex justify-between items-center gap-3 flex-wrap">
+          <button className="text-[13px] font-medium px-4 py-2 rounded-lg border border-[#E3E8F0] bg-white text-[#4B5563] hover:bg-[#F0F2F7] transition-colors" onClick={()=>setRxDocModal(false)}>Cancelar</button>
+          <button disabled={rxDocPdfSending||!rxDocUserId} onClick={async()=>{
               setRxDocPdfSending(true);
               try {
-                const professional = users.find(u=>u.id===rxDocUserId);
-                const today = new Date().toLocaleDateString("es-CL",{day:"numeric",month:"long",year:"numeric"});
-                const fullName = `${patient.firstName} ${patient.lastName}`;
-                const bodyHtml = buildRadiografiaBody({
-                  professionalName: professional?.name??"",
-                  professionalRut:  professional?.rut??"",
-                  patientName: fullName,
-                  patientRut:  patient.rut,
-                  patientBirthDate: patient.birthDate?patient.birthDate.split("T")[0]:undefined,
-                  date: today,
-                  items: rxDocItems.filter(i=>i.type.trim()),
-                  indication: rxDocIndication,
-                  observations: rxDocObservations,
-                }, "/LOGO.jpeg");
+                const saveRes = await fetch("/api/prescriptions", { method:"POST", headers:{"Content-Type":"application/json"},
+                  body:JSON.stringify({ patientId:id, userId:rxDocUserId, date:new Date().toISOString().split("T")[0], type:"rxrequest", content:JSON.stringify(rxForm) }) });
+                if(!saveRes.ok){ showToast(`❌ Error al guardar (${saveRes.status})`); setRxDocPdfSending(false); return; }
+                await load();
+                showToast("✅ Solicitud guardada");
                 setRxDocModal(false);
-                const win = window.open("","_blank","width=860,height=1100");
-                if(win){ win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/><title>Solicitud Rx</title><style>@page{margin:14mm;size:A4 portrait}*{box-sizing:border-box}body{font-family:'Times New Roman',Times,serif;font-size:11px;color:#1a1a1a;margin:0}b{font-weight:bold}@media print{.noprint{display:none!important}}</style></head><body>${bodyHtml}<button class="noprint" onclick="window.print()" style="position:fixed;top:14px;right:14px;padding:8px 18px;background:#1f4e79;color:white;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-family:sans-serif">🖨 Imprimir / PDF</button></body></html>`); win.document.close(); }
+                setRxForm({...EMPTY_RX_FORM});
               } catch(e){ showToast(`❌ Error: ${String(e)}`); }
               setRxDocPdfSending(false);
             }}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 font-medium disabled:opacity-40">
-              <Printer size={13}/> {rxDocPdfSending?"Generando...":"Imprimir / PDF"}
+              className="flex items-center gap-1.5 text-[13px] px-5 py-2 rounded-lg bg-[#0057FF] text-white hover:bg-[#0041CC] font-semibold disabled:opacity-40 transition-colors">
+              <Save size={14}/> {rxDocPdfSending?"Guardando...":"Guardar"}
             </button>
-            <button disabled={rxDocPdfSending||!rxDocUserId||!patient.email} onClick={async()=>{
-              if(!patient.email){ showToast("❌ El paciente no tiene email"); return; }
-              setRxDocPdfSending(true);
-              try {
-                const professional = users.find(u=>u.id===rxDocUserId);
-                const today = new Date().toLocaleDateString("es-CL",{day:"numeric",month:"long",year:"numeric"});
-                const fullName = `${patient.firstName} ${patient.lastName}`;
-                const bodyHtml = buildRadiografiaBody({
-                  professionalName: professional?.name??"",
-                  professionalRut:  professional?.rut??"",
-                  patientName: fullName,
-                  patientRut:  patient.rut,
-                  patientBirthDate: patient.birthDate?patient.birthDate.split("T")[0]:undefined,
-                  date: today,
-                  items: rxDocItems.filter(i=>i.type.trim()),
-                  indication: rxDocIndication,
-                  observations: rxDocObservations,
-                }, "/LOGO.jpeg");
-                const pdfBase64 = await generatePdfBase64(bodyHtml);
-                const filename  = `SolicitudRx_${patient.firstName}_${patient.lastName}`;
-                const bodyText  = `Estimado/a ${fullName}, adjuntamos su solicitud de radiografía/scanner. Saludos, Clínica Magna.`;
-                const r = await fetch("/api/send-document", { method:"POST", headers:{"Content-Type":"application/json"},
-                  body: JSON.stringify({ pdfBase64, to:patient.email, subject:"Solicitud de Radiografía / Scanner", filename, patientName:fullName, bodyText }) });
-                const d = await r.json();
-                showToast(d.ok?"✅ Solicitud enviada por email":`❌ ${d.error}`);
-                setRxDocModal(false);
-              } catch(e){ showToast(`❌ Error: ${String(e)}`); }
-              setRxDocPdfSending(false);
-            }}
-              title={!patient.email?"El paciente no tiene email":undefined}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 font-medium disabled:opacity-40 disabled:cursor-not-allowed">
-              <Mail size={13}/> Enviar por email
-            </button>
-          </div>
         </div>
       </Modal>
 

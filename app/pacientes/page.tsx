@@ -18,14 +18,13 @@ interface Patient {
 
 const initialForm = {
   rut: "", firstName: "", lastName: "", email: "", phone: "+56",
-  birthDate: "", gender: "M", address: "", city: "Santiago",
-  healthInsurance: "FONASA", notes: "",
+  birthDate: "", gender: "Hombre", address: "", city: "Santiago",
+  healthInsurance: "", notes: "",
 };
 
-const INSURANCE_OPTIONS = [
-  "FONASA", "ISAPRE Cruz Blanca", "ISAPRE Banmédica",
-  "ISAPRE Colmena", "ISAPRE Consalud", "Particular",
-];
+const GENDER_OPTIONS = ["Hombre", "Mujer", "No binario", "Otro"];
+
+const REFERRAL_OPTIONS = ["", "Referido", "Facebook", "Google", "Instagram", "TikTok", "Otro"];
 
 function formatRut(value: string): string {
   const clean = value.replace(/[^0-9kK]/g, "").toUpperCase();
@@ -171,7 +170,7 @@ export default function Pacientes() {
               onChange={e => setFilterInsurance(e.target.value)}
             >
               <option value="">Todas las previsiones</option>
-              {INSURANCE_OPTIONS.map(o => <option key={o} value={o.split(" ")[0]}>{o}</option>)}
+              {REFERRAL_OPTIONS.filter(Boolean).map(o => <option key={o} value={o}>{o}</option>)}
             </select>
             <select
               className="select text-sm py-1.5 pr-8"
@@ -232,7 +231,7 @@ export default function Pacientes() {
                 {p.healthInsurance && (
                   <Badge value={p.healthInsurance.split(" ")[0]} />
                 )}
-                <span className="text-xs text-slate-400">{p.gender === "M" ? "Masculino" : "Femenino"}</span>
+                <span className="text-xs text-slate-400">{p.gender}</span>
                 {p.city && <span className="text-xs text-slate-400">{p.city}</span>}
               </div>
               {lastVisit(p) && (
@@ -278,7 +277,7 @@ export default function Pacientes() {
               <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Paciente</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">RUT</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell">Teléfono</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Previsión</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Origen</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden xl:table-cell">Citas</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden xl:table-cell">Última visita</th>
               <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide text-right hidden lg:table-cell">Acciones</th>
@@ -304,7 +303,7 @@ export default function Pacientes() {
                     </div>
                     <div>
                       <p className="font-medium text-slate-900">{p.firstName} {p.lastName}</p>
-                      <p className="text-xs text-slate-400">{p.gender === "M" ? "Masc." : "Fem."} · {p.city}</p>
+                      <p className="text-xs text-slate-400">{p.gender} · {p.city}</p>
                     </div>
                     {!p.active && <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full font-medium ml-1">Inactivo</span>}
                   </div>
@@ -372,10 +371,9 @@ export default function Pacientes() {
               <input className="input" value={form.rut} onChange={(e) => set("rut", formatRut(e.target.value))} placeholder="12.345.678-9" />
             </div>
             <div>
-              <label className="label">Sexo</label>
+              <label className="label">Género</label>
               <select className="select" value={form.gender} onChange={(e) => set("gender", e.target.value)}>
-                <option value="M">Masculino</option>
-                <option value="F">Femenino</option>
+                {GENDER_OPTIONS.map(o => <option key={o}>{o}</option>)}
               </select>
             </div>
           </div>
@@ -406,9 +404,9 @@ export default function Pacientes() {
               )}
             </div>
             <div>
-              <label className="label">Previsión de salud</label>
+              <label className="label">¿Cómo nos conociste? <span className="text-slate-400 font-normal">(opcional)</span></label>
               <select className="select" value={form.healthInsurance} onChange={(e) => set("healthInsurance", e.target.value)}>
-                {INSURANCE_OPTIONS.map(o => <option key={o}>{o}</option>)}
+                {REFERRAL_OPTIONS.map(o => <option key={o} value={o}>{o || "— Sin especificar —"}</option>)}
               </select>
             </div>
           </div>

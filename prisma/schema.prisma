@@ -150,6 +150,7 @@ model BudgetItem {
   quantity    Int     @default(1)
   unitPrice   Float
   discount    Float   @default(0)
+  discountAmt Float   @default(0)
   total       Float
   status      String  @default("pending")
   sessions    Int     @default(1)
@@ -284,6 +285,15 @@ model Reminder {
   createdAt   DateTime  @default(now())
 
   patient Patient @relation(fields: [patientId], references: [id])
+}
+
+model BackupRecord {
+  id        String   @id @default(cuid())
+  source    String   @default("manual")
+  size      Int      @default(0)
+  summary   String   @default("{}")
+  data      String
+  createdAt DateTime @default(now())
 }
 
 model PrescriptionRecord {
