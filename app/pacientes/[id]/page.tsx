@@ -12,6 +12,7 @@ import Modal from "@/components/ui/Modal";
 import Badge from "@/components/ui/Badge";
 import DentalChart from "@/components/odontogram/DentalChart";
 import FacialChart from "@/components/odontogram/FacialChart";
+import BudgetEditor from "@/components/budgets/BudgetEditor";
 import { buildRecetaBody, buildPresupuestoBody, buildIndicacionesBody, buildRadiografiaBody } from "@/lib/pdf-templates";
 import { useIsAdmin } from "@/hooks/useRole";
 
@@ -91,7 +92,7 @@ interface Patient {
   documents: Array<{ id:string; name:string; type:string; fileName:string; mimeType:string; size:number; createdAt:string }>;
 }
 
-const TABS = ["Historial","Ficha Clínica","Odontograma","Estética Facial","Evoluciones","Presupuestos","Pagos","Documentos","Datos","Citas"];
+const TABS = ["Historial","Ficha Clínica","Odontograma","Estética Facial","Evoluciones","Presupuestos","Radiografías","Pagos","Documentos","Datos","Citas"];
 
 function fmt(n:number) { return new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(n); }
 function fmtShort(n:number) { const abs=Math.abs(n); const sign=n<0?"-":""; if(abs>=1000000) return `${sign}$${(abs/1000000).toFixed(1)}M`; if(abs>=1000) return `${sign}$${Math.round(abs/1000)}K`; return fmt(n); }
@@ -228,6 +229,8 @@ export default function PatientDetail() {
   const [budgetPayForm, setBudgetPayForm] = useState({ date:new Date().toISOString().split("T")[0], amount:"", method:"efectivo", notes:"" });
   const [budgetPaySaving, setBudgetPaySaving] = useState(false);
   const [budgetCreateOpen, setBudgetCreateOpen] = useState(false);
+  const [budgetEditorOpen, setBudgetEditorOpen] = useState(false);
+  const [budgetEditorEditId, setBudgetEditorEditId] = useState<string|null>(null);
   const [budgetForm, setBudgetForm] = useState({ userId:"", date:new Date().toISOString().split("T")[0], validUntil:new Date(Date.now()+30*86400000).toISOString().split("T")[0], status:"pending", discount:0, notes:"" });
   const [budgetItems, setBudgetItems] = useState([{ description:"", tooth:"", area:"", quantity:1, unitPrice:0, discount:0, total:0 }]);
   const [budgetEditId, setBudgetEditId] = useState<string|null>(null);
@@ -290,18 +293,19 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
   }
 
   function openBudgetCreate() {
-    setBudgetForm({ userId:"", date:new Date().toISOString().split("T")[0], validUntil:new Date(Date.now()+30*86400000).toISOString().split("T")[0], status:"pending", discount:0, notes:"" });
-    setBudgetItems([{ description:"", tooth:"", area:"", quantity:1, unitPrice:0, discount:0, total:0 }]);
-    setBudgetEditId(null);
-    setBudgetCreateOpen(true);
+    setBudgetEditorEditId(null);
+    setBudgetEditorOpen(true);
+    setTab(5);
   }
 
   function openBudgetEdit(b: Patient["budgets"][0]) {
     setBudgetForm({ userId:b.user.id, date:b.date, validUntil:b.validUntil??"", status:b.status, discount:b.discount, notes:b.notes??"" });
     setBudgetItems(b.items.map(i => ({ description:i.description, tooth:i.tooth??"", area:i.area??"", quantity:i.quantity, unitPrice:i.unitPrice, discount:i.discount??0, total:i.total })));
     setBudgetEditId(b.id);
+    setBudgetEditorEditId(b.id);
     setBudgetDetailId(null);
-    setBudgetCreateOpen(true);
+    setBudgetEditorOpen(true);
+    setTab(5);
   }
 
   async function saveBudget() {
@@ -1011,14 +1015,8 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         {/* Barra de acciones rápidas bajo el header */}
         <div className="bg-white border-b border-[#E3E8F0] px-4 sm:px-6 py-2 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex gap-1.5 flex-wrap">
-            <button onClick={()=>openEvoModal()} className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-[#EEF3FF] text-[#0057FF] border border-[#0057FF]/20 hover:bg-[#0057FF] hover:text-white transition-all">
-              <Activity size={13}/> Nueva evolución
-            </button>
             <button onClick={()=>setRxModal(true)} className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-600 hover:text-white transition-all">
               <Printer size={13}/> Receta
-            </button>
-            <button onClick={openBudgetCreate} className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-500 hover:text-white transition-all">
-              <FileText size={13}/> Presupuesto
             </button>
             <button onClick={()=>router.push(`/agenda?patientId=${patient.id}`)} className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-[#F0F2F7] text-[#4B5563] border border-[#E3E8F0] hover:bg-[#E3E8F0] transition-all">
               <CalendarPlus size={13}/> Agendar
@@ -1050,14 +1048,8 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
 
         {/* Acciones secundarias */}
         <div className="bg-[#F8F9FC] px-4 sm:px-6 py-2 flex gap-1.5 flex-wrap rounded-b-2xl border-t border-[#E3E8F0]">
-          <button onClick={()=>setCuidadosModal(true)} className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-3 py-1.5 rounded-lg bg-[#E0F2FE] text-[#0891B2] border border-[#0891B2]/20 hover:bg-[#0891B2] hover:text-white transition-all">
-            <BookOpen size={12}/> Cuidados
-          </button>
           <button onClick={()=>{ setRxDocUserId(""); setRxDocItems([{type:"",zone:""}]); setRxDocIndication(""); setRxDocObservations(""); setRxDocModal(true); }} className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-3 py-1.5 rounded-lg bg-[#FEF3C7] text-[#92600A] border border-[#F59E0B]/20 hover:bg-[#F59E0B] hover:text-white transition-all">
             <FileText size={12}/> Solicitud Rx
-          </button>
-          <button onClick={()=>setPayModal(true)} className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-3 py-1.5 rounded-lg bg-[#E6F7F1] text-[#00A86B] border border-[#00A86B]/20 hover:bg-[#00A86B] hover:text-white transition-all">
-            <CreditCard size={12}/> Registrar pago
           </button>
         </div>
       </div>
@@ -1152,7 +1144,6 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                 {[
-                  {label:"Grupo sanguíneo", value: patient.clinicalRecord.bloodType, icon:"🩸"},
                   {label:"Alergias", value: patient.clinicalRecord.allergies||"Sin alergias", icon:"⚠️", alert: !!patient.clinicalRecord.allergies},
                   {label:"Medicamentos", value: patient.clinicalRecord.currentMedications||"Ninguno", icon:"💊"},
                   {label:"Antec. médicos", value: patient.clinicalRecord.medicalBackground||"—", icon:"🏥"},
@@ -1173,13 +1164,6 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
           ) : (
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="label">Grupo sanguíneo</label>
-                  <select className="select" value={fichaForm.bloodType} onChange={e=>setFichaForm(f=>({...f,bloodType:e.target.value}))}>
-                    <option value="">No especificado</option>
-                    {["A+","A-","B+","B-","AB+","AB-","O+","O-"].map(t=><option key={t}>{t}</option>)}
-                  </select>
-                </div>
                 <div>
                   <label className="label">Hábitos</label>
                   <input className="input" value={fichaForm.habits} onChange={e=>setFichaForm(f=>({...f,habits:e.target.value}))} placeholder="Tabaquismo, bruxismo..."/>
@@ -1320,6 +1304,42 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
       {/* ===== TAB 5: PRESUPUESTOS ===== */}
       {tab===5&&(
         <div className="space-y-4">
+          {/* Editor inline */}
+          {budgetEditorOpen && (
+            <BudgetEditor
+              patientId={id}
+              budgetId={budgetEditorEditId ?? undefined}
+              budgetNumber={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.number : undefined}
+              initUserId={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.user.id : ""}
+              initDate={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.date : undefined}
+              initValidUntil={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.validUntil ?? undefined : undefined}
+              initStatus={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.status : "pending"}
+              initDiscount={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.discount : 0}
+              initNotes={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.notes ?? "" : ""}
+              initLines={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.items.map((i,idx)=>({_key:String(idx),toothNum:undefined,surfaces:[],description:i.description,quantity:i.quantity,unitPrice:i.unitPrice,discount:i.discount??0,total:i.total})) : []}
+              users={users}
+              treatments={treatments}
+              convenios={convenios}
+              isSaving={budgetSaving}
+              onCancel={()=>setBudgetEditorOpen(false)}
+              onSave={async(data)=>{
+                setBudgetSaving(true);
+                if(budgetEditorEditId){
+                  await fetch(`/api/budgets/${budgetEditorEditId}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});
+                } else {
+                  await fetch("/api/budgets",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...data,patientId:id})});
+                }
+                setBudgetSaving(false);
+                setBudgetEditorOpen(false);
+                setBudgetEditorEditId(null);
+                load();
+                showToast(budgetEditorEditId?"✅ Presupuesto actualizado":"✅ Presupuesto creado");
+              }}
+            />
+          )}
+
+          {!budgetEditorOpen && (
+          <>
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex gap-2 flex-wrap">
               <div className="bg-slate-50 rounded-xl px-3 py-2 text-center min-w-[80px]">
@@ -1477,11 +1497,72 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
               )}
             </div>
           )}
+          </>
+          )}
         </div>
       )}
 
-      {/* ===== TAB 6: PAGOS ===== */}
+      {/* ===== TAB 6: RADIOGRAFÍAS ===== */}
       {tab===6&&(
+        <div className="space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex gap-2 flex-wrap">
+              <select className="select text-sm w-auto" value={docType} onChange={e=>setDocType(e.target.value)}>
+                <option value="radiografia">Radiografía</option>
+                <option value="examen">Examen</option>
+                <option value="consentimiento">Consentimiento</option>
+                <option value="foto">Fotografía</option>
+                <option value="other">Otro</option>
+              </select>
+            </div>
+            <button onClick={()=>fileRef.current?.click()} disabled={uploading}
+              className="btn-primary text-sm flex items-center gap-1.5">
+              <Upload size={14}/> {uploading?"Subiendo...":"Subir archivo"}
+            </button>
+            <input ref={fileRef} type="file" className="hidden" accept="image/*,.pdf,.dcm"
+              onChange={e=>{ if(e.target.files?.[0]) uploadDoc(e.target.files[0]); e.target.value=""; }}/>
+          </div>
+          {patient.documents.filter(d=>["radiografia","examen","foto","consentimiento"].includes(d.type)||docType==="other").length===0 ? (
+            <div className="bg-white border border-[#E3E8F0] rounded-2xl py-14 text-center shadow-sm">
+              <span className="text-4xl block mb-3">🦷</span>
+              <p className="text-[14px] font-semibold text-[#9AA0B4]">Sin radiografías ni documentos clínicos</p>
+              <p className="text-[12px] text-[#9AA0B4] mt-1">Sube una imagen o PDF con el botón de arriba</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {patient.documents.map(doc=>(
+                <div key={doc.id} className="bg-white border border-[#E3E8F0] rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow group">
+                  <div className="aspect-square bg-[#F0F2F7] flex items-center justify-center text-3xl">
+                    {doc.mimeType?.startsWith("image/") ? (
+                      <img src={`/api/documents/${doc.id}/file`} alt={doc.name}
+                        className="w-full h-full object-cover" onError={e=>(e.currentTarget.style.display="none")}/>
+                    ) : (
+                      <span>{docIcons[doc.type]||"📎"}</span>
+                    )}
+                  </div>
+                  <div className="p-2">
+                    <p className="text-[11px] font-semibold text-[#1A1D2E] truncate">{doc.name}</p>
+                    <p className="text-[10px] text-[#9AA0B4]">{new Date(doc.createdAt).toLocaleDateString("es-CL")}</p>
+                    <div className="flex gap-1 mt-1.5">
+                      <a href={`/api/documents/${doc.id}/file`} target="_blank"
+                        className="flex-1 text-center text-[10px] font-semibold bg-[#EEF3FF] text-[#0057FF] rounded-lg py-1 hover:bg-[#0057FF] hover:text-white transition-colors">
+                        Ver
+                      </a>
+                      {isAdmin&&<button onClick={()=>deleteDoc(doc.id)}
+                        className="text-[10px] px-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors">
+                        <Trash2 size={10}/>
+                      </button>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===== TAB 7: PAGOS ===== */}
+      {tab===7&&(
         <div className="space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex gap-2 flex-wrap">
@@ -1527,8 +1608,8 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         </div>
       )}
 
-      {/* ===== TAB 7: DOCUMENTOS ===== */}
-      {tab===7&&(
+      {/* ===== TAB 8: DOCUMENTOS ===== */}
+      {tab===8&&(
         <div className="space-y-4">
           <div className="card p-4 flex flex-wrap items-center gap-3">
             <select className="select w-auto text-sm" value={docType} onChange={e=>setDocType(e.target.value)}>
@@ -1568,8 +1649,8 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         </div>
       )}
 
-      {/* ===== TAB 8: DATOS ===== */}
-      {tab===8&&(
+      {/* ===== TAB 9: DATOS ===== */}
+      {tab===9&&(
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[
             ["Datos Personales",[["RUT",patient.rut],["Nombre",`${patient.firstName} ${patient.lastName}`],["Género",patient.gender==="M"?"Masculino":"Femenino"],["Fecha nac.",patient.birthDate?new Date(patient.birthDate.split("T")[0]+"T12:00:00").toLocaleDateString("es-CL"):"—"],["Edad",age?`${age} años`:"—"]]],
@@ -1592,8 +1673,8 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         </div>
       )}
 
-      {/* ===== TAB 9: CITAS ===== */}
-      {tab===9&&(
+      {/* ===== TAB 10: CITAS ===== */}
+      {tab===10&&(
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-slate-500">{patient.appointments.length} citas registradas</p>
@@ -1632,30 +1713,14 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
       <Modal open={evoModal} onClose={()=>setEvoModal(false)} title="Nueva evolución" size="lg">
         <div className="overflow-y-auto max-h-[80vh]">
 
-          {/* ── Cabecera: profesional + tratamiento + fecha ── */}
-          <div className="px-6 pt-5 pb-4 border-b border-[#E3E8F0] grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* ── Cabecera: profesional + fecha ── */}
+          <div className="px-6 pt-5 pb-4 border-b border-[#E3E8F0] grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-[11px] font-semibold text-[#9AA0B4] uppercase tracking-wide mb-1.5">Profesional *</label>
               <select className="select text-[13px]" value={evoForm.userId} onChange={e=>setEvoForm(f=>({...f,userId:e.target.value}))}>
                 <option value="">Seleccionar profesional...</option>
                 {users.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}
               </select>
-            </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-[#9AA0B4] uppercase tracking-wide mb-1.5">Tratamiento</label>
-              {allActiveBudgetItems.length > 0 ? (
-                <select className="select text-[13px]" value={evoForm.treatment}
-                  onChange={e=>setEvoForm(f=>({...f,treatment:e.target.value}))}>
-                  <option value="">Buscar tratamiento...</option>
-                  {allActiveBudgetItems.map(item=>(
-                    <option key={item.id} value={item.description}>#{item.budgetNumber} — {item.description}{item.tooth?` (D.${item.tooth})`:""}</option>
-                  ))}
-                </select>
-              ) : (
-                <input className="input text-[13px]" value={evoForm.treatment}
-                  onChange={e=>setEvoForm(f=>({...f,treatment:e.target.value}))}
-                  placeholder="Ej: Extracción, Obturación..."/>
-              )}
             </div>
             <div>
               <label className="block text-[11px] font-semibold text-[#9AA0B4] uppercase tracking-wide mb-1.5">Fecha</label>
