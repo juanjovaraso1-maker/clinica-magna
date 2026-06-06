@@ -3207,6 +3207,17 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
             <div><label className="label">Dirección</label><input className="input" value={editForm.address} onChange={e=>setEditForm(f=>({...f,address:e.target.value}))}/></div>
             <div><label className="label">Ciudad</label><input className="input" value={editForm.city} onChange={e=>setEditForm(f=>({...f,city:e.target.value}))}/></div>
             <div className="sm:col-span-2"><label className="label">Notas</label><textarea className="input resize-none" rows={2} value={editForm.notes} onChange={e=>setEditForm(f=>({...f,notes:e.target.value}))}/></div>
+            <div><label className="label">Canal de captación</label>
+              <select className="select" value={editForm.referralSource} onChange={e=>setEditForm(f=>({...f,referralSource:e.target.value}))}>
+                <option value="">Sin especificar</option>
+                <option value="Instagram">Instagram</option>
+                <option value="Facebook">Facebook</option>
+                <option value="Google">Google</option>
+                <option value="Referido">Referido por paciente</option>
+                <option value="Web">Sitio web</option>
+                <option value="Otro">Otro</option>
+              </select>
+            </div>
           </div>
         </div>
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 flex justify-end gap-2 sm:gap-3">
