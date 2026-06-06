@@ -15,6 +15,7 @@ model User {
   username     String?  @unique
   password     String?
   rut          String?
+  signatureUrl String?
   role         String   @default("DENTIST")
   specialty    String?
   active       Boolean  @default(true)

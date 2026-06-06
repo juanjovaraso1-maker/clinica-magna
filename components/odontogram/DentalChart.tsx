@@ -27,26 +27,26 @@ interface Props {
 /* ─── Condiciones ────────────────────────────────────────────────────── */
 const CONDITIONS: Record<string, { label: string; color: string; bg: string }> = {
   sano:          { label: "Sano / Sin patología",        color: "#9CA3AF", bg: "#F3F4F6" },
-  caries:        { label: "Caries",                       color: "#EF4444", bg: "#FEE2E2" },
+  caries:        { label: "Caries",                       color: "#E24B4A", bg: "#FEE2E2" },
   obturacion:    { label: "Obturación",                   color: "#3B82F6", bg: "#DBEAFE" },
-  sellante:      { label: "Sellante",                     color: "#22C55E", bg: "#DCFCE7" },
-  endodoncia:    { label: "Endodoncia",                   color: "#7C3AED", bg: "#F3E8FF" },
-  corona:        { label: "Corona",                       color: "#F59E0B", bg: "#FEF3C7" },  // amber — distinto de azul
-  implante:      { label: "Implante",                     color: "#0891B2", bg: "#CFFAFE" },  // cyan — distinto de verde
-  ausente:       { label: "Pieza ausente",                color: "#94A3B8", bg: "#F1F5F9" },  // slate
-  extraccion:    { label: "Extracción indicada",          color: "#B91C1C", bg: "#FEF2F2" },  // rojo oscuro — distinto de caries
-  fractura:      { label: "Fractura dentaria",            color: "#EA580C", bg: "#FFF7ED" },
-  amalgama:      { label: "Amalgama",                     color: "#64748B", bg: "#F1F5F9" },
-  incrustacion:  { label: "Incrustación",                 color: "#0D9488", bg: "#CCFBF1" },
-  composite:     { label: "Composite",                    color: "#4F46E5", bg: "#EEF2FF" },
+  sellante:      { label: "Sellante",                     color: "#86EFAC", bg: "#DCFCE7" },
+  endodoncia:    { label: "Endodoncia",                   color: "#A855F7", bg: "#F3E8FF" },
+  corona:        { label: "Corona",                       color: "#F59E0B", bg: "#FEF3C7" },
+  implante:      { label: "Implante",                     color: "#10B981", bg: "#D1FAE5" },
+  ausente:       { label: "Pieza ausente",                color: "#94A3B8", bg: "#F1F5F9" },
+  extraccion:    { label: "Extracción indicada",          color: "#991B1B", bg: "#FEF2F2" },
+  fractura:      { label: "Fractura dentaria",            color: "#F97316", bg: "#FFF7ED" },
+  amalgama:      { label: "Amalgama",                     color: "#6B7280", bg: "#F1F5F9" },
+  incrustacion:  { label: "Incrustación",                 color: "#06B6D4", bg: "#CFFAFE" },
+  composite:     { label: "Composite",                    color: "#EC4899", bg: "#FCE7F3" },
   lcnc:          { label: "Lesión cervical no cariosa",   color: "#DB2777", bg: "#FDF2F8" },
-  hipoplasia:    { label: "Hipoplasia / Fluorosis",       color: "#CA8A04", bg: "#FEFCE8" },  // amarillo dorado — distinto de amber
-  movilidad:     { label: "Movilidad",                    color: "#A855F7", bg: "#FAF5FF" },  // violeta claro — distinto de endodoncia
+  hipoplasia:    { label: "Hipoplasia / Fluorosis",       color: "#CA8A04", bg: "#FEFCE8" },
+  movilidad:     { label: "Movilidad",                    color: "#8B5CF6", bg: "#EDE9FE" },
   pulpotomia:    { label: "Pulpotomía",                   color: "#9D174D", bg: "#FDF2F8" },
   corona_acero:  { label: "Corona acero inox.",           color: "#78350F", bg: "#FEF3C7" },
-  fluoruro:      { label: "Fluoruro de plata",            color: "#0EA5E9", bg: "#E0F2FE" },  // sky — distinto de obturación
-  impactado:     { label: "Impactado / Retenido",         color: "#1E3A8A", bg: "#EFF6FF" },  // navy — distinto de obturación
-  supernumerario:{ label: "Supernumerario",               color: "#059669", bg: "#ECFDF5" },  // esmeralda — distinto de implante
+  fluoruro:      { label: "Fluoruro de plata",            color: "#0EA5E9", bg: "#E0F2FE" },
+  impactado:     { label: "Impactado / Retenido",         color: "#1E3A8A", bg: "#EFF6FF" },
+  supernumerario:{ label: "Supernumerario",               color: "#059669", bg: "#ECFDF5" },
 };
 
 const COND_KEYS = Object.keys(CONDITIONS);
@@ -85,6 +85,7 @@ function isUpper(num: number): boolean {
 function SurfaceDiagram({ num, toothState, selSurf, onSurf, readonly }: {
   num: number; toothState?: ToothState; selSurf?: string|null;
   onSurf?: (s:string)=>void; readonly?: boolean;
+  // wholeCond passed implicitly via toothState.wholeCond
 }) {
   const upper = isUpper(num);
   const size = 26, cx = 13, cy = 13, r = 11, ri = 4.5;
@@ -111,9 +112,11 @@ function SurfaceDiagram({ num, toothState, selSurf, onSurf, readonly }: {
     return sc?.cond ? CONDITIONS[sc.cond] : null;
   }
 
+  const wholeCond = toothState?.wholeCond && toothState.wholeCond !== "sano" ? CONDITIONS[toothState.wholeCond] : null;
+
   return (
     <svg width={renderSize} height={renderSize} viewBox={`0 0 ${size} ${size}`} style={{display:"block"}}>
-      <circle cx={cx} cy={cy} r={r} fill="white" stroke="#D4C8B8" strokeWidth="0.8"/>
+      <circle cx={cx} cy={cy} r={r} fill={wholeCond ? `${wholeCond.color}22` : "white"} stroke={wholeCond ? wholeCond.color : "#D4C8B8"} strokeWidth={wholeCond ? "1.5" : "0.8"}/>
       {wedges.map(w => {
         const c = cc(w.key); const isSel = selSurf===w.key;
         const lbl = (w as any).label ?? w.key;
@@ -427,10 +430,10 @@ export default function DentalChart({ records, onSave, onDelete, isSaving, reado
 
       {/* ── Grilla de dientes + panel ── */}
       <div className="overflow-x-auto scrollbar-hide">
-      <div className="flex min-w-[560px]">
+      <div className="flex min-w-[800px]">
         <div className="flex-1 min-w-0 py-3 px-2 bg-white">
           {/* Superior — distribuidos en todo el ancho */}
-          <div style={{display:"grid", gridTemplateColumns:`repeat(${upper.length}, minmax(0, 84px))`, gap:"3px", alignItems:"end"}} className="mb-1 px-1">
+          <div style={{display:"grid", gridTemplateColumns:`repeat(${upper.length}, 84px)`, gap:"3px", alignItems:"end"}} className="mb-1 px-1">
             {upper.map((num) => (
               <div key={num} className="transition-opacity" style={{opacity: toothOpacity(num)}}>
                 <ToothCell num={num} chart={chart} upper={true}
@@ -442,7 +445,7 @@ export default function DentalChart({ records, onSave, onDelete, isSaving, reado
           </div>
           <div className="border-t-2 border-dashed border-[#E8E0D4] mx-2 my-3"/>
           {/* Inferior — distribuidos en todo el ancho */}
-          <div style={{display:"grid", gridTemplateColumns:`repeat(${lower.length}, minmax(0, 84px))`, gap:"3px", alignItems:"start"}} className="mt-1 px-1">
+          <div style={{display:"grid", gridTemplateColumns:`repeat(${lower.length}, 84px)`, gap:"3px", alignItems:"start"}} className="mt-1 px-1">
             {lower.map((num) => (
               <div key={num} className="transition-opacity" style={{opacity: toothOpacity(num)}}>
                 <ToothCell num={num} chart={chart} upper={false}

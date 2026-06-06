@@ -38,18 +38,19 @@ export function wrapHtml(title: string, body: string): string {
 
 function clinicHeader(logoSrc?: string): string {
   const logo = logoSrc
-    ? `<img src="${logoSrc}" style="width:75px;height:65px;object-fit:contain;flex-shrink:0" crossorigin="anonymous"/>`
-    : `<div style="width:75px;height:65px;background:#1f4e79;border-radius:6px;color:white;font-size:10px;font-weight:bold;text-align:center;display:flex;align-items:center;justify-content:center;flex-shrink:0">CLÍNICA<br/>MAGNA</div>`;
+    ? `<div style="background:white;border-radius:8px;padding:4px;flex-shrink:0"><img src="${logoSrc}" style="width:60px;height:55px;object-fit:contain;display:block" crossorigin="anonymous" onerror="this.style.display='none'"/></div>`
+    : `<div style="width:60px;height:55px;background:white;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:4px"><div style="width:52px;height:47px;background:#1A1D2E;border-radius:4px;color:white;font-size:8px;font-weight:bold;text-align:center;display:flex;align-items:center;justify-content:center">CLÍNICA<br/>MAGNA</div></div>`;
   return `
-<div style="display:flex;align-items:flex-start;gap:14px;padding-bottom:10px;border-bottom:2.5px solid #1e5f74;margin-bottom:16px">
+<div style="background:#1A1D2E;padding:16px 18px;display:flex;align-items:center;gap:16px;margin-bottom:0">
   ${logo}
   <div style="flex:1">
-    <div style="font-size:20px;font-weight:bold;color:#000;letter-spacing:0.5px">${CLINIC.name}</div>
-    <div style="font-size:11px;font-style:italic;color:#2e75b6;margin-top:2px">${CLINIC.subtitle}</div>
-    <div style="font-size:9px;color:#555;margin-top:4px">${CLINIC.address} &nbsp;|&nbsp; ${CLINIC.phone} &nbsp;|&nbsp; ${CLINIC.email}</div>
-    <div style="font-size:9px;color:#555">${CLINIC.web} &nbsp;|&nbsp; ${CLINIC.instagram}</div>
+    <div style="font-size:20px;font-weight:bold;color:#FFFFFF;letter-spacing:0.5px">${CLINIC.name}</div>
+    <div style="font-size:11px;color:#CBD5E1;margin-top:2px">${CLINIC.subtitle}</div>
+    <div style="font-size:8.5px;color:#94A3B8;margin-top:5px">${CLINIC.address} &nbsp;|&nbsp; WHATSAPP ${CLINIC.phone} &nbsp;|&nbsp; ${CLINIC.email}</div>
+    <div style="font-size:8.5px;color:#94A3B8">${CLINIC.web} &nbsp;|&nbsp; INSTAGRAM ${CLINIC.instagram}</div>
   </div>
-</div>`;
+</div>
+<div style="height:3px;background:#C9A84C;margin-bottom:18px"></div>`;
 }
 
 function profPatTable(
@@ -57,33 +58,47 @@ function profPatTable(
   pat:  { name: string; rut?: string; date?: string; extra?: Array<{ label: string; value: string }> }
 ): string {
   return `
-<table style="width:100%;border-collapse:collapse;margin:14px 0">
-  <tr>
-    <td style="width:50%;vertical-align:top;padding-right:20px">
-      <div style="font-size:11px;font-weight:bold;color:#2e75b6;border-bottom:1.5px solid #2e75b6;margin-bottom:6px;padding-bottom:2px">PROFESIONAL</div>
-      <div style="font-size:11px"><b>Nombre:</b> ${prof.name}</div>
-      ${prof.showRut !== false && prof.rut ? `<div style="font-size:11px"><b>RUT:</b> ${prof.rut}</div>` : ""}
-    </td>
-    <td style="width:50%;vertical-align:top">
-      <div style="font-size:11px;font-weight:bold;color:#2e75b6;border-bottom:1.5px solid #2e75b6;margin-bottom:6px;padding-bottom:2px">PACIENTE</div>
-      <div style="font-size:11px"><b>Nombre:</b> ${pat.name}</div>
-      ${pat.rut  ? `<div style="font-size:11px"><b>RUT:</b> ${pat.rut}</div>`   : ""}
-      ${pat.date ? `<div style="font-size:11px"><b>Fecha:</b> ${pat.date}</div>` : ""}
-      ${(pat.extra ?? []).map(e => `<div style="font-size:11px"><b>${e.label}:</b> ${e.value}</div>`).join("")}
-    </td>
-  </tr>
-</table>`;
+<div style="background:#F8F9FB;border:1px solid #E5E7EB;border-radius:8px;padding:14px;margin:14px 0">
+  <table style="width:100%;border-collapse:collapse">
+    <tr>
+      <td style="width:50%;vertical-align:top;padding-right:20px">
+        <div style="font-size:10px;font-weight:bold;color:#1A1D2E;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1.5px solid #C9A84C;margin-bottom:6px;padding-bottom:3px">PROFESIONAL</div>
+        <div style="font-size:11px"><b>Nombre:</b> ${prof.name}</div>
+        ${prof.showRut !== false && prof.rut ? `<div style="font-size:11px"><b>RUT:</b> ${prof.rut}</div>` : ""}
+      </td>
+      <td style="width:50%;vertical-align:top">
+        <div style="font-size:10px;font-weight:bold;color:#1A1D2E;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1.5px solid #C9A84C;margin-bottom:6px;padding-bottom:3px">PACIENTE</div>
+        <div style="font-size:11px"><b>Nombre:</b> ${pat.name}</div>
+        ${pat.rut  ? `<div style="font-size:11px"><b>RUT:</b> ${pat.rut}</div>`   : ""}
+        ${pat.date ? `<div style="font-size:11px"><b>Fecha:</b> ${pat.date}</div>` : ""}
+        ${(pat.extra ?? []).map(e => `<div style="font-size:11px"><b>${e.label}:</b> ${e.value}</div>`).join("")}
+      </td>
+    </tr>
+  </table>
+</div>`;
 }
 
-function docFooter(left: string, right: string): string {
+function signatureSection(name: string, rut?: string, signatureUrl?: string): string {
   return `
-<table style="width:100%;margin-top:40px">
-  <tr>
-    <td style="width:45%;text-align:center;border-top:1px solid #555;padding-top:5px;font-size:10px">${left}</td>
-    <td style="width:10%"></td>
-    <td style="width:45%;text-align:center;border-top:1px solid #555;padding-top:5px;font-size:10px">${right}</td>
-  </tr>
-</table>`;
+<div style="margin-top:50px;display:flex;justify-content:center">
+  <div style="text-align:center;min-width:200px">
+    ${signatureUrl
+      ? `<img src="${signatureUrl}" style="height:80px;max-width:200px;object-fit:contain;display:block;margin:0 auto 4px"/>`
+      : `<div style="height:80px"></div>`}
+    <div style="border-top:1.5px solid #374151;padding-top:8px;margin-top:4px">
+      <div style="font-size:11px;font-weight:bold;color:#1A1D2E">${name}</div>
+      ${rut ? `<div style="font-size:10px;color:#6B7280">RUT: ${rut}</div>` : ""}
+      <div style="font-size:10px;color:#6B7280">Clínica Magna</div>
+    </div>
+  </div>
+</div>`;
+}
+
+function clinicFooter(): string {
+  return `
+<div style="margin-top:32px;border-top:2px solid #C9A84C;padding-top:10px;text-align:center">
+  <div style="font-size:8.5px;color:#9CA3AF">${CLINIC.name} &nbsp;|&nbsp; ${CLINIC.address} &nbsp;|&nbsp; ${CLINIC.phone} &nbsp;|&nbsp; ${CLINIC.email} &nbsp;|&nbsp; ${CLINIC.web}</div>
+</div>`;
 }
 
 // ── RECETA MÉDICA ─────────────────────────────────────────────
@@ -93,6 +108,7 @@ export interface RecetaMed {
 }
 export interface RecetaData {
   professionalName: string; professionalRut?: string;
+  signatureUrl?: string;
   patientName: string; patientRut?: string; patientBirthDate?: string;
   date: string;
   medications: RecetaMed[];
@@ -100,23 +116,23 @@ export interface RecetaData {
 }
 
 export function buildRecetaBody(data: RecetaData, logoSrc?: string): string {
-  const TH = `padding:6px 7px;border:1px solid #1f4e79;font-size:10px;text-align:center;background:#1f4e79;color:white;font-weight:bold`;
+  const TH = `padding:6px 7px;border:1px solid #1A1D2E;font-size:10px;text-align:center;background:#1A1D2E;color:white;font-weight:bold`;
   const medRows = data.medications.map((m, i) => `
-    <tr style="background:${i % 2 === 0 ? "#fff" : "#f0f6ff"}">
-      <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px;font-weight:bold">${i + 1}</td>
-      <td style="padding:5px 7px;border:1px solid #bcd2e8;font-size:10px;font-weight:bold;text-transform:uppercase">${m.drug}</td>
-      <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${m.dose ?? ""}</td>
-      <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${m.freq ?? ""}</td>
-      <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${m.duration ?? ""}</td>
-      <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${m.qty ?? ""}</td>
+    <tr style="background:${i % 2 === 0 ? "#fff" : "#F8F9FB"}">
+      <td style="padding:5px 7px;text-align:center;border:1px solid #E5E7EB;font-size:10px;font-weight:bold">${i + 1}</td>
+      <td style="padding:5px 7px;border:1px solid #E5E7EB;font-size:10px;font-weight:bold;text-transform:uppercase">${m.drug}</td>
+      <td style="padding:5px 7px;text-align:center;border:1px solid #E5E7EB;font-size:10px">${m.dose ?? ""}</td>
+      <td style="padding:5px 7px;text-align:center;border:1px solid #E5E7EB;font-size:10px">${m.freq ?? ""}</td>
+      <td style="padding:5px 7px;text-align:center;border:1px solid #E5E7EB;font-size:10px">${m.duration ?? ""}</td>
+      <td style="padding:5px 7px;text-align:center;border:1px solid #E5E7EB;font-size:10px">${m.qty ?? ""}</td>
     </tr>
-    ${m.instructions ? `<tr style="background:#f8f9fa"><td></td><td colspan="5" style="padding:3px 7px 6px;border:1px solid #bcd2e8;font-size:9.5px;font-style:italic;color:#555">Indicación: ${m.instructions}</td></tr>` : ""}
+    ${m.instructions ? `<tr style="background:#f8f9fa"><td></td><td colspan="5" style="padding:3px 7px 6px;border:1px solid #E5E7EB;font-size:9.5px;font-style:italic;color:#555">Indicación: ${m.instructions}</td></tr>` : ""}
   `).join("");
 
   return `
     ${clinicHeader(logoSrc)}
     <div style="text-align:center;margin:14px 0 10px">
-      <div style="font-size:17px;font-weight:bold;letter-spacing:1px">RECETA MÉDICA ODONTOLÓGICA</div>
+      <div style="font-size:18px;font-weight:bold;letter-spacing:1px;color:#1A1D2E;text-transform:uppercase">RECETA MÉDICA ODONTOLÓGICA</div>
     </div>
     ${profPatTable(
       { name: data.professionalName, rut: data.professionalRut },
@@ -135,17 +151,15 @@ export function buildRecetaBody(data: RecetaData, logoSrc?: string): string {
       <tbody>${medRows}</tbody>
     </table>
     <div style="margin-bottom:12px">
-      <div style="font-size:11px;font-weight:bold;color:#2e75b6;margin-bottom:5px">DIAGNÓSTICO / INDICACIÓN:</div>
-      <div style="border:1px solid #bcd2e8;min-height:44px;padding:8px;background:#fff;font-size:10.5px">${data.diagnosis ?? ""}</div>
+      <div style="font-size:11px;font-weight:bold;color:#1A1D2E;margin-bottom:5px">DIAGNÓSTICO / INDICACIÓN:</div>
+      <div style="border:1px solid #E5E7EB;min-height:44px;padding:8px;background:#fff;font-size:10.5px">${data.diagnosis ?? ""}</div>
     </div>
     <div style="margin-bottom:12px">
-      <div style="font-size:11px;font-weight:bold;color:#2e75b6;margin-bottom:5px">OBSERVACIONES:</div>
-      <div style="border:1px solid #bcd2e8;min-height:44px;padding:8px;background:#fff;font-size:10.5px">${data.notes ?? ""}</div>
+      <div style="font-size:11px;font-weight:bold;color:#1A1D2E;margin-bottom:5px">OBSERVACIONES:</div>
+      <div style="border:1px solid #E5E7EB;min-height:44px;padding:8px;background:#fff;font-size:10.5px">${data.notes ?? ""}</div>
     </div>
-    ${docFooter("Firma y Timbre Profesional", "Clínica Magna")}
-    <div style="margin-top:16px;text-align:center;font-size:9px;color:#888;border-top:1px solid #eee;padding-top:8px">
-      Clínica Magna &nbsp;|&nbsp; Receta Médica Odontológica &nbsp;|&nbsp; ${CLINIC.address}
-    </div>`;
+    ${signatureSection(data.professionalName, data.professionalRut, data.signatureUrl)}
+    ${clinicFooter()}`;
 }
 
 export function buildRecetaHTML(data: RecetaData, logoSrc?: string): string {
@@ -155,85 +169,116 @@ export function buildRecetaHTML(data: RecetaData, logoSrc?: string): string {
 // ── PRESUPUESTO DENTAL ────────────────────────────────────────
 
 export interface PresupuestoItem {
-  description: string; area?: string; tooth?: string;
-  sessions?: number; quantity?: number; unitPrice: number; total: number; discount?: number;
+  description: string;
+  area?: string;
+  tooth?: string;
+  sessions?: number;
+  quantity?: number;
+  unitPrice: number;
+  discount?: number;  // percentage
+  total: number;
 }
 export interface PresupuestoData {
-  number: number; professionalName: string;
-  patientName: string; patientRut?: string; date: string;
+  number: number;
+  professionalName: string;
+  professionalRut?: string;
+  signatureUrl?: string;
+  patientName: string;
+  patientRut?: string;
+  date: string;
+  validDays?: number;
+  observations?: string;
   items: PresupuestoItem[];
-  subtotal: number; discount?: number; total: number;
+  subtotal: number;
+  discount?: number;
+  total: number;
 }
 
 export function buildPresupuestoBody(data: PresupuestoData, logoSrc?: string): string {
   const numStr = String(data.number).padStart(4, "0");
-  const TH = `padding:6px 7px;border:1px solid #1f4e79;font-size:10px;font-weight:bold;background:#1f4e79;color:white`;
-  const TD = `padding:6px 7px;border:1px solid #bcd2e8;font-size:10.5px`;
+  const validDays = data.validDays ?? 30;
+  const TH = `padding:6px 7px;border:1px solid #1A1D2E;font-size:10px;font-weight:bold;background:#1A1D2E;color:white`;
+  const TD = `padding:6px 7px;border:1px solid #E5E7EB;font-size:10.5px`;
 
-  const rows = data.items.map((it, i) => `
-    <tr style="background:${i % 2 === 0 ? "#fff" : "#dce6f1"}">
-      <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px;font-weight:bold">${i + 1}</td>
-      <td style="padding:5px 7px;border:1px solid #bcd2e8;font-size:10px">${it.description}</td>
-      <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${it.area || "—"}</td>
-      <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${it.tooth || "—"}</td>
-      <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${it.sessions ?? it.quantity ?? 1}</td>
-      <td style="padding:5px 7px;text-align:right;border:1px solid #bcd2e8;font-size:10px">${fmt(it.total)}</td>
+  const rows = data.items.map((it, i) => {
+    const qty = it.quantity ?? it.sessions ?? 1;
+    const discPct = it.discount ?? 0;
+    const discAmt = it.unitPrice * qty * discPct / 100;
+    return `
+    <tr style="background:${i % 2 === 0 ? "#fff" : "#F8F9FB"}">
+      <td style="padding:5px 7px;text-align:center;border:1px solid #E5E7EB;font-size:10px;font-weight:bold">${i + 1}</td>
+      <td style="padding:5px 7px;border:1px solid #E5E7EB;font-size:10px">${it.description}</td>
+      <td style="padding:5px 7px;text-align:center;border:1px solid #E5E7EB;font-size:10px">${it.tooth || "—"}</td>
+      <td style="padding:5px 7px;text-align:right;border:1px solid #E5E7EB;font-size:10px">${fmt(it.unitPrice)}</td>
+      <td style="padding:5px 7px;text-align:center;border:1px solid #E5E7EB;font-size:10px">${qty}</td>
+      <td style="padding:5px 7px;text-align:center;border:1px solid #E5E7EB;font-size:10px">${discPct > 0 ? discPct + "%" : "—"}</td>
+      <td style="padding:5px 7px;text-align:right;border:1px solid #E5E7EB;font-size:10px">${discAmt > 0 ? fmt(discAmt) : "—"}</td>
+      <td style="padding:5px 7px;text-align:right;border:1px solid #E5E7EB;font-size:10px">${fmt(it.total)}</td>
     </tr>
-  `).join("");
+  `}).join("");
 
-  const emptyRows = Array.from({ length: Math.max(0, 8 - data.items.length) }, (_, i) => `
-    <tr style="background:${(data.items.length + i) % 2 === 0 ? "#fff" : "#dce6f1"}">
-      <td style="padding:5px 7px;border:1px solid #bcd2e8;height:22px"></td>
-      <td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td>
-      <td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td>
-      <td style="border:1px solid #bcd2e8"></td>
+  const emptyRows = Array.from({ length: Math.max(0, 6 - data.items.length) }, (_, i) => `
+    <tr style="background:${(data.items.length + i) % 2 === 0 ? "#fff" : "#F8F9FB"}">
+      <td style="padding:5px 7px;border:1px solid #E5E7EB;height:22px"></td>
+      <td style="border:1px solid #E5E7EB"></td><td style="border:1px solid #E5E7EB"></td>
+      <td style="border:1px solid #E5E7EB"></td><td style="border:1px solid #E5E7EB"></td>
+      <td style="border:1px solid #E5E7EB"></td><td style="border:1px solid #E5E7EB"></td>
+      <td style="border:1px solid #E5E7EB"></td>
     </tr>
   `).join("");
 
   return `
     ${clinicHeader(logoSrc)}
     <div style="text-align:center;margin:14px 0 10px">
-      <div style="font-size:17px;font-weight:bold;letter-spacing:1px">PRESUPUESTO DENTAL</div>
-      <div style="font-size:10px;font-style:italic;color:#555;margin-top:3px">N° ${numStr} &nbsp;·&nbsp; Válido por 30 días &nbsp;·&nbsp; ${CLINIC.address}</div>
+      <div style="font-size:18px;font-weight:bold;letter-spacing:1px;color:#1A1D2E;text-transform:uppercase">PRESUPUESTO DENTAL</div>
+      <div style="font-size:10px;color:#6B7280;margin-top:3px">N° ${numStr} &nbsp;·&nbsp; Válido por ${validDays} días &nbsp;·&nbsp; ${CLINIC.address}</div>
     </div>
     ${profPatTable(
-      { name: data.professionalName },
+      { name: data.professionalName, rut: data.professionalRut },
       { name: data.patientName, rut: data.patientRut, date: data.date }
     )}
     <table style="width:100%;border-collapse:collapse;margin:4px 0 14px">
       <thead><tr>
-        <th style="${TH};text-align:center;width:5%">N°</th>
-        <th style="${TH};text-align:left;width:30%">Tratamiento / Descripción</th>
-        <th style="${TH};text-align:center;width:18%">Categoría</th>
-        <th style="${TH};text-align:center;width:12%">Diente(s)</th>
-        <th style="${TH};text-align:center;width:11%">Sesiones</th>
-        <th style="${TH};text-align:right;width:24%">Precio ($)</th>
+        <th style="${TH};text-align:center;width:4%">N°</th>
+        <th style="${TH};text-align:left;width:28%">Tratamiento / Descripción</th>
+        <th style="${TH};text-align:center;width:10%">Diente(s)</th>
+        <th style="${TH};text-align:right;width:13%">P. Unitario</th>
+        <th style="${TH};text-align:center;width:8%">Cantidad</th>
+        <th style="${TH};text-align:center;width:8%">Dto %</th>
+        <th style="${TH};text-align:right;width:10%">Dto $</th>
+        <th style="${TH};text-align:right;width:19%">Total</th>
       </tr></thead>
       <tbody>
         ${rows}${emptyRows}
-        <tr style="background:#f0f6ff">
-          <td colspan="5" style="${TD};text-align:right;font-weight:bold">Subtotal</td>
+        <tr style="background:#F8F9FB">
+          <td colspan="7" style="${TD};text-align:right;font-weight:bold">Subtotal</td>
           <td style="${TD};text-align:right;font-weight:bold">${fmt(data.subtotal)}</td>
         </tr>
         ${data.discount && data.discount > 0 ? `
-        <tr style="background:#f0f6ff">
-          <td colspan="5" style="${TD};text-align:right;font-weight:bold;color:#c0392b">Descuento</td>
+        <tr style="background:#F8F9FB">
+          <td colspan="7" style="${TD};text-align:right;font-weight:bold;color:#c0392b">Descuento</td>
           <td style="${TD};text-align:right;font-weight:bold;color:#c0392b">− ${fmt(data.discount)}</td>
         </tr>` : ""}
-        <tr style="background:#1f4e79">
-          <td colspan="5" style="${TD};text-align:right;font-weight:bold;color:white;font-size:12px">TOTAL A PAGAR</td>
+        <tr style="background:#1A1D2E">
+          <td colspan="7" style="${TD};text-align:right;font-weight:bold;color:white;font-size:12px">TOTAL A PAGAR</td>
           <td style="${TD};text-align:right;font-weight:bold;color:white;font-size:12px">${fmt(data.total)}</td>
         </tr>
       </tbody>
     </table>
-    <div style="border:1px solid #bcd2e8;padding:10px 13px;background:#f0f6ff;border-radius:3px;font-size:9.5px;line-height:1.7">
-      <div style="font-weight:bold;margin-bottom:4px;font-size:10.5px">Condiciones del Presupuesto</div>
-      <div>• Este presupuesto tiene una validez de 30 días desde la fecha de emisión.</div>
+    ${data.observations ? `
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:bold;color:#1A1D2E;margin-bottom:5px">OBSERVACIONES:</div>
+      <div style="border:1px solid #E5E7EB;padding:8px;background:#fff;font-size:10.5px;line-height:1.7">${data.observations}</div>
+    </div>` : ""}
+    <div style="border:1px solid #E5E7EB;padding:10px 13px;background:#F8F9FB;border-radius:6px;font-size:9.5px;line-height:1.7">
+      <div style="font-weight:bold;margin-bottom:4px;font-size:10.5px;color:#1A1D2E">Condiciones del Presupuesto</div>
+      <div>• Este presupuesto tiene una validez de ${validDays} días desde la fecha de emisión.</div>
       <div>• Algunos tratamientos están sujetos a diagnóstico definitivo; los costos pueden variar según hallazgos clínicos y/o radiográficos.</div>
       <div>• Los precios incluyen honorarios profesionales. Insumos especiales, exámenes o derivaciones no están incluidos salvo indicación.</div>
       <div>• Los tratamientos marcados con (*) requieren evaluación adicional antes de iniciar.</div>
     </div>
-    ${docFooter("Firma Profesional", "Clínica Magna")}`;
+    ${signatureSection(data.professionalName, data.professionalRut, data.signatureUrl)}
+    ${clinicFooter()}`;
 }
 
 export function buildPresupuestoHTML(data: PresupuestoData, logoSrc?: string): string {
@@ -246,8 +291,14 @@ export interface IndicacionesSections {
   primeras2h: string; primeras24h: string; general: string; alarma: string;
 }
 export interface IndicacionesData {
-  professionalName: string; patientName: string; date: string;
-  procedimiento: string; sections: IndicacionesSections; observaciones?: string;
+  professionalName: string;
+  professionalRut?: string;
+  signatureUrl?: string;
+  patientName: string;
+  date: string;
+  procedimiento: string;
+  sections: IndicacionesSections;
+  observaciones?: string;
 }
 
 export function buildIndicacionesBody(data: IndicacionesData, logoSrc?: string): string {
@@ -264,15 +315,15 @@ export function buildIndicacionesBody(data: IndicacionesData, logoSrc?: string):
   return `
     ${clinicHeader(logoSrc)}
     <div style="text-align:center;margin:14px 0 4px">
-      <div style="font-size:16px;font-weight:bold;letter-spacing:1px">INDICACIONES POST-PROCEDIMIENTO</div>
+      <div style="font-size:18px;font-weight:bold;letter-spacing:1px;color:#1A1D2E;text-transform:uppercase">INDICACIONES POST-PROCEDIMIENTO</div>
       <div style="font-size:10px;font-style:italic;color:#c0392b;margin-top:3px">Léa detenidamente antes de retirarse de la clínica</div>
     </div>
     ${profPatTable(
-      { name: data.professionalName, showRut: false },
+      { name: data.professionalName, rut: data.professionalRut, showRut: false },
       { name: data.patientName, date: data.date,
         extra: [{ label: "Procedimiento realizado", value: data.procedimiento }] }
     )}
-    <div style="font-size:11px;font-weight:bold;color:#1e6091;margin:10px 0 7px;text-transform:uppercase;letter-spacing:0.3px">
+    <div style="font-size:11px;font-weight:bold;color:#1A1D2E;margin:10px 0 7px;text-transform:uppercase;letter-spacing:0.3px">
       Indicaciones — ${data.procedimiento}:
     </div>
     ${sec("Primeras 2 horas",   "[1]", data.sections.primeras2h,  "#fef3c7", "#f59e0b")}
@@ -282,12 +333,10 @@ export function buildIndicacionesBody(data: IndicacionesData, logoSrc?: string):
     ${data.observaciones ? `
     <div style="margin-top:12px">
       <div style="font-size:11px;font-weight:bold;color:#555;margin-bottom:5px;text-transform:uppercase">Observaciones adicionales:</div>
-      <div style="border:1px solid #bcd2e8;padding:8px;background:#f8fafc;font-size:10.5px;line-height:1.7">${data.observaciones}</div>
+      <div style="border:1px solid #E5E7EB;padding:8px;background:#f8fafc;font-size:10.5px;line-height:1.7">${data.observaciones}</div>
     </div>` : ""}
-    ${docFooter("Firma Profesional", "Clínica Magna")}
-    <div style="margin-top:16px;text-align:center;font-size:9px;color:#888;border-top:1px solid #eee;padding-top:8px">
-      ${CLINIC.phone} &nbsp;|&nbsp; ${CLINIC.email} &nbsp;|&nbsp; ${CLINIC.instagram}
-    </div>`;
+    ${signatureSection(data.professionalName, data.professionalRut, data.signatureUrl)}
+    ${clinicFooter()}`;
 }
 
 export function buildIndicacionesHTML(data: IndicacionesData, logoSrc?: string): string {
@@ -307,27 +356,27 @@ export interface RadiografiaData {
 }
 
 export function buildRadiografiaBody(data: RadiografiaData, logoSrc?: string): string {
-  const TH = `padding:6px 7px;border:1px solid #1f4e79;font-size:10px;text-align:center;background:#1f4e79;color:white;font-weight:bold`;
+  const TH = `padding:6px 7px;border:1px solid #1A1D2E;font-size:10px;text-align:center;background:#1A1D2E;color:white;font-weight:bold`;
   const rows = data.items.map((it, i) => `
-    <tr style="background:${i % 2 === 0 ? "#fff" : "#f0f6ff"}">
-      <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px;font-weight:bold">${i + 1}</td>
-      <td style="padding:5px 7px;border:1px solid #bcd2e8;font-size:10.5px;font-weight:bold;text-transform:uppercase">${it.type || ""}</td>
-      <td style="padding:5px 7px;border:1px solid #bcd2e8;font-size:10.5px">${it.zone || ""}</td>
+    <tr style="background:${i % 2 === 0 ? "#fff" : "#F8F9FB"}">
+      <td style="padding:5px 7px;text-align:center;border:1px solid #E5E7EB;font-size:10px;font-weight:bold">${i + 1}</td>
+      <td style="padding:5px 7px;border:1px solid #E5E7EB;font-size:10.5px;font-weight:bold;text-transform:uppercase">${it.type || ""}</td>
+      <td style="padding:5px 7px;border:1px solid #E5E7EB;font-size:10.5px">${it.zone || ""}</td>
     </tr>
   `).join("");
 
   const emptyRows = Array.from({ length: Math.max(0, 5 - data.items.length) }, (_, i) => `
-    <tr style="background:${(data.items.length + i) % 2 === 0 ? "#fff" : "#f0f6ff"}">
-      <td style="padding:5px 7px;border:1px solid #bcd2e8;height:22px;text-align:center;font-size:10px;color:#ccc">${data.items.length + i + 1}</td>
-      <td style="border:1px solid #bcd2e8"></td>
-      <td style="border:1px solid #bcd2e8"></td>
+    <tr style="background:${(data.items.length + i) % 2 === 0 ? "#fff" : "#F8F9FB"}">
+      <td style="padding:5px 7px;border:1px solid #E5E7EB;height:22px;text-align:center;font-size:10px;color:#ccc">${data.items.length + i + 1}</td>
+      <td style="border:1px solid #E5E7EB"></td>
+      <td style="border:1px solid #E5E7EB"></td>
     </tr>
   `).join("");
 
   return `
     ${clinicHeader(logoSrc)}
     <div style="text-align:center;margin:14px 0 10px">
-      <div style="font-size:17px;font-weight:bold;letter-spacing:1px">SOLICITUD DE RADIOGRAFÍA / SCANNER</div>
+      <div style="font-size:18px;font-weight:bold;letter-spacing:1px;color:#1A1D2E;text-transform:uppercase">SOLICITUD DE RADIOGRAFÍA / SCANNER</div>
     </div>
     ${profPatTable(
       { name: data.professionalName, rut: data.professionalRut },
@@ -343,17 +392,15 @@ export function buildRadiografiaBody(data: RadiografiaData, logoSrc?: string): s
       <tbody>${rows}${emptyRows}</tbody>
     </table>
     <div style="margin-bottom:12px">
-      <div style="font-size:11px;font-weight:bold;color:#2e75b6;margin-bottom:5px">INDICACIÓN CLÍNICA:</div>
-      <div style="border:1px solid #bcd2e8;min-height:50px;padding:8px;background:#fff;font-size:10.5px">${data.indication ?? ""}</div>
+      <div style="font-size:11px;font-weight:bold;color:#1A1D2E;margin-bottom:5px">INDICACIÓN CLÍNICA:</div>
+      <div style="border:1px solid #E5E7EB;min-height:50px;padding:8px;background:#fff;font-size:10.5px">${data.indication ?? ""}</div>
     </div>
     <div style="margin-bottom:12px">
-      <div style="font-size:11px;font-weight:bold;color:#2e75b6;margin-bottom:5px">OBSERVACIONES:</div>
-      <div style="border:1px solid #bcd2e8;min-height:40px;padding:8px;background:#fff;font-size:10.5px">${data.observations ?? ""}</div>
+      <div style="font-size:11px;font-weight:bold;color:#1A1D2E;margin-bottom:5px">OBSERVACIONES:</div>
+      <div style="border:1px solid #E5E7EB;min-height:40px;padding:8px;background:#fff;font-size:10.5px">${data.observations ?? ""}</div>
     </div>
-    ${docFooter("Firma y Timbre Profesional", "Clínica Magna")}
-    <div style="margin-top:16px;text-align:center;font-size:9px;color:#888;border-top:1px solid #eee;padding-top:8px">
-      Clínica Magna &nbsp;|&nbsp; Solicitud de Radiografía/Scanner &nbsp;|&nbsp; ${CLINIC.address}
-    </div>`;
+    ${signatureSection(data.professionalName, data.professionalRut)}
+    ${clinicFooter()}`;
 }
 
 export function buildRadiografiaHTML(data: RadiografiaData, logoSrc?: string): string {

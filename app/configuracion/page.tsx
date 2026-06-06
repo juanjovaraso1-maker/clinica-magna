@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 
-type User = { id: string; name: string; email: string; rut?: string; username?: string; role: string; specialty: string | null; active: boolean };
+type User = { id: string; name: string; email: string; rut?: string; username?: string; role: string; specialty: string | null; active: boolean; signatureUrl?: string };
 
 const TABS = [
   { key: "general",   label: "General",   icon: Building2 },
@@ -76,6 +76,9 @@ export default function Configuracion() {
   const [form, setForm] = useState(EMPTY_USER);
   const [formError, setFormError] = useState("");
   const [formSaving, setFormSaving] = useState(false);
+  const [sigPreview, setSigPreview] = useState<string | null>(null);
+  const [sigUploading, setSigUploading] = useState(false);
+  const [sigDeleting, setSigDeleting] = useState(false);
 
   useEffect(() => {
     loadUsers();
@@ -164,10 +167,38 @@ export default function Configuracion() {
     setSaving(false); setSaved(true); setTimeout(() => setSaved(false), 2500);
   }
 
-  function openNew() { setForm(EMPTY_USER); setEditing(null); setFormError(""); setUserModal(true); }
+  function openNew() { setForm(EMPTY_USER); setEditing(null); setFormError(""); setSigPreview(null); setUserModal(true); }
   function openEdit(u: User) {
     setForm({ name: u.name, email: u.email, rut: u.rut || "", role: u.role, specialty: u.specialty || "", username: u.username || "", password: "" });
+    setSigPreview(u.signatureUrl ?? null);
     setEditing(u); setFormError(""); setUserModal(true);
+  }
+
+  async function uploadSignature(file: File) {
+    if (!editing) return;
+    if (!["image/png","image/jpeg","image/jpg","image/webp"].includes(file.type)) {
+      setFormError("Solo se permiten imágenes PNG, JPG o WebP"); return;
+    }
+    if (file.size > 2 * 1024 * 1024) { setFormError("La firma no puede superar 2MB"); return; }
+    setSigUploading(true); setFormError("");
+    const fd = new FormData(); fd.append("signature", file);
+    const r = await fetch(`/api/users/${editing.id}/signature`, { method: "POST", body: fd });
+    const d = await r.json();
+    if (d.ok) {
+      const reader = new FileReader();
+      reader.onload = e => setSigPreview(e.target?.result as string);
+      reader.readAsDataURL(file);
+      loadUsers();
+    } else { setFormError(d.error || "Error al subir firma"); }
+    setSigUploading(false);
+  }
+
+  async function deleteSignature() {
+    if (!editing) return;
+    setSigDeleting(true);
+    await fetch(`/api/users/${editing.id}/signature`, { method: "DELETE" });
+    setSigPreview(null); loadUsers();
+    setSigDeleting(false);
   }
 
   async function saveUser() {
@@ -336,6 +367,10 @@ export default function Configuracion() {
                           {u.specialty}
                         </span>
                       )}
+                      {u.signatureUrl
+                        ? <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">✓ Firma</span>
+                        : <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">Sin firma</span>
+                      }
                     </div>
                   </div>
                   <div className="flex flex-col gap-1.5 flex-shrink-0">
@@ -715,6 +750,38 @@ export default function Configuracion() {
               </select>
             </div>
           </div>
+
+          {/* Signature section — only shown when editing an existing user */}
+          {editing && (
+            <div className="border border-[#E3E8F0] rounded-xl p-4 bg-[#FAFBFD]">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#9AA0B4] mb-3">Firma digital</p>
+              <div className="flex items-start gap-4 flex-wrap">
+                {/* Preview */}
+                <div className="flex-shrink-0 w-[160px] h-[90px] border border-[#E3E8F0] rounded-lg bg-white flex items-center justify-center overflow-hidden">
+                  {sigPreview
+                    ? <img src={sigPreview} alt="Firma" className="max-h-[80px] max-w-[150px] object-contain" />
+                    : <span className="text-[11px] text-[#9AA0B4] text-center px-3">Sin firma subida</span>
+                  }
+                </div>
+                {/* Actions */}
+                <div className="flex flex-col gap-2">
+                  <label className={`inline-flex items-center gap-2 btn-secondary text-xs cursor-pointer ${sigUploading ? "opacity-50 pointer-events-none" : ""}`}>
+                    <Upload size={13}/>
+                    {sigUploading ? "Subiendo..." : sigPreview ? "Reemplazar firma" : "Subir firma"}
+                    <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
+                      onChange={e => { const f = e.target.files?.[0]; if (f) uploadSignature(f); e.target.value = ""; }} />
+                  </label>
+                  {sigPreview && (
+                    <button onClick={deleteSignature} disabled={sigDeleting}
+                      className="inline-flex items-center gap-2 btn-danger btn-sm text-xs">
+                      <Trash2 size={13}/> {sigDeleting ? "Eliminando..." : "Eliminar firma"}
+                    </button>
+                  )}
+                  <p className="text-[10px] text-[#9AA0B4]">PNG, JPG o WebP · Máx. 2MB<br/>Se mostrará en recetas y presupuestos</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {formError && (
             <p className="text-red-500 text-sm bg-red-50 border border-red-200 rounded-xl px-3 py-2">{formError}</p>

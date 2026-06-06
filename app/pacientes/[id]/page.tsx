@@ -236,7 +236,7 @@ export default function PatientDetail() {
   const sessionUserId = (session?.user as any)?.id ?? "";
   const [patient, setPatient] = useState<Patient|null>(null);
   const [tab, setTab] = useState(0);
-  const [users, setUsers] = useState<Array<{id:string;name:string;rut?:string}>>([]);
+  const [users, setUsers] = useState<Array<{id:string;name:string;rut?:string;signatureUrl?:string}>>([]);
   const [evoModal, setEvoModal] = useState(false);
   const [evoForm, setEvoForm] = useState({ date:new Date().toISOString().split("T")[0], diagnosis:"", observations:"", userId:"", treatment:"", isPrivate:false });
   const [evoBudgetSelections, setEvoBudgetSelections] = useState<Record<string,{selected:boolean;newStatus:string}>>({});
@@ -649,39 +649,67 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     const l1   = [addr, phone&&`WHATSAPP ${phone}`, mail].filter(Boolean).join("  |  ");
     const l2   = [web, ig&&`INSTAGRAM ${ig}`].filter(Boolean).join("  |  ");
     const logoBase = typeof window !== "undefined" ? window.location.origin + "/LOGO.jpeg" : "/LOGO.jpeg";
-    return `<div style="display:flex;align-items:flex-start;gap:14px;padding-bottom:10px;border-bottom:2px solid #1e5f74;margin-bottom:18px">
-      <img src="${logoBase}" style="width:80px;height:70px;object-fit:contain;flex-shrink:0" onerror="this.style.display='none'"/>
-      <div>
-        <div style="font-size:19px;font-weight:bold;color:#000;letter-spacing:0.5px">${name}</div>
-        <div style="font-size:11px;font-style:italic;color:#2e75b6;margin-top:2px">${sub}</div>
-        ${l1?`<div style="font-size:9px;color:#555;margin-top:3px">${l1}</div>`:""}
-        ${l2?`<div style="font-size:9px;color:#555">${l2}</div>`:""}
-      </div></div>`;
+    return `
+<div style="background:#1A1D2E;padding:16px 18px;display:flex;align-items:center;gap:16px;margin-bottom:0">
+  <div style="background:white;border-radius:8px;padding:4px;flex-shrink:0">
+    <img src="${logoBase}" style="width:60px;height:55px;object-fit:contain;display:block" onerror="this.style.display='none'"/>
+  </div>
+  <div style="flex:1">
+    <div style="font-size:20px;font-weight:bold;color:#FFFFFF;letter-spacing:0.5px">${name}</div>
+    <div style="font-size:11px;color:#CBD5E1;margin-top:2px">${sub}</div>
+    ${l1?`<div style="font-size:8.5px;color:#94A3B8;margin-top:5px">${l1}</div>`:""}
+    ${l2?`<div style="font-size:8.5px;color:#94A3B8">${l2}</div>`:""}
+  </div>
+</div>
+<div style="height:3px;background:#C9A84C;margin-bottom:18px"></div>`;
   }
 
   function buildDocProfPat(prof:{name:string;rut?:string;showRut?:boolean}, extra:{label:string;value:string}[]): string {
     const showRut = prof.showRut !== false;
-    return `<table style="width:100%;border-collapse:collapse;margin:14px 0">
-      <tr>
-        <td style="width:50%;vertical-align:top;padding-right:20px">
-          <div style="font-size:11px;font-weight:bold;color:#2e75b6;border-bottom:1.5px solid #2e75b6;margin-bottom:6px;padding-bottom:2px">PROFESIONAL</div>
-          <div style="font-size:11px"><b>Nombre:</b> ${prof.name}</div>
-          ${showRut?`<div style="font-size:11px"><b>RUT:</b> ${prof.rut||""}</div>`:""}
-        </td>
-        <td style="width:50%;vertical-align:top">
-          <div style="font-size:11px;font-weight:bold;color:#2e75b6;border-bottom:1.5px solid #2e75b6;margin-bottom:6px;padding-bottom:2px">PACIENTE</div>
-          ${extra.map(e=>`<div style="font-size:11px"><b>${e.label}:</b> ${e.value}</div>`).join("")}
-        </td>
-      </tr></table>`;
+    return `
+<div style="background:#F8F9FB;border:1px solid #E5E7EB;border-radius:8px;padding:14px;margin:14px 0">
+  <table style="width:100%;border-collapse:collapse">
+    <tr>
+      <td style="width:50%;vertical-align:top;padding-right:20px">
+        <div style="font-size:10px;font-weight:bold;color:#1A1D2E;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1.5px solid #C9A84C;margin-bottom:6px;padding-bottom:3px">PROFESIONAL</div>
+        <div style="font-size:11px"><b>Nombre:</b> ${prof.name}</div>
+        ${showRut&&prof.rut?`<div style="font-size:11px"><b>RUT:</b> ${prof.rut}</div>`:""}
+      </td>
+      <td style="width:50%;vertical-align:top">
+        <div style="font-size:10px;font-weight:bold;color:#1A1D2E;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1.5px solid #C9A84C;margin-bottom:6px;padding-bottom:3px">PACIENTE</div>
+        ${extra.map(e=>`<div style="font-size:11px"><b>${e.label}:</b> ${e.value}</div>`).join("")}
+      </td>
+    </tr>
+  </table>
+</div>`;
   }
 
-  function buildDocFooter(left:string, right:string): string {
-    return `<table style="width:100%;margin-top:48px;font-size:10px">
-      <tr>
-        <td style="width:45%;text-align:center;border-top:1px solid #555;padding-top:5px">${left}</td>
-        <td style="width:10%"></td>
-        <td style="width:45%;text-align:center;border-top:1px solid #555;padding-top:5px">${right}</td>
-      </tr></table>`;
+  function buildDocSignature(name:string, rut?:string, signatureUrl?:string): string {
+    return `
+<div style="margin-top:50px;display:flex;justify-content:center">
+  <div style="text-align:center;min-width:200px">
+    ${signatureUrl
+      ? `<img src="${signatureUrl}" style="height:80px;max-width:200px;object-fit:contain;display:block;margin:0 auto 4px"/>`
+      : `<div style="height:80px"></div>`}
+    <div style="border-top:1.5px solid #374151;padding-top:8px;margin-top:4px">
+      <div style="font-size:11px;font-weight:bold;color:#1A1D2E">${name}</div>
+      ${rut ? `<div style="font-size:10px;color:#6B7280">RUT: ${rut}</div>` : ""}
+      <div style="font-size:10px;color:#6B7280">Clínica Magna</div>
+    </div>
+  </div>
+</div>`;
+  }
+
+  function buildClinicFooter(): string {
+    const addr = clinicCfg.clinic_address  || "Badajoz 100 Of. 918, Las Condes";
+    const phone= clinicCfg.clinic_phone    || "+56 9 6279 3952";
+    const mail = clinicCfg.clinic_email    || "administracion@clinicamagna.cl";
+    const web  = clinicCfg.clinic_website  || "www.clinicamagna.cl";
+    const name = (clinicCfg.clinic_name || "Clínica Magna").toUpperCase();
+    return `
+<div style="margin-top:32px;border-top:2px solid #C9A84C;padding-top:10px;text-align:center">
+  <div style="font-size:8.5px;color:#9CA3AF">${name} &nbsp;|&nbsp; ${addr} &nbsp;|&nbsp; ${phone} &nbsp;|&nbsp; ${mail} &nbsp;|&nbsp; ${web}</div>
+</div>`;
   }
 
   function openDocWindow(title:string, body:string) {
@@ -721,22 +749,22 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     const today = new Date().toLocaleDateString("es-CL",{day:"numeric",month:"long",year:"numeric"});
     const meds = rxItems.filter(m=>m.drug.trim());
     const fmtBD = patient.birthDate ? patient.birthDate.split("T")[0] : "";
-    const thStyle = `padding:6px 7px;border:1px solid #1f4e79;font-size:10px;text-align:center`;
+    const thStyle = `padding:6px 7px;border:1px solid #1A1D2E;font-size:10px;text-align:center;background:#1A1D2E;color:white;font-weight:bold`;
     const medRows = meds.map((m,i)=>`
-      <tr style="background:${i%2===0?"#fff":"#f0f6ff"}">
-        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px;font-weight:bold">${i+1}</td>
-        <td style="padding:5px 7px;border:1px solid #bcd2e8;font-size:10px;font-weight:bold;text-transform:uppercase">${m.drug}</td>
-        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${m.dose||""}</td>
-        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${m.freq||""}</td>
-        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${m.duration||""}</td>
-        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${m.qty||""}</td>
+      <tr style="background:${i%2===0?"#fff":"#F8F9FB"}">
+        <td style="padding:5px 7px;text-align:center;border:1px solid #E5E7EB;font-size:10px;font-weight:bold">${i+1}</td>
+        <td style="padding:5px 7px;border:1px solid #E5E7EB;font-size:10px;font-weight:bold;text-transform:uppercase">${m.drug}</td>
+        <td style="padding:5px 7px;text-align:center;border:1px solid #E5E7EB;font-size:10px">${m.dose||""}</td>
+        <td style="padding:5px 7px;text-align:center;border:1px solid #E5E7EB;font-size:10px">${m.freq||""}</td>
+        <td style="padding:5px 7px;text-align:center;border:1px solid #E5E7EB;font-size:10px">${m.duration||""}</td>
+        <td style="padding:5px 7px;text-align:center;border:1px solid #E5E7EB;font-size:10px">${m.qty||""}</td>
       </tr>
-      ${m.instructions?`<tr style="background:#f8f9fa"><td></td><td colspan="5" style="padding:3px 7px 6px;border:1px solid #bcd2e8;font-size:9.5px;font-style:italic;color:#555">Indicación: ${m.instructions}</td></tr>`:""}
+      ${m.instructions?`<tr style="background:#f8f9fa"><td></td><td colspan="5" style="padding:3px 7px 6px;border:1px solid #E5E7EB;font-size:9.5px;font-style:italic;color:#555">Indicación: ${m.instructions}</td></tr>`:""}
     `).join("");
     return `
       ${buildDocHeader()}
       <div style="text-align:center;margin:14px 0 10px">
-        <div style="font-size:17px;font-weight:bold;letter-spacing:1px">RECETA MÉDICA ODONTOLÓGICA</div>
+        <div style="font-size:18px;font-weight:bold;letter-spacing:1px;color:#1A1D2E;text-transform:uppercase">RECETA MÉDICA ODONTOLÓGICA</div>
       </div>
       ${buildDocProfPat({name:professional?.name||"",rut:professional?.rut||""}, [
         {label:"Nombre",value:`${patient.firstName} ${patient.lastName}`},
@@ -744,7 +772,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         {label:"Fecha",value:today}
       ])}
       <table style="width:100%;border-collapse:collapse;margin:4px 0 14px">
-        <thead><tr style="background:#1f4e79;color:white">
+        <thead><tr>
           <th style="${thStyle};width:5%">N°</th>
           <th style="${thStyle};text-align:left;width:30%">Medicamento</th>
           <th style="${thStyle};width:17%">Dosis</th>
@@ -755,14 +783,15 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         <tbody>${medRows}</tbody>
       </table>
       <div style="margin-bottom:12px">
-        <div style="font-size:11px;font-weight:bold;color:#2e75b6;margin-bottom:5px">DIAGNÓSTICO / INDICACIÓN:</div>
-        <div style="border:1px solid #bcd2e8;min-height:44px;padding:8px;background:#fff;font-size:10px"></div>
+        <div style="font-size:11px;font-weight:bold;color:#1A1D2E;margin-bottom:5px">DIAGNÓSTICO / INDICACIÓN:</div>
+        <div style="border:1px solid #E5E7EB;min-height:44px;padding:8px;background:#fff;font-size:10px"></div>
       </div>
       <div style="margin-bottom:12px">
-        <div style="font-size:11px;font-weight:bold;color:#2e75b6;margin-bottom:5px">OBSERVACIONES:</div>
-        <div style="border:1px solid #bcd2e8;min-height:44px;padding:8px;background:#fff;font-size:10px">${rxNotes||""}</div>
+        <div style="font-size:11px;font-weight:bold;color:#1A1D2E;margin-bottom:5px">OBSERVACIONES:</div>
+        <div style="border:1px solid #E5E7EB;min-height:44px;padding:8px;background:#fff;font-size:10px">${rxNotes||""}</div>
       </div>
-      ${buildDocFooter("Firma y Timbre Profesional","Clínica Magna")}`;
+      ${buildDocSignature(professional?.name||"", professional?.rut, professional?.signatureUrl)}
+      ${buildClinicFooter()}`;
   }
 
   function printRx() {
@@ -808,37 +837,40 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
       <div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;font-size:16px">
 
         <!-- HEADER -->
-        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #1f4e79;padding-bottom:10px;margin-bottom:10px">
-          <div style="display:flex;align-items:center;gap:12px">
-            <img src="/LOGO.jpeg" style="width:60px;height:60px;object-fit:contain" onerror="this.style.display='none'"/>
-            <div>
-              <div style="font-size:23px;font-weight:bold;color:#1f4e79">Clínica Magna</div>
-              <div style="font-size:14.5px;color:#555">${addr}</div>
-              <div style="font-size:14.5px;color:#555">${phone} · ${email} · ${web}</div>
-            </div>
+        <div style="background:#1A1D2E;padding:16px 18px;display:flex;align-items:center;gap:16px;margin-bottom:0">
+          <div style="background:white;border-radius:8px;padding:4px;flex-shrink:0">
+            <img src="/LOGO.jpeg" style="width:56px;height:52px;object-fit:contain;display:block" onerror="this.style.display='none'"/>
           </div>
-          <div style="text-align:right;background:#1f4e79;color:white;padding:8px 14px;border-radius:4px">
-            <div style="font-size:18px;font-weight:bold">SOLICITUD DE</div>
-            <div style="font-size:18px;font-weight:bold">RADIOGRAFÍA / SCANNER</div>
-            <div style="font-size:14.5px;margin-top:3px">${today}</div>
+          <div style="flex:1">
+            <div style="font-size:22px;font-weight:bold;color:#FFFFFF;letter-spacing:0.5px">CLÍNICA MAGNA</div>
+            <div style="font-size:13px;color:#CBD5E1;margin-top:2px">Odontología y Estética Facial</div>
+            <div style="font-size:11px;color:#94A3B8;margin-top:4px">${addr} &nbsp;|&nbsp; WHATSAPP ${phone} &nbsp;|&nbsp; ${email} &nbsp;|&nbsp; ${web}</div>
+          </div>
+          <div style="text-align:right;background:#C9A84C;color:#1A1D2E;padding:10px 16px;border-radius:6px;flex-shrink:0">
+            <div style="font-size:17px;font-weight:bold">SOLICITUD DE</div>
+            <div style="font-size:17px;font-weight:bold">RADIOGRAFÍA / SCANNER</div>
+            <div style="font-size:13px;margin-top:3px">${today}</div>
           </div>
         </div>
+        <div style="height:3px;background:#C9A84C;margin-bottom:10px"></div>
 
         <!-- PROFESIONAL / PACIENTE -->
-        <table style="width:100%;border-collapse:collapse;margin-bottom:10px">
-          <tr>
-            <td style="width:50%;padding:6px 8px;border:1.5px solid #1f4e79;border-radius:4px 0 0 4px;background:#f0f6ff">
-              <div style="font-size:14px;font-weight:bold;color:#1f4e79;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Profesional</div>
-              <div style="font-size:17px;font-weight:bold;color:#1a1a1a">${professional?.name||"—"}</div>
-              ${professional?.rut?`<div style="font-size:14.5px;color:#555">RUT: ${professional.rut}</div>`:""}
-            </td>
-            <td style="width:50%;padding:6px 8px;border:1.5px solid #1f4e79;border-left:none;background:#fff8f0">
-              <div style="font-size:14px;font-weight:bold;color:#c0392b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Paciente</div>
-              <div style="font-size:17px;font-weight:bold;color:#1a1a1a">${patient.firstName} ${patient.lastName}</div>
-              <div style="font-size:14.5px;color:#555">RUT: ${patient.rut} · Fecha: ${today}</div>
-            </td>
-          </tr>
-        </table>
+        <div style="background:#F8F9FB;border:1px solid #E5E7EB;border-radius:8px;padding:12px;margin-bottom:10px">
+          <table style="width:100%;border-collapse:collapse">
+            <tr>
+              <td style="width:50%;vertical-align:top;padding-right:16px">
+                <div style="font-size:12px;font-weight:bold;color:#1A1D2E;text-transform:uppercase;letter-spacing:.5px;border-bottom:1.5px solid #C9A84C;margin-bottom:5px;padding-bottom:3px">PROFESIONAL</div>
+                <div style="font-size:17px;font-weight:bold;color:#1a1a1a">${professional?.name||"—"}</div>
+                ${professional?.rut?`<div style="font-size:14.5px;color:#555">RUT: ${professional.rut}</div>`:""}
+              </td>
+              <td style="width:50%;vertical-align:top">
+                <div style="font-size:12px;font-weight:bold;color:#1A1D2E;text-transform:uppercase;letter-spacing:.5px;border-bottom:1.5px solid #C9A84C;margin-bottom:5px;padding-bottom:3px">PACIENTE</div>
+                <div style="font-size:17px;font-weight:bold;color:#1a1a1a">${patient.firstName} ${patient.lastName}</div>
+                <div style="font-size:14.5px;color:#555">RUT: ${patient.rut} &nbsp;·&nbsp; Fecha: ${today}</div>
+              </td>
+            </tr>
+          </table>
+        </div>
 
         <!-- TABLAS -->
         <table style="width:100%;border-collapse:collapse;margin-bottom:8px">
@@ -901,14 +933,19 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
 
         ${f.meInteresa ? `<div style="font-size:15px;border:1px solid #ccc;padding:5px 8px;margin-bottom:10px;background:#fffde7"><strong>ME INTERESA SABER:</strong> ${f.meInteresa}</div>` : ""}
 
-        <!-- FIRMAS -->
-        <div style="display:flex;justify-content:space-around;margin-top:24px;padding-top:10px">
-          <div style="text-align:center;width:40%">
-            <div style="border-top:1.5px solid #333;padding-top:6px;font-size:15px;color:#555">Firma y Timbre Profesional</div>
+        <!-- FIRMA -->
+        <div style="margin-top:30px;display:flex;justify-content:center">
+          <div style="text-align:center;min-width:200px">
+            <div style="height:60px"></div>
+            <div style="border-top:1.5px solid #374151;padding-top:8px;margin-top:4px">
+              <div style="font-size:15px;font-weight:bold;color:#1A1D2E">${professional?.name||"—"}</div>
+              ${professional?.rut?`<div style="font-size:13px;color:#6B7280">RUT: ${professional.rut}</div>`:""}
+              <div style="font-size:13px;color:#6B7280">Clínica Magna</div>
+            </div>
           </div>
-          <div style="text-align:center;width:40%">
-            <div style="border-top:1.5px solid #333;padding-top:6px;font-size:15px;color:#555">Clínica Magna</div>
-          </div>
+        </div>
+        <div style="margin-top:24px;border-top:2px solid #C9A84C;padding-top:8px;text-align:center">
+          <div style="font-size:11px;color:#9CA3AF">CLÍNICA MAGNA &nbsp;|&nbsp; ${addr} &nbsp;|&nbsp; ${phone} &nbsp;|&nbsp; ${email} &nbsp;|&nbsp; ${web}</div>
         </div>
       </div>
     `;
@@ -965,10 +1002,11 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         {label:"Fecha",value:today},
         {label:"Procedimiento realizado",value:cuidadosTemplate}
       ])}
-      <div style="font-size:11px;font-weight:bold;color:#1e6091;margin:10px 0 7px;text-transform:uppercase;letter-spacing:0.3px">Indicaciones — ${cuidadosTemplate}:</div>
+      <div style="font-size:11px;font-weight:bold;color:#1A1D2E;margin:10px 0 7px;text-transform:uppercase;letter-spacing:0.3px">Indicaciones — ${cuidadosTemplate}:</div>
       ${contentHtml}
-      ${isCustom?`<div style="margin-top:12px"><div style="font-size:11px;font-weight:bold;color:#555;margin-bottom:5px;text-transform:uppercase">Observaciones adicionales:</div><div style="border:1px solid #bcd2e8;padding:8px;background:#f8fafc;font-size:10.5px;line-height:1.7">${cuidadosText}</div></div>`:""}
-      ${buildDocFooter("Firma Profesional","Clínica Magna")}`;
+      ${isCustom?`<div style="margin-top:12px"><div style="font-size:11px;font-weight:bold;color:#555;margin-bottom:5px;text-transform:uppercase">Observaciones adicionales:</div><div style="border:1px solid #E5E7EB;padding:8px;background:#f8fafc;font-size:10.5px;line-height:1.7">${cuidadosText}</div></div>`:""}
+      ${buildDocSignature(professional?.name||"", professional?.rut, professional?.signatureUrl)}
+      ${buildClinicFooter()}`;
   }
 
   function printCuidados() {
@@ -978,72 +1016,82 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
 
   function buildBudgetDocBody(db: Patient["budgets"][0]): string {
     if (!patient) return "";
+    const dbUser = users.find(u => u.id === db.user.id) ?? db.user;
     const baseTotal  = db.items.reduce((s,it)=>s+it.unitPrice*it.quantity,0);
     const itemDisc   = db.items.reduce((s,it)=>s+it.unitPrice*it.quantity*(it.discount||0)/100,0);
     const totalDisc  = itemDisc+(db.discount||0);
     const totalFinal = db.total;
-    const thS = `padding:6px 7px;border:1px solid #1f4e79;font-size:10px`;
-    const tdS = `padding:6px 7px;border:1px solid #bcd2e8;font-size:10.5px`;
-    const rows = db.items.map((it,i)=>`
-      <tr style="background:${i%2===0?"#fff":"#dce6f1"}">
-        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px;font-weight:bold">${i+1}</td>
-        <td style="padding:5px 7px;border:1px solid #bcd2e8;font-size:10px">${it.description}</td>
-        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${it.area||"—"}</td>
-        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${it.tooth||"—"}</td>
-        <td style="padding:5px 7px;text-align:center;border:1px solid #bcd2e8;font-size:10px">${it.sessions||it.quantity||1}</td>
-        <td style="padding:5px 7px;text-align:right;border:1px solid #bcd2e8;font-size:10px">${fmt(it.unitPrice*it.quantity)}</td>
-      </tr>`).join("");
-    const emptyRows = Array.from({length:Math.max(0,8-db.items.length)},(_,i)=>`
-      <tr style="background:${(db.items.length+i)%2===0?"#fff":"#dce6f1"}">
-        <td style="padding:5px 7px;border:1px solid #bcd2e8;height:22px"></td>
-        <td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td>
-        <td style="border:1px solid #bcd2e8"></td><td style="border:1px solid #bcd2e8"></td>
-        <td style="border:1px solid #bcd2e8"></td>
+    const thS = `padding:6px 7px;border:1px solid #1A1D2E;font-size:10px;font-weight:bold;background:#1A1D2E;color:white`;
+    const tdS = `padding:6px 7px;border:1px solid #E5E7EB;font-size:10.5px`;
+    const rows = db.items.map((it,i)=>{
+      const discAmt = it.unitPrice * it.quantity * (it.discount||0) / 100;
+      return `
+      <tr style="background:${i%2===0?"#fff":"#F8F9FB"}">
+        <td style="padding:5px 7px;text-align:center;border:1px solid #E5E7EB;font-size:10px;font-weight:bold">${i+1}</td>
+        <td style="padding:5px 7px;border:1px solid #E5E7EB;font-size:10px">${it.description}</td>
+        <td style="padding:5px 7px;text-align:center;border:1px solid #E5E7EB;font-size:10px">${it.tooth||"—"}</td>
+        <td style="padding:5px 7px;text-align:right;border:1px solid #E5E7EB;font-size:10px">${fmt(it.unitPrice)}</td>
+        <td style="padding:5px 7px;text-align:center;border:1px solid #E5E7EB;font-size:10px">${it.quantity||1}</td>
+        <td style="padding:5px 7px;text-align:center;border:1px solid #E5E7EB;font-size:10px">${it.discount>0?it.discount+"%":"—"}</td>
+        <td style="padding:5px 7px;text-align:right;border:1px solid #E5E7EB;font-size:10px">${discAmt>0?fmt(discAmt):"—"}</td>
+        <td style="padding:5px 7px;text-align:right;border:1px solid #E5E7EB;font-size:10px">${fmt(it.total)}</td>
+      </tr>`}).join("");
+    const emptyRows = Array.from({length:Math.max(0,6-db.items.length)},(_,i)=>`
+      <tr style="background:${(db.items.length+i)%2===0?"#fff":"#F8F9FB"}">
+        <td style="padding:5px 7px;border:1px solid #E5E7EB;height:22px"></td>
+        <td style="border:1px solid #E5E7EB"></td><td style="border:1px solid #E5E7EB"></td>
+        <td style="border:1px solid #E5E7EB"></td><td style="border:1px solid #E5E7EB"></td>
+        <td style="border:1px solid #E5E7EB"></td><td style="border:1px solid #E5E7EB"></td>
+        <td style="border:1px solid #E5E7EB"></td>
       </tr>`).join("");
     return `
       ${buildDocHeader()}
       <div style="text-align:center;margin:14px 0 10px">
-        <div style="font-size:17px;font-weight:bold;letter-spacing:1px">PRESUPUESTO DENTAL</div>
-        <div style="font-size:10px;font-style:italic;color:#555;margin-top:3px">N° ${String(db.number).padStart(4,"0")} · Válido 30 días · Badajoz 100 Of. 918, Las Condes</div>
+        <div style="font-size:18px;font-weight:bold;letter-spacing:1px;color:#1A1D2E;text-transform:uppercase">PRESUPUESTO DENTAL</div>
+        <div style="font-size:10px;color:#6B7280;margin-top:3px">N° ${String(db.number).padStart(4,"0")} · Válido 30 días · ${clinicCfg.clinic_address||"Badajoz 100 Of. 918, Las Condes"}</div>
       </div>
-      ${buildDocProfPat({name:db.user.name},[
+      ${buildDocProfPat({name:dbUser.name,rut:(dbUser as any).rut},[
         {label:"Nombre",value:`${patient.firstName} ${patient.lastName}`},
         {label:"RUT",value:patient.rut},
         {label:"Fecha",value:db.date}
       ])}
       <table style="width:100%;border-collapse:collapse;margin:4px 0 14px">
-        <thead><tr style="background:#1f4e79;color:white">
-          <th style="${thS};text-align:center;width:5%">N°</th>
-          <th style="${thS};text-align:left;width:30%">Tratamiento</th>
-          <th style="${thS};text-align:center;width:18%">Categoría</th>
-          <th style="${thS};text-align:center;width:12%">Diente(s)</th>
-          <th style="${thS};text-align:center;width:11%">Sesiones</th>
-          <th style="${thS};text-align:right;width:24%">Precio</th>
+        <thead><tr>
+          <th style="${thS};text-align:center;width:4%">N°</th>
+          <th style="${thS};text-align:left;width:28%">Tratamiento</th>
+          <th style="${thS};text-align:center;width:10%">Diente(s)</th>
+          <th style="${thS};text-align:right;width:13%">P. Unitario</th>
+          <th style="${thS};text-align:center;width:8%">Cantidad</th>
+          <th style="${thS};text-align:center;width:8%">Dto %</th>
+          <th style="${thS};text-align:right;width:10%">Dto $</th>
+          <th style="${thS};text-align:right;width:19%">Total</th>
         </tr></thead>
         <tbody>
           ${rows}${emptyRows}
-          <tr style="background:#f0f6ff">
-            <td colspan="5" style="${tdS};text-align:right;font-weight:bold">Subtotal</td>
+          <tr style="background:#F8F9FB">
+            <td colspan="7" style="${tdS};text-align:right;font-weight:bold">Subtotal</td>
             <td style="${tdS};text-align:right;font-weight:bold">${fmt(baseTotal)}</td>
           </tr>
-          ${totalDisc>0?`<tr style="background:#f0f6ff">
-            <td colspan="5" style="${tdS};text-align:right;font-weight:bold;color:#c0392b">Descuento</td>
+          ${totalDisc>0?`<tr style="background:#F8F9FB">
+            <td colspan="7" style="${tdS};text-align:right;font-weight:bold;color:#c0392b">Descuento</td>
             <td style="${tdS};text-align:right;font-weight:bold;color:#c0392b">− ${fmt(totalDisc)}</td>
           </tr>`:""}
-          <tr style="background:#1f4e79">
-            <td colspan="5" style="${tdS};text-align:right;font-weight:bold;color:white;font-size:12px">TOTAL A PAGAR</td>
+          <tr style="background:#1A1D2E">
+            <td colspan="7" style="${tdS};text-align:right;font-weight:bold;color:white;font-size:12px">TOTAL A PAGAR</td>
             <td style="${tdS};text-align:right;font-weight:bold;color:white;font-size:12px">${fmt(totalFinal)}</td>
           </tr>
         </tbody>
       </table>
-      <div style="border:1px solid #bcd2e8;padding:10px 13px;background:#f0f6ff;border-radius:3px;font-size:9.5px;line-height:1.7">
-        <div style="font-weight:bold;margin-bottom:4px;font-size:10.5px">Condiciones del Presupuesto</div>
+      ${db.notes?`<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:bold;color:#1A1D2E;margin-bottom:5px">OBSERVACIONES:</div><div style="border:1px solid #E5E7EB;padding:8px;background:#fff;font-size:10.5px;line-height:1.7">${db.notes}</div></div>`:""}
+      <div style="border:1px solid #E5E7EB;padding:10px 13px;background:#F8F9FB;border-radius:6px;font-size:9.5px;line-height:1.7">
+        <div style="font-weight:bold;margin-bottom:4px;font-size:10.5px;color:#1A1D2E">Condiciones del Presupuesto</div>
         <div>• Este presupuesto tiene una validez de 30 días desde la fecha de emisión.</div>
         <div>• Algunos tratamientos están sujetos a diagnóstico definitivo; los costos pueden variar según hallazgos clínicos y/o radiográficos.</div>
         <div>• Los precios incluyen honorarios profesionales. Insumos especiales, exámenes o derivaciones no están incluidos salvo indicación.</div>
         <div>• Los tratamientos marcados con (*) requieren evaluación adicional antes de iniciar.</div>
       </div>
-      ${buildDocFooter("Firma Profesional","Clínica Magna")}`;
+      ${buildDocSignature(dbUser.name, (dbUser as any).rut, (dbUser as any).signatureUrl)}
+      ${buildClinicFooter()}`;
   }
 
   function printBudgetDetail(db: Patient["budgets"][0]) {
@@ -1136,6 +1184,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
       bodyHtml = buildRecetaBody({
         professionalName: professional.name,
         professionalRut: (professional as any).rut ?? "",
+        signatureUrl: (professional as any).signatureUrl ?? undefined,
         patientName: fullName,
         patientRut: patient.rut,
         date: dateStr,
@@ -1149,16 +1198,18 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         })),
         diagnosis: parsed.diagnosis ?? "",
         notes: parsed.notes ?? parsed.observations ?? "",
-      }, "/LOGO.jpeg");
+      }, window.location.origin + "/LOGO.jpeg");
     } else if (rx.type === "cuidados" && parsed?.sections) {
       bodyHtml = buildIndicacionesBody({
         professionalName: professional.name,
+        professionalRut: (professional as any).rut ?? "",
+        signatureUrl: (professional as any).signatureUrl ?? undefined,
         patientName: fullName,
         date: dateStr,
         procedimiento: parsed.procedimiento ?? "Post-procedimiento",
         sections: parsed.sections,
         observaciones: parsed.observaciones,
-      }, "/LOGO.jpeg");
+      }, window.location.origin + "/LOGO.jpeg");
     } else {
       bodyHtml = `<div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto">
         <div style="background:#1e3a5f;padding:18px 24px;border-radius:8px 8px 0 0">
@@ -1246,6 +1297,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
       body = buildRecetaBody({
         professionalName: professional.name,
         professionalRut: (professional as any).rut ?? "",
+        signatureUrl: (professional as any).signatureUrl ?? undefined,
         patientName: `${patient.firstName} ${patient.lastName}`,
         patientRut: patient.rut,
         date: dateStr,
@@ -1263,6 +1315,8 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     } else if (rx.type === "cuidados" && parsed?.sections) {
       body = buildIndicacionesBody({
         professionalName: professional.name,
+        professionalRut: (professional as any).rut ?? "",
+        signatureUrl: (professional as any).signatureUrl ?? undefined,
         patientName: `${patient.firstName} ${patient.lastName}`,
         date: dateStr,
         procedimiento: parsed.procedimiento ?? "Post-procedimiento",
@@ -1272,14 +1326,15 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     } else {
       body = `${buildDocHeader()}
         <div style="text-align:center;margin:14px 0 10px">
-          <div style="font-size:17px;font-weight:bold;letter-spacing:1px">${label.toUpperCase()}</div>
+          <div style="font-size:18px;font-weight:bold;letter-spacing:1px;color:#1A1D2E;text-transform:uppercase">${label.toUpperCase()}</div>
         </div>
         ${buildDocProfPat({name:professional.name,showRut:false},[
           {label:"Nombre",value:`${patient.firstName} ${patient.lastName}`},
           {label:"Fecha",value:dateStr}
         ])}
         <pre style="font-family:inherit;font-size:11px;white-space:pre-wrap;line-height:1.7">${rx.content}</pre>
-        ${buildDocFooter(professional.name,"Clínica Magna")}`;
+        ${buildDocSignature(professional.name, (professional as any).rut, (professional as any).signatureUrl)}
+        ${buildClinicFooter()}`;
     }
     openDocWindow(label, body);
   }
