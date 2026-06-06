@@ -88,7 +88,7 @@ interface Patient {
   clinicalRecord?: { bloodType:string; allergies:string; currentMedications:string; medicalBackground:string; dentalBackground:string; habits:string; observations:string };
   evolutions: Array<{ id:string; date:string; diagnosis:string; treatment:string; tooth:string; observations:string; cost:number; user:{id:string;name:string} }>;
   budgets: Array<{ id:string; number:number; date:string; validUntil:string; status:string; subtotal:number; total:number; discount:number; notes:string; items:BudgetItem[]; payments:Array<{id:string;amount:number;date:string;method:string;notes:string}>; user:{id:string;name:string} }>;
-  payments: Array<{ id:string; date:string; amount:number; method:string; notes:string; reference?:string; budget?:{number:number} }>;
+  payments: Array<{ id:string; date:string; amount:number; method:string; notes:string; reference?:string; budget?:{number:number}; installmentNumber?:number; installments?:number; installmentStatus?:string; isTuuInstallment?:boolean; tuuCommission?:number; netAmount?:number }>;
   appointments: Array<{ id:string; date:string; startTime:string; type:string; status:string; user:{name:string} }>;
   documents: Array<{ id:string; name:string; type:string; fileName:string; mimeType:string; size:number; createdAt:string }>;
 }
@@ -226,7 +226,7 @@ const ITEM_STATUS: Record<string,{label:string;color:string}> = {
 const METHOD_ICON: Record<string,string> = { efectivo:"💵", transferencia:"🏦", debito:"💳", credito:"💳", cheque:"📄" };
 
 const initPayForm = () => ({ date: new Date().toISOString().split("T")[0], budgetId:"", notes:"" });
-const initPayItems = () => [{ method:"efectivo", amount:"" }];
+const initPayItems = () => [{ method:"efectivo", amount:"", installments: 1, isTuuInstallment: false }];
 
 export default function PatientDetail() {
   const { id } = useParams<{id:string}>();
@@ -955,12 +955,20 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     const valid = payItems.filter(p => parseFloat(p.amount) > 0);
     if (!valid.length) return;
     setPaySaving(true);
-    await Promise.all(valid.map(p =>
-      fetch("/api/payments", { method:"POST", headers:{"Content-Type":"application/json"},
+    await Promise.all(valid.map(p => {
+      const isCard = ["debito","credito","tarjeta"].includes(p.method.toLowerCase());
+      const tuuComm = isCard && !p.isTuuInstallment ? Math.round(((parseFloat(p.amount) * 0.0079) + 65) * 1.19) : 0;
+      const netAmt = parseFloat(p.amount) - tuuComm;
+      return fetch("/api/payments", { method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({ patientId:id, date:payForm.date, amount:parseFloat(p.amount),
           method:p.method, budgetId:payForm.budgetId||null, notes:payForm.notes||null,
-          reference: payEvolutionId || null }) })
-    ));
+          reference: payEvolutionId || null,
+          installments: p.method.toLowerCase() === "credito" ? (p.installments || 1) : 1,
+          isTuuInstallment: p.isTuuInstallment,
+          tuuCommission: tuuComm > 0 ? tuuComm : undefined,
+          netAmount: tuuComm > 0 ? netAmt : undefined,
+        }) });
+    }));
     setPayModal(false); setPayForm(initPayForm()); setPayItems(initPayItems());
     setPayEvolutionId(""); load(); setPaySaving(false);
   }
@@ -2354,10 +2362,21 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                   </tr>
                 </thead>
                 <tbody>
-                  {patient.payments.map((p,i)=>(
-                    <tr key={p.id} className={`border-t border-[#E3E8F0] hover:bg-[#EEF3FF] transition-colors ${i%2===0?"bg-white":"bg-[#F0F2F7]/50"}`}>
+                  {patient.payments.map((p,i)=>{
+                    const isOverdue = p.installmentStatus === "OVERDUE";
+                    const isPending = p.installmentStatus === "PENDING";
+                    const rowBg = isOverdue ? "bg-red-50" : i%2===0 ? "bg-white" : "bg-[#F0F2F7]/50";
+                    return (
+                    <tr key={p.id} className={`border-t border-[#E3E8F0] hover:bg-[#EEF3FF] transition-colors ${rowBg}`}>
                       <td className="px-4 py-3 text-[12px] text-[#9AA0B4] font-medium">{new Date(p.date+"T12:00:00").toLocaleDateString("es-CL")}</td>
-                      <td className="px-4 py-3 text-[13px] font-bold text-[#00A86B]">{fmt(p.amount)}</td>
+                      <td className="px-4 py-3">
+                        <p className="text-[13px] font-bold text-[#00A86B]">{fmt(p.amount)}</p>
+                        {p.installmentNumber && p.installments && p.installments > 1 && (
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium mt-0.5 inline-block ${isOverdue ? "bg-red-100 text-red-700" : isPending ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>
+                            Cuota {p.installmentNumber}/{p.installments}
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-3"><span className="text-[11px] font-semibold bg-[#F0F2F7] text-[#5A6072] px-[8px] py-[3px] rounded-full">{p.method}</span></td>
                       <td className="px-4 py-3 text-[12px] text-[#9AA0B4]">{p.notes||"—"}</td>
                       {isAdmin && (
@@ -2375,7 +2394,8 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                         </td>
                       )}
                     </tr>
-                  ))}
+                  );})}
+
                 </tbody>
               </table>
             </div>
@@ -3057,41 +3077,87 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="label mb-0">Medios de pago</label>
-              <button onClick={()=>setPayItems(i=>[...i,{method:"transferencia",amount:""}])}
+              <button onClick={()=>setPayItems(i=>[...i,{method:"transferencia",amount:"",installments:1,isTuuInstallment:false}])}
                 className="text-xs text-primary-600 hover:underline flex items-center gap-1">
                 <Plus size={12}/> Agregar medio
               </button>
             </div>
             <div className="space-y-2">
-              {payItems.map((item,i)=>(
-                <div key={i} className="grid grid-cols-12 gap-2 items-center bg-slate-50 rounded-xl p-3">
-                  <div className="col-span-6">
-                    <label className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">Método</label>
-                    <select className="select mt-0.5 text-sm" value={item.method}
-                      onChange={e=>setPayItems(its=>its.map((x,j)=>j===i?{...x,method:e.target.value}:x))}>
-                      <option value="efectivo">💵 Efectivo</option>
-                      <option value="debito">💳 Débito</option>
-                      <option value="credito">💳 Crédito</option>
-                      <option value="transferencia">🏦 Transferencia</option>
-                      <option value="cheque">📄 Cheque</option>
-                    </select>
+              {payItems.map((item,i)=>{
+                const isCard = ["debito","credito","tarjeta"].includes(item.method.toLowerCase());
+                const itemAmt = parseFloat(item.amount||"0");
+                const tuuComm = isCard && !item.isTuuInstallment && itemAmt > 0 ? Math.round(((itemAmt * 0.0079) + 65) * 1.19) : 0;
+                const netAmt = itemAmt - tuuComm;
+                const perCuota = (item.installments||1) > 1 ? Math.round(itemAmt / (item.installments||1)) : itemAmt;
+                return (
+                <div key={i} className="bg-slate-50 rounded-xl p-3 space-y-2">
+                  <div className="grid grid-cols-12 gap-2 items-center">
+                    <div className="col-span-6">
+                      <label className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">Método</label>
+                      <select className="select mt-0.5 text-sm" value={item.method}
+                        onChange={e=>setPayItems(its=>its.map((x,j)=>j===i?{...x,method:e.target.value,installments:1,isTuuInstallment:false}:x))}>
+                        <option value="efectivo">💵 Efectivo</option>
+                        <option value="debito">💳 Débito</option>
+                        <option value="credito">💳 Crédito</option>
+                        <option value="transferencia">🏦 Transferencia</option>
+                        <option value="cheque">📄 Cheque</option>
+                      </select>
+                    </div>
+                    <div className="col-span-5">
+                      <label className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">Monto ($)</label>
+                      <input className="input mt-0.5 text-sm py-1.5" type="number" min="0" placeholder="0"
+                        value={item.amount}
+                        onChange={e=>setPayItems(its=>its.map((x,j)=>j===i?{...x,amount:e.target.value}:x))} />
+                    </div>
+                    <div className="col-span-1 flex items-end justify-center pb-1">
+                      {payItems.length > 1 && (
+                        <button onClick={()=>setPayItems(its=>its.filter((_,j)=>j!==i))}
+                          className="w-7 h-7 flex items-center justify-center text-slate-300 hover:text-red-500 rounded-lg hover:bg-red-50">
+                          <X size={13}/>
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div className="col-span-5">
-                    <label className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">Monto ($)</label>
-                    <input className="input mt-0.5 text-sm py-1.5" type="number" min="0" placeholder="0"
-                      value={item.amount}
-                      onChange={e=>setPayItems(its=>its.map((x,j)=>j===i?{...x,amount:e.target.value}:x))} />
-                  </div>
-                  <div className="col-span-1 flex items-end justify-center pb-1">
-                    {payItems.length > 1 && (
-                      <button onClick={()=>setPayItems(its=>its.filter((_,j)=>j!==i))}
-                        className="w-7 h-7 flex items-center justify-center text-slate-300 hover:text-red-500 rounded-lg hover:bg-red-50">
-                        <X size={13}/>
-                      </button>
-                    )}
-                  </div>
+                  {/* TUU checkbox para débito/crédito */}
+                  {isCard && (
+                    <div>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={item.isTuuInstallment}
+                          onChange={e=>setPayItems(its=>its.map((x,j)=>j===i?{...x,isTuuInstallment:e.target.checked}:x))}
+                          className="rounded border-slate-300" />
+                        <span className="text-xs text-slate-700">¿Cuotas TUU? (0% comisión — TUU cobra al paciente)</span>
+                      </label>
+                    </div>
+                  )}
+                  {/* Número de cuotas si es crédito */}
+                  {item.method.toLowerCase() === "credito" && (
+                    <div>
+                      <label className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">Número de cuotas</label>
+                      <select className="select mt-0.5 text-sm" value={item.installments||1}
+                        onChange={e=>setPayItems(its=>its.map((x,j)=>j===i?{...x,installments:Number(e.target.value)}:x))}>
+                        {[1,2,3,6,9,12,18,24,36].map(n=>(
+                          <option key={n} value={n}>{n===1?"Sin cuotas":`${n} cuotas`}</option>
+                        ))}
+                      </select>
+                      {(item.installments||1) > 1 && itemAmt > 0 && (
+                        <p className="text-xs text-slate-500 mt-1">{item.installments} cuotas de {new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(perCuota)} cada una</p>
+                      )}
+                    </div>
+                  )}
+                  {/* Resumen TUU */}
+                  {isCard && !item.isTuuInstallment && itemAmt > 0 && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm">
+                      <p className="font-semibold text-amber-800 mb-1">Resumen comisión TUU (Mixta)</p>
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div><p className="text-xs text-slate-500">Monto bruto</p><p className="font-bold text-slate-800">{new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(itemAmt)}</p></div>
+                        <div><p className="text-xs text-slate-500">Comisión TUU</p><p className="font-bold text-red-600">-{new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(tuuComm)}</p></div>
+                        <div><p className="text-xs text-slate-500">Neto clínica</p><p className="font-bold text-green-700">{new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(netAmt)}</p></div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ))}
+              );})}
+
             </div>
             {payItems.length > 1 && (
               <div className="flex justify-end mt-1.5">

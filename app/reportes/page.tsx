@@ -5,8 +5,10 @@ import * as XLSX from "xlsx";
 import {
   TrendingUp, TrendingDown, Users, Calendar, DollarSign,
   CheckCircle2, ChevronRight, AlertCircle, UserX, RefreshCw, UserPlus, Download,
-  Stethoscope, Target, FileText, Share2,
+  Stethoscope, Target, FileText, Share2, ShieldAlert,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useIsAdmin } from "@/hooks/useRole";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, PieChart, Pie, Cell, Legend,
@@ -76,6 +78,19 @@ const PERIODS = [
 const TABS_REPORT = ["Financiero","Pacientes"];
 
 export default function Reportes() {
+  const isAdmin = useIsAdmin();
+  const router = useRouter();
+  useEffect(() => {
+    if (isAdmin === false) router.replace("/dashboard");
+  }, [isAdmin, router]);
+  if (isAdmin === false) return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+      <ShieldAlert size={48} className="text-red-400" />
+      <p className="text-lg font-semibold text-slate-700">Acceso restringido</p>
+      <p className="text-sm text-slate-500">Solo administradores pueden ver esta sección.</p>
+    </div>
+  );
+
   const [data, setData] = useState<ReportData|null>(null);
   const [period, setPeriod] = useState("6m");
   const [activeTab, setActiveTab] = useState(0);

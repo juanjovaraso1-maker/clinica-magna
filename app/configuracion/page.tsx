@@ -67,6 +67,8 @@ export default function Configuracion() {
   const [schedule, setSchedule] = useState<Schedule>(DEFAULT_SCHEDULE);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [tuuConfig, setTuuConfig] = useState({ percentage: "0.79", fixedCharge: "65", iva: "19", enabled: true });
+  const isAdmin = true; // configuracion page is only accessible to admins
   const [userModal, setUserModal] = useState(false);
   const [backups, setBackups] = useState<BackupMeta[]>([]);
   const [backupLoading, setBackupLoading] = useState(false);
@@ -90,6 +92,13 @@ export default function Configuracion() {
       if (data.clinic_schedule) {
         try { setSchedule({ ...DEFAULT_SCHEDULE, ...JSON.parse(data.clinic_schedule) }); } catch {}
       }
+      // Load TUU config
+      setTuuConfig(prev => ({
+        percentage: data.tuu_percentage ?? prev.percentage,
+        fixedCharge: data.tuu_fixed_charge ?? prev.fixedCharge,
+        iva: data.tuu_iva ?? prev.iva,
+        enabled: data.tuu_enabled !== undefined ? data.tuu_enabled === "true" : prev.enabled,
+      }));
     });
   }, []);
 
@@ -169,6 +178,19 @@ export default function Configuracion() {
       body: JSON.stringify({ ...cfg, clinic_schedule: JSON.stringify(schedule) }),
     });
     setSaving(false); setSaved(true); setTimeout(() => setSaved(false), 2500);
+  }
+
+  async function saveTuuConfig() {
+    await fetch("/api/clinic-config", {
+      method: "POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({
+        tuu_percentage: tuuConfig.percentage,
+        tuu_fixed_charge: tuuConfig.fixedCharge,
+        tuu_iva: tuuConfig.iva,
+        tuu_enabled: String(tuuConfig.enabled),
+      }),
+    });
+    setSaved(true); setTimeout(() => setSaved(false), 2500);
   }
 
   function openSigModal(u: User) {
@@ -721,6 +743,43 @@ export default function Configuracion() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Configuración TUU — visible on general tab */}
+      {tab === "general" && isAdmin && (
+        <section className="card p-6">
+          <h2 className="text-lg font-bold text-[#1A1D2E] mb-4">Configuración TUU</h2>
+          <p className="text-sm text-slate-500 mb-4">Fórmula comisión mixta: ((monto × porcentaje) + cargo fijo) × (1 + IVA)</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="label">Porcentaje (%)</label>
+              <input className="input" type="number" step="0.01"
+                value={tuuConfig.percentage} onChange={e => setTuuConfig(c => ({...c, percentage: e.target.value}))} />
+              <p className="text-xs text-slate-400 mt-1">Default: 0.79</p>
+            </div>
+            <div>
+              <label className="label">Cargo fijo ($)</label>
+              <input className="input" type="number"
+                value={tuuConfig.fixedCharge} onChange={e => setTuuConfig(c => ({...c, fixedCharge: e.target.value}))} />
+              <p className="text-xs text-slate-400 mt-1">Default: 65</p>
+            </div>
+            <div>
+              <label className="label">IVA (%)</label>
+              <input className="input" type="number" step="1"
+                value={tuuConfig.iva} onChange={e => setTuuConfig(c => ({...c, iva: e.target.value}))} />
+              <p className="text-xs text-slate-400 mt-1">Default: 19</p>
+            </div>
+          </div>
+          <div className="mt-4 flex items-center gap-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={tuuConfig.enabled}
+                onChange={e => setTuuConfig(c => ({...c, enabled: e.target.checked}))}
+                className="rounded border-slate-300" />
+              <span className="text-sm">Calcular comisión TUU automáticamente</span>
+            </label>
+            <button onClick={saveTuuConfig} className="btn-primary ml-auto">Guardar configuración TUU</button>
+          </div>
+        </section>
       )}
 
       {/* Save button — hidden on Respaldos tab */}
