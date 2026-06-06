@@ -84,7 +84,7 @@ interface BudgetItem { id:string; description:string; tooth:string; area:string;
 interface Patient {
   id: string; rut: string; firstName: string; lastName: string;
   email: string; phone: string; gender: string; address: string; city: string;
-  healthInsurance: string; birthDate: string; notes: string;
+  healthInsurance: string; birthDate: string; notes: string; referralSource?: string;
   clinicalRecord?: { bloodType:string; allergies:string; currentMedications:string; medicalBackground:string; dentalBackground:string; habits:string; observations:string };
   evolutions: Array<{ id:string; date:string; diagnosis:string; treatment:string; tooth:string; observations:string; cost:number; user:{id:string;name:string} }>;
   budgets: Array<{ id:string; number:number; date:string; validUntil:string; status:string; subtotal:number; total:number; discount:number; notes:string; items:BudgetItem[]; payments:Array<{id:string;amount:number;date:string;method:string;notes:string}>; user:{id:string;name:string} }>;
@@ -276,7 +276,7 @@ export default function PatientDetail() {
   const [fichaForm, setFichaForm] = useState({ bloodType:"", allergies:"", currentMedications:"", medicalBackground:"", dentalBackground:"", habits:"", observations:"" });
   const [fichaSaving, setFichaSaving] = useState(false);
   const [editPatient, setEditPatient] = useState(false);
-  const [editForm, setEditForm] = useState({ firstName:"", lastName:"", phone:"", email:"", address:"", city:"", healthInsurance:"", birthDate:"", notes:"" });
+  const [editForm, setEditForm] = useState({ firstName:"", lastName:"", phone:"", email:"", address:"", city:"", healthInsurance:"", birthDate:"", notes:"", referralSource:"" });
   const [editSaving, setEditSaving] = useState(false);
   const [clinicCfg, setClinicCfg] = useState<Record<string,string>>({});
   const [toast, setToast] = useState<string|null>(null);
@@ -1121,7 +1121,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
 
   function openEditPatient() {
     if (!patient) return;
-    setEditForm({ firstName:patient.firstName, lastName:patient.lastName, phone:patient.phone||"", email:patient.email||"", address:patient.address||"", city:patient.city||"", healthInsurance:patient.healthInsurance||"", birthDate:patient.birthDate?patient.birthDate.split("T")[0]:"", notes:patient.notes||"" });
+    setEditForm({ firstName:patient.firstName, lastName:patient.lastName, phone:patient.phone||"", email:patient.email||"", address:patient.address||"", city:patient.city||"", healthInsurance:patient.healthInsurance||"", birthDate:patient.birthDate?patient.birthDate.split("T")[0]:"", notes:patient.notes||"", referralSource:patient.referralSource||"" });
     setEditPatient(true);
   }
 

@@ -19,7 +19,7 @@ interface Patient {
 const initialForm = {
   rut: "", firstName: "", lastName: "", email: "", phone: "+56",
   birthDate: "", gender: "Hombre", address: "", city: "Santiago",
-  healthInsurance: "", notes: "",
+  healthInsurance: "", notes: "", referralSource: "",
 };
 
 const GENDER_OPTIONS = ["Hombre", "Mujer", "No binario", "Otro"];
@@ -405,7 +405,7 @@ export default function Pacientes() {
             </div>
             <div>
               <label className="label">¿Cómo nos conociste? <span className="text-slate-400 font-normal">(opcional)</span></label>
-              <select className="select" value={form.healthInsurance} onChange={(e) => set("healthInsurance", e.target.value)}>
+              <select className="select" value={form.referralSource} onChange={(e) => set("referralSource", e.target.value)}>
                 {REFERRAL_OPTIONS.map(o => <option key={o} value={o}>{o || "— Sin especificar —"}</option>)}
               </select>
             </div>

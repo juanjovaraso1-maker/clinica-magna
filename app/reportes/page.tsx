@@ -5,6 +5,7 @@ import * as XLSX from "xlsx";
 import {
   TrendingUp, TrendingDown, Users, Calendar, DollarSign,
   CheckCircle2, ChevronRight, AlertCircle, UserX, RefreshCw, UserPlus, Download,
+  Stethoscope, Target, FileText, Share2,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -80,6 +81,15 @@ export default function Reportes() {
   const [activeTab, setActiveTab] = useState(0);
   const [pData, setPData] = useState<PatientAnalysis|null>(null);
 
+  // Export state
+  const [exportPeriod, setExportPeriod] = useState("month");
+  const [exportMonth, setExportMonth] = useState(() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}`; });
+  const [exportQuarter, setExportQuarter] = useState(() => { const n = new Date(); const q = Math.ceil((n.getMonth()+1)/3); return `${n.getFullYear()}-Q${q}`; });
+  const [exportYear, setExportYear] = useState(() => String(new Date().getFullYear()));
+  const [exportProfesional, setExportProfesional] = useState("all");
+  const [exporting, setExporting] = useState<string|null>(null);
+  const [profList, setProfList] = useState<{id:string;name:string}[]>([]);
+
   useEffect(() => {
     fetch(`/api/reportes?period=${period}`)
       .then(r => r.json()).then(setData);
@@ -90,6 +100,30 @@ export default function Reportes() {
       fetch("/api/reportes/patients").then(r => r.json()).then(setPData);
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    fetch("/api/users").then(r => r.json()).then(users => {
+      if (Array.isArray(users)) setProfList(users.map((u: {id:string;name:string}) => ({ id: u.id, name: u.name })));
+    }).catch(() => {});
+  }, []);
+
+  async function exportReport(type: string) {
+    setExporting(type);
+    const value = exportPeriod === "month" ? exportMonth : exportPeriod === "quarter" ? exportQuarter : exportYear;
+    const url = `/api/reportes/excel?type=${type}&period=${exportPeriod}&value=${encodeURIComponent(value)}&profesional=${exportProfesional}`;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) { alert("Error al generar reporte"); setExporting(null); return; }
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `reporte-${type}-clinica-magna-${new Date().toISOString().slice(0,10)}.xlsx`;
+      a.click();
+    } catch {
+      alert("Error al generar reporte");
+    }
+    setExporting(null);
+  }
 
   function exportExcel() {
     if (!data) return;
@@ -115,8 +149,96 @@ export default function Reportes() {
 
   const { kpis } = data;
 
+  const REPORT_CARDS = [
+    { type:"financiero",   icon: TrendingUp,   title:"Financiero",    desc:"Ingresos, gastos, neto y presupuestos",      hasProfesional: true },
+    { type:"tratamientos", icon: Stethoscope,  title:"Tratamientos",  desc:"Evoluciones, ranking y pendientes",           hasProfesional: true },
+    { type:"pacientes",    icon: Users,         title:"Pacientes",     desc:"Nuevos, inactivos y presupuestos sin iniciar", hasProfesional: false },
+    { type:"marketing",    icon: Share2,        title:"Marketing",     desc:"Canales de captación y evolución mensual",   hasProfesional: false },
+    { type:"agenda",       icon: Calendar,      title:"Agenda",        desc:"Citas por profesional, día y hora",           hasProfesional: true },
+    { type:"presupuestos", icon: FileText,      title:"Presupuestos",  desc:"Listado, vencidos y tiempo de pago",          hasProfesional: false },
+  ];
+
   return (
     <div className="space-y-6 max-w-7xl">
+
+      {/* ===== EXPORTAR REPORTES ===== */}
+      <div className="card p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+            <Download className="w-5 h-5 text-blue-600"/>
+          </div>
+          <div>
+            <h2 className="section-title">Exportar Reportes Excel</h2>
+            <p className="text-xs text-slate-400">Reportes detallados con formato profesional</p>
+          </div>
+        </div>
+
+        {/* Period selector */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
+            {[{v:"month",l:"Mensual"},{v:"quarter",l:"Trimestral"},{v:"year",l:"Anual"}].map(p => (
+              <button key={p.v} onClick={()=>setExportPeriod(p.v)}
+                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${exportPeriod===p.v?"bg-white text-slate-900 shadow-sm":"text-slate-500 hover:text-slate-700"}`}>
+                {p.l}
+              </button>
+            ))}
+          </div>
+
+          {exportPeriod === "month" && (
+            <input type="month" value={exportMonth} onChange={e=>setExportMonth(e.target.value)}
+              className="input py-1.5 text-sm w-auto" />
+          )}
+          {exportPeriod === "quarter" && (
+            <select value={exportQuarter} onChange={e=>setExportQuarter(e.target.value)} className="select py-1.5 text-sm">
+              {[2024,2025,2026,2027].flatMap(y=>[1,2,3,4].map(q=>(
+                <option key={`${y}-Q${q}`} value={`${y}-Q${q}`}>T{q} {y}</option>
+              )))}
+            </select>
+          )}
+          {exportPeriod === "year" && (
+            <select value={exportYear} onChange={e=>setExportYear(e.target.value)} className="select py-1.5 text-sm">
+              {[2023,2024,2025,2026,2027].map(y=>(
+                <option key={y} value={String(y)}>{y}</option>
+              ))}
+            </select>
+          )}
+
+          {profList.length > 0 && (
+            <select value={exportProfesional} onChange={e=>setExportProfesional(e.target.value)} className="select py-1.5 text-sm">
+              <option value="all">Todos los profesionales</option>
+              {profList.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+          )}
+        </div>
+
+        {/* Report cards grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {REPORT_CARDS.map(({ type, icon: Icon, title, desc }) => (
+            <div key={type} className="border border-slate-200 rounded-xl p-4 flex flex-col gap-3 hover:border-blue-300 hover:bg-blue-50/30 transition-colors">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-lg bg-primary-100 flex items-center justify-center flex-shrink-0">
+                  <Icon className="w-5 h-5 text-primary-600"/>
+                </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-slate-800 text-sm">{title}</p>
+                  <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{desc}</p>
+                </div>
+              </div>
+              <button
+                onClick={()=>exportReport(type)}
+                disabled={exporting === type}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {exporting === type ? (
+                  <><span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"/><span>Generando...</span></>
+                ) : (
+                  <><Download size={13}/><span>Exportar Excel</span></>
+                )}
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">

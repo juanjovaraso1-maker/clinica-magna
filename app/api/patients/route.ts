@@ -24,10 +24,10 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const data = await req.json();
-    const { firstName, lastName, rut, email, phone, birthDate, gender, address, city, healthInsurance, insuranceNumber, notes } = data;
+    const { firstName, lastName, rut, email, phone, birthDate, gender, address, city, healthInsurance, insuranceNumber, notes, referralSource } = data;
     if (!firstName || !lastName || !rut) return NextResponse.json({ error: "Nombre, apellido y RUT son obligatorios" }, { status: 400 });
     const patient = await prisma.patient.create({
-      data: { firstName, lastName, rut, email: email || null, phone: phone || null, birthDate: birthDate ? new Date(birthDate) : null, gender: gender || null, address: address || null, city: city || null, healthInsurance: healthInsurance || null, insuranceNumber: insuranceNumber || null, notes: notes || null },
+      data: { firstName, lastName, rut, email: email || null, phone: phone || null, birthDate: birthDate ? new Date(birthDate) : null, gender: gender || null, address: address || null, city: city || null, healthInsurance: healthInsurance || null, insuranceNumber: insuranceNumber || null, notes: notes || null, referralSource: referralSource || null },
     });
     return NextResponse.json(patient, { status: 201 });
   } catch (e: unknown) {
