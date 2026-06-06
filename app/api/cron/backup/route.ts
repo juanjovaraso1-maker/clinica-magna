@@ -109,7 +109,7 @@ export async function GET() {
                 <tr><td style="padding:6px;color:#6b7280">Tamaño (JSON)</td><td style="padding:6px;font-weight:600">${(size/1024).toFixed(1)} KB</td></tr>
                 <tr><td style="padding:6px;color:#6b7280">Tamaño (ZIP)</td><td style="padding:6px;font-weight:600">${(zipBuffer.length/1024).toFixed(1)} KB</td></tr>
               </table>
-              <p style="color:#6b7280;font-size:13px">Este respaldo fue generado automáticamente a las 20:00 hora Chile. Guárdalo en un lugar seguro.</p>
+              <p style="color:#6b7280;font-size:13px">Este respaldo fue generado automáticamente a las 09:00 hora Chile. Guárdalo en un lugar seguro.</p>
             </div>
           </div>
         `,
