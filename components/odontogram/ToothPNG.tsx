@@ -52,9 +52,6 @@ export function ToothPNG({
   if (hovered) {
     outline = "2.5px solid #2563EB";
     bgColor = "#DBEAFE";
-  } else if (hasLine) {
-    outline = "2px solid #3B82F6";
-    bgColor = "#EFF6FF";
   } else if (condColor && !isAusente) {
     bgColor = `${condColor}50`;
   }
