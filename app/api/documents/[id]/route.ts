@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { supabaseAdmin, BUCKET } from "@/lib/supabase-storage";
+import { getSupabaseAdmin, BUCKET } from "@/lib/supabase-storage";
 
 export async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
   const doc = await prisma.patientDocument.findUnique({ where: { id: params.id } });
@@ -10,7 +10,7 @@ export async function DELETE(_: NextRequest, { params }: { params: { id: string 
     const idx = doc.fileName.indexOf(marker);
     if (idx !== -1) {
       const storagePath = doc.fileName.slice(idx + marker.length);
-      await supabaseAdmin.storage.from(BUCKET).remove([storagePath]);
+      await getSupabaseAdmin().storage.from(BUCKET).remove([storagePath]);
     }
     await prisma.patientDocument.delete({ where: { id: params.id } });
   }

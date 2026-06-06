@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { supabaseAdmin, BUCKET, publicUrl } from "@/lib/supabase-storage";
+import { getSupabaseAdmin, BUCKET, publicUrl } from "@/lib/supabase-storage";
 
 export async function GET(req: NextRequest) {
   const patientId = req.nextUrl.searchParams.get("patientId");
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   const ext      = file.name.split(".").pop();
   const storagePath = `${patientId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
-  const { error } = await supabaseAdmin.storage
+  const { error } = await getSupabaseAdmin().storage
     .from(BUCKET)
     .upload(storagePath, Buffer.from(await file.arrayBuffer()), {
       contentType: file.type,
