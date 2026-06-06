@@ -89,7 +89,7 @@ function SurfaceDiagram({ num, toothState, selSurf, onSurf, readonly }: {
 }) {
   const upper = isUpper(num);
   const size = 26, cx = 13, cy = 13, r = 11, ri = 4.5;
-  const renderSize = 38;
+  const renderSize = 76;
 
   function wedgePath(a1: number, a2: number): string {
     const rad = (d: number) => (d * Math.PI) / 180;
@@ -446,7 +446,7 @@ export default function DentalChart({ records, onSave, onDelete, isSaving, reado
       <div className="flex">
         <div className="flex-1 min-w-0 py-3 px-2 bg-white">
           {/* Superior — distribuidos en todo el ancho */}
-          <div style={{display:"grid", gridTemplateColumns:`repeat(${upper.length}, 1fr)`, gap:"2px", alignItems:"end"}} className="mb-1 px-1">
+          <div style={{display:"grid", gridTemplateColumns:`repeat(${upper.length}, 1fr)`, gap:"0px", alignItems:"end"}} className="mb-1 px-1">
             {upper.map((num) => (
               <div key={num} className="transition-opacity" style={{opacity: toothOpacity(num)}}>
                 <ToothCell num={num} chart={chart} upper={true}
@@ -458,7 +458,7 @@ export default function DentalChart({ records, onSave, onDelete, isSaving, reado
           </div>
           <div className="border-t-2 border-dashed border-[#E8E0D4] mx-2 my-3"/>
           {/* Inferior — distribuidos en todo el ancho */}
-          <div style={{display:"grid", gridTemplateColumns:`repeat(${lower.length}, 1fr)`, gap:"2px", alignItems:"start"}} className="mt-1 px-1">
+          <div style={{display:"grid", gridTemplateColumns:`repeat(${lower.length}, 1fr)`, gap:"0px", alignItems:"start"}} className="mt-1 px-1">
             {lower.map((num) => (
               <div key={num} className="transition-opacity" style={{opacity: toothOpacity(num)}}>
                 <ToothCell num={num} chart={chart} upper={false}
