@@ -2350,6 +2350,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                     <th className="text-[10px] font-bold uppercase tracking-wider text-[#9AA0B4] px-4 py-3 text-left">Monto</th>
                     <th className="text-[10px] font-bold uppercase tracking-wider text-[#9AA0B4] px-4 py-3 text-left">Método</th>
                     <th className="text-[10px] font-bold uppercase tracking-wider text-[#9AA0B4] px-4 py-3 text-left">Notas</th>
+                    {isAdmin && <th className="text-[10px] font-bold uppercase tracking-wider text-[#9AA0B4] px-4 py-3 text-left">Acciones</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -2359,6 +2360,20 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                       <td className="px-4 py-3 text-[13px] font-bold text-[#00A86B]">{fmt(p.amount)}</td>
                       <td className="px-4 py-3"><span className="text-[11px] font-semibold bg-[#F0F2F7] text-[#5A6072] px-[8px] py-[3px] rounded-full">{p.method}</span></td>
                       <td className="px-4 py-3 text-[12px] text-[#9AA0B4]">{p.notes||"—"}</td>
+                      {isAdmin && (
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1.5">
+                            <button onClick={()=>openPayEdit(p)}
+                              className="p-2 rounded-lg text-[#9AA0B4] hover:text-[#0057FF] hover:bg-[#EEF3FF] transition-colors border border-transparent hover:border-[#0057FF]/20">
+                              <Pencil size={14}/>
+                            </button>
+                            <button onClick={()=>deletePayment(p.id)}
+                              className="p-2 rounded-lg text-[#9AA0B4] hover:text-red-500 hover:bg-red-50 transition-colors border border-transparent hover:border-red-100">
+                              <Trash2 size={14}/>
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
