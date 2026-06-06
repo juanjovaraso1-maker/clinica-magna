@@ -1748,12 +1748,12 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                             {fmt(e.cost)}
                           </span>
                         )}
-                        <button onClick={()=>openEvoEdit(e)} className="w-7 h-7 flex items-center justify-center rounded-lg text-[#C8D0E0] hover:text-[#0057FF] hover:bg-[#EEF3FF] transition-colors">
-                            <Pencil size={13}/>
+                        <button onClick={()=>openEvoEdit(e)} className="w-10 h-10 flex items-center justify-center rounded-xl text-[#C8D0E0] hover:text-[#0057FF] hover:bg-[#EEF3FF] transition-colors">
+                            <Pencil size={17}/>
                           </button>
                         {isAdmin && (
-                          <button onClick={()=>deleteEvolution(e.id)} className="w-7 h-7 flex items-center justify-center rounded-lg text-[#C8D0E0] hover:text-[#E53935] hover:bg-[#FDECEA] transition-colors">
-                            <Trash2 size={13}/>
+                          <button onClick={()=>deleteEvolution(e.id)} className="w-10 h-10 flex items-center justify-center rounded-xl text-[#C8D0E0] hover:text-[#E53935] hover:bg-[#FDECEA] transition-colors">
+                            <Trash2 size={17}/>
                           </button>
                         )}
                       </div>
@@ -1872,8 +1872,8 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                   </div>
                   <div className="flex gap-2 items-center">
                     <button onClick={()=>printSavedPrescription(rx)}
-                      className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors border border-slate-200" title="Imprimir / PDF">
-                      <Printer size={13}/>
+                      className="p-2.5 rounded-xl text-slate-600 hover:bg-slate-100 transition-colors border border-slate-200" title="Imprimir / PDF">
+                      <Printer size={18}/>
                     </button>
                     {patient.phone && (
                       <button onClick={()=>{
@@ -1882,21 +1882,21 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                         const label=rxTabType==="recipe"?"Receta":"Cuidados post-procedimiento";
                         const msg=`*${label}*\n${patient.firstName} ${patient.lastName}\n${new Date(rx.date+"T12:00:00").toLocaleDateString("es-CL")}\n\n${rx.content}\n\nClínica Magna`;
                         window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`,"_blank");
-                      }} className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition-colors border border-emerald-200" title="Enviar por WhatsApp">
-                        <MessageCircle size={13}/>
+                      }} className="p-2.5 rounded-xl text-emerald-600 hover:bg-emerald-50 transition-colors border border-emerald-200" title="Enviar por WhatsApp">
+                        <MessageCircle size={18}/>
                       </button>
                     )}
                     {patient.email && (
                       <button onClick={()=>emailSavedPrescription(rx)}
-                        className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors border border-blue-200" title="Enviar por email">
-                        <Mail size={13}/>
+                        className="p-2.5 rounded-xl text-blue-600 hover:bg-blue-50 transition-colors border border-blue-200" title="Enviar por email">
+                        <Mail size={18}/>
                       </button>
                     )}
                     <button onClick={()=>{ setRxFreeForm({userId:sessionUserId,date:new Date().toISOString().split("T")[0],content:rx.content}); window.scrollTo(0,0); }}
-                      className="text-[11px] font-semibold text-[#0057FF] hover:underline">
+                      className="text-[13px] font-semibold px-3 py-2 rounded-xl bg-[#EEF3FF] text-[#0057FF] border border-[#0057FF]/20 hover:bg-[#0057FF] hover:text-white transition-all">
                       Reutilizar
                     </button>
-                    {isAdmin&&<button onClick={()=>deleteRx(rx.id)} className="text-[#D4C4A0] hover:text-red-500 transition-colors"><Trash2 size={13}/></button>}
+                    {isAdmin&&<button onClick={()=>deleteRx(rx.id)} className="p-2.5 rounded-xl text-[#D4C4A0] hover:text-red-500 hover:bg-red-50 transition-colors border border-transparent hover:border-red-100"><Trash2 size={18}/></button>}
                   </div>
                 </div>
                 <div className="px-5 py-3">
