@@ -716,7 +716,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     const w = window.open("","_blank","width=860,height=1100");
     if (!w) { alert("Permite ventanas emergentes para imprimir."); return; }
     w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/><title>${title}</title>
-      <style>@page{margin:14mm;size:A4 portrait}*{box-sizing:border-box}body{font-family:'Times New Roman',Times,serif;font-size:11px;color:#1a1a1a;margin:0}b{font-weight:bold}@media print{.noprint{display:none!important}}</style>
+      <style>@page{margin:14mm;size:A4 portrait}*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#1a1a1a;margin:0}b{font-weight:bold}@media print{.noprint{display:none!important}}</style>
       </head><body>${body}
       <button class="noprint" onclick="window.print()" style="position:fixed;top:14px;right:14px;padding:8px 18px;background:#1f4e79;color:white;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-family:sans-serif">🖨 Imprimir / PDF</button>
       </body></html>`);
@@ -725,7 +725,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
 
   function buildFullDocHtml(title:string, body:string): string {
     return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/><title>${title}</title>
-      <style>@page{margin:14mm;size:A4 portrait}*{box-sizing:border-box}body{font-family:'Times New Roman',Times,serif;font-size:11px;color:#1a1a1a;margin:0;padding:14mm}b{font-weight:bold}</style>
+      <style>@page{margin:14mm;size:A4 portrait}*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#1a1a1a;margin:0;padding:14mm}b{font-weight:bold}</style>
       </head><body>${body}</body></html>`;
   }
 
