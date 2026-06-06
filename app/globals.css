@@ -69,10 +69,7 @@
   .scrollbar-hide::-webkit-scrollbar { display: none; }
 }
 
-/* Prevent iOS auto-zoom */
-@media (max-width: 639px) {
-  input, select, textarea { font-size: 16px !important; }
-}
+/* No auto-zoom overrides needed — viewport is fixed at 1200px */
 
 @layer components {
   /* ── Buttons ── */
