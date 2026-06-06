@@ -156,30 +156,43 @@ function ToothCell({ num, chart, upper, selTooth, selSurf, onTooth, onSurf, read
   const state = chart.teeth[key];
   const isSel = selTooth === num;
   const cond  = state?.wholeCond && state.wholeCond !== "sano" ? CONDITIONS[state.wholeCond] : null;
+  const barColor = isSel ? (cond?.color ?? "#0057FF") : "transparent";
 
-  const svg = (
+  /* Indicador de selección: barra delgada de color condición */
+  const selBar = (
+    <div className="w-full px-0.5">
+      <div className="h-[2px] w-full rounded-full transition-all duration-200"
+        style={{ backgroundColor: barColor }}/>
+    </div>
+  );
+
+  const toothImg = (
     <div
-      className={`w-full rounded-sm transition-all ${isSel?"ring-2 ring-blue-500 ring-offset-1 bg-blue-50/60":"hover:bg-amber-50/40"} ${readonly?"pointer-events-none":"cursor-pointer"}`}
+      className={`w-full transition-all duration-150 ${readonly ? "pointer-events-none" : "cursor-pointer hover:opacity-85 active:scale-95"}`}
       onClick={() => !readonly && onTooth(num)}
     >
       <ToothPNG num={num} wholeCond={state?.wholeCond} condColor={cond?.color}/>
     </div>
   );
+
   const diag = (
     <SurfaceDiagram num={num} toothState={state}
       selSurf={isSel ? selSurf : null}
-      onSurf={s => !readonly && onSurf(num,s)}
+      onSurf={s => !readonly && onSurf(num, s)}
       readonly={readonly}/>
   );
+
   const label = (
-    <span className={`text-[11px] font-bold select-none leading-none ${isSel?"text-blue-600":"text-stone-400"}`}>
+    <span className={`text-[10px] font-bold select-none leading-none transition-colors ${isSel ? "text-blue-500" : "text-stone-400"}`}>
       {fmtTooth(num)}
     </span>
   );
 
   return (
-    <div className="flex flex-col items-center gap-[4px] w-full">
-      {upper ? <>{svg}{diag}{label}</> : <>{label}{diag}{svg}</>}
+    <div className="flex flex-col items-center gap-[3px] w-full">
+      {upper
+        ? <>{label}{toothImg}{selBar}{diag}</>
+        : <>{diag}{selBar}{toothImg}{label}</>}
     </div>
   );
 }
