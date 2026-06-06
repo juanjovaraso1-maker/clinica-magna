@@ -53,7 +53,7 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
   const [validUntil, setValidUntil] = useState(initValidUntil??in30d);
   const [status,     setStatus]     = useState(initStatus);
   const [gDiscount,  setGDiscount]  = useState(initDiscount);
-  const DEFAULT_NOTES = "Este presupuesto tiene vigencia de 30 días desde su emisión. Algunos tratamientos deben ser reevaluados con exámenes complementarios.";
+  const DEFAULT_NOTES = "Este presupuesto tiene una vigencia de 30 días desde que fue emitido. Algunos tratamientos requieren exámenes complementarios para confirmar diagnóstico. Tratamientos que requieren especialista se debe dejar abono conversado previamente, este abono en caso de fallar a la cita pactada y aceptada por ambas partes no será devuelta, si cambia de hora con menos de 24 horas tampoco será devuelta.";
   const [notes,      setNotes]      = useState(initNotes||DEFAULT_NOTES);
   const [lines,      setLines]      = useState<BudgetLine[]>(initLines.length>0?initLines.map((l,i)=>({...l,_key:String(i),discountAmt:l.discountAmt??0,status:l.status||"pending"})):[]);
   const [deletingBudget, setDeletingBudget] = useState(false);

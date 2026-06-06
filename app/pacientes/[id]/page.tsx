@@ -1974,6 +1974,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                   if(created?.id) setBudgetEditorEditId(created.id);
                 }
                 setBudgetSaving(false);
+                setBudgetEditorOpen(false);
                 load();
                 showToast(wasNew?"✅ Presupuesto creado":"✅ Presupuesto actualizado");
               }}
