@@ -129,20 +129,21 @@ export default function Configuracion() {
     URL.revokeObjectURL(url);
   }
 
+  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+
   async function restoreBackup(file: File) {
     setRestoring(true);
     setRestoreMsg("");
+    setRestoreFile(null);
     try {
-      const text = await file.text();
-      const json = JSON.parse(text);
-      const res = await fetch("/api/admin/restore", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(json),
-      });
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/admin/restore", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) { setRestoreMsg("Error: " + (data.error || "desconocido")); return; }
-      setRestoreMsg(`✅ Restauración exitosa desde respaldo del ${new Date(data.timestamp).toLocaleString("es-CL")}`);
+      const fecha = data.timestamp ? new Date(data.timestamp).toLocaleString("es-CL") : "fecha desconocida";
+      const s = data.summary ?? {};
+      setRestoreMsg(`✅ Restauración exitosa del ${fecha} — ${s.patients ?? 0} pacientes, ${s.appointments ?? 0} citas, ${s.evolutions ?? 0} evoluciones restauradas.`);
       loadBackups();
     } catch (e: any) {
       setRestoreMsg("Error: " + e.message);
@@ -623,18 +624,18 @@ export default function Configuracion() {
                 <AlertTriangle size={16} className="text-amber-500" /> Restaurar desde respaldo
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                Esto reemplazará <strong>todos</strong> los datos actuales con los del archivo seleccionado.
+                Sube el archivo <strong>.zip</strong> que llega a tu correo cada día (o un <strong>.json</strong> manual). Esto reemplazará <strong>todos</strong> los datos actuales.
               </p>
             </div>
             <label className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed cursor-pointer transition-colors
               ${restoring ? "border-slate-200 opacity-60 pointer-events-none" : "border-amber-300 hover:border-amber-400 hover:bg-amber-50"}`}>
               <Upload size={18} className="text-amber-500 flex-shrink-0" />
               <div>
-                <p className="text-sm font-medium text-slate-800">{restoring ? "Restaurando..." : "Seleccionar archivo de respaldo"}</p>
-                <p className="text-xs text-slate-400">Archivos .json generados por esta aplicación</p>
+                <p className="text-sm font-medium text-slate-800">{restoring ? "Restaurando, por favor espera…" : "Seleccionar archivo de respaldo"}</p>
+                <p className="text-xs text-slate-400">Archivos .zip (email diario) o .json (manual)</p>
               </div>
-              <input type="file" accept=".json" className="hidden"
-                onChange={e => { const f = e.target.files?.[0]; if (f) restoreBackup(f); e.target.value = ""; }} />
+              <input type="file" accept=".zip,.json" className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) setRestoreFile(f); e.target.value = ""; }} />
             </label>
             {restoreMsg && (
               <div className={`px-4 py-3 rounded-xl text-sm ${restoreMsg.startsWith("✅") ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
@@ -642,6 +643,39 @@ export default function Configuracion() {
               </div>
             )}
           </div>
+
+          {/* Confirm restore modal */}
+          {restoreFile && (
+            <>
+              <div className="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm" onClick={() => setRestoreFile(null)}/>
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                      <AlertTriangle size={20} className="text-amber-600"/>
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-[#1A1D2E] text-[15px]">¿Confirmar restauración?</h3>
+                      <p className="text-sm text-slate-500 mt-1">
+                        Esto <strong className="text-red-600">borrará todos los datos actuales</strong> y los reemplazará con los del archivo:
+                      </p>
+                      <p className="mt-2 px-3 py-1.5 bg-slate-100 rounded-lg text-sm font-mono text-slate-700 break-all">{restoreFile.name}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={() => setRestoreFile(null)}
+                      className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors">
+                      Cancelar
+                    </button>
+                    <button onClick={() => restoreBackup(restoreFile)} disabled={restoring}
+                      className="flex-1 px-4 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-bold hover:bg-amber-600 transition-colors disabled:opacity-60">
+                      {restoring ? "Restaurando…" : "Sí, restaurar ahora"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Backup history */}
           <div className="card p-6 space-y-4">
