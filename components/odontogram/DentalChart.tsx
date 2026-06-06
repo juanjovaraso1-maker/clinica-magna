@@ -89,7 +89,6 @@ function SurfaceDiagram({ num, toothState, selSurf, onSurf, readonly }: {
 }) {
   const upper = isUpper(num);
   const size = 26, cx = 13, cy = 13, r = 11, ri = 4.5;
-  const renderSize = 76;
 
   function wedgePath(a1: number, a2: number): string {
     const rad = (d: number) => (d * Math.PI) / 180;
@@ -100,11 +99,12 @@ function SurfaceDiagram({ num, toothState, selSurf, onSurf, readonly }: {
     return `M ${xi1} ${yi1} L ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2} L ${xi2} ${yi2} A ${ri} ${ri} 0 0 0 ${xi1} ${yi1} Z`;
   }
 
+  /* 4 wedges × 90° each, centered at cardinal directions — no gaps */
   const wedges = [
-    { key:"V", path:wedgePath(-112,-68), lx:cx,     ly:cy-8.2 },
-    { key:"D", path:wedgePath(-68,  22), lx:cx+8.2, ly:cy     },
-    { key:"P", path:wedgePath( 22, 112), label: upper?"P":"L", lx:cx,     ly:cy+8.2 },
-    { key:"M", path:wedgePath(112, 202), lx:cx-8.2, ly:cy     },
+    { key:"V", path:wedgePath(-135,-45), lx:cx,     ly:cy-8.2 },
+    { key:"D", path:wedgePath( -45, 45), lx:cx+8.2, ly:cy     },
+    { key:"P", path:wedgePath(  45,135), label: upper?"P":"L", lx:cx,     ly:cy+8.2 },
+    { key:"M", path:wedgePath( 135,225), lx:cx-8.2, ly:cy     },
   ];
 
   function cc(surf: string) {
@@ -115,7 +115,7 @@ function SurfaceDiagram({ num, toothState, selSurf, onSurf, readonly }: {
   const wholeCond = toothState?.wholeCond && toothState.wholeCond !== "sano" ? CONDITIONS[toothState.wholeCond] : null;
 
   return (
-    <svg width={renderSize} height={renderSize} viewBox={`0 0 ${size} ${size}`} style={{display:"block"}}>
+    <svg width="100%" viewBox={`0 0 ${size} ${size}`} style={{display:"block", aspectRatio:"1"}}>
       <circle cx={cx} cy={cy} r={r} fill={wholeCond ? `${wholeCond.color}22` : "white"} stroke={wholeCond ? wholeCond.color : "#D4C8B8"} strokeWidth={wholeCond ? "1.5" : "0.8"}/>
       {wedges.map(w => {
         const c = cc(w.key); const isSel = selSurf===w.key;
