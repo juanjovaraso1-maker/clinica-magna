@@ -261,7 +261,7 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
       <div className="overflow-x-auto scrollbar-hide border-b border-[#E3E8F0]">
       <div className="bg-white py-3 px-2 min-w-[800px]">
         {/* Superior */}
-        <div style={{display:"grid", gridTemplateColumns:`repeat(${UPPER.length}, 84px)`, gap:"3px", alignItems:"end"}} className="mb-1 px-1">
+        <div style={{display:"grid", gridTemplateColumns:`repeat(${UPPER.length}, 168px)`, gap:"3px", alignItems:"end"}} className="mb-1 px-1">
           {UPPER.map((num)=>(
             <div key={num} className="flex flex-col items-center gap-[4px] w-full">
               <ToothPNG
@@ -278,7 +278,7 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
         </div>
         <div className="border-t-2 border-dashed border-[#E8E0D4] mx-2 my-3"/>
         {/* Inferior */}
-        <div style={{display:"grid", gridTemplateColumns:`repeat(${LOWER.length}, 84px)`, gap:"3px", alignItems:"start"}} className="mt-1 px-1">
+        <div style={{display:"grid", gridTemplateColumns:`repeat(${LOWER.length}, 168px)`, gap:"3px", alignItems:"start"}} className="mt-1 px-1">
           {LOWER.map((num)=>(
             <div key={num} className="flex flex-col items-center gap-[4px] w-full">
               <span className={`text-[11px] font-bold select-none leading-none ${toothHasLine(num)?"text-blue-600":"text-stone-400"}`}>{fmtTooth(num)}</span>
