@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import {
   Save, Info, Plus, Pencil, X, Check, Users, Building2,
   Calendar, Mail, Trash2, Shield, Stethoscope, Clock,
-  HardDrive, Download, Upload, RefreshCw, AlertTriangle,
+  HardDrive, Download, Upload, RefreshCw, AlertTriangle, PenLine,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 
@@ -79,6 +79,9 @@ export default function Configuracion() {
   const [sigPreview, setSigPreview] = useState<string | null>(null);
   const [sigUploading, setSigUploading] = useState(false);
   const [sigDeleting, setSigDeleting] = useState(false);
+  const [sigModal, setSigModal] = useState(false);
+  const [sigUser, setSigUser] = useState<User | null>(null);
+  const [sigError, setSigError] = useState("");
 
   useEffect(() => {
     loadUsers();
@@ -167,6 +170,10 @@ export default function Configuracion() {
     setSaving(false); setSaved(true); setTimeout(() => setSaved(false), 2500);
   }
 
+  function openSigModal(u: User) {
+    setSigUser(u); setSigPreview(u.signatureUrl ?? null); setSigError(""); setSigModal(true);
+  }
+
   function openNew() { setForm(EMPTY_USER); setEditing(null); setFormError(""); setSigPreview(null); setUserModal(true); }
   function openEdit(u: User) {
     setForm({ name: u.name, email: u.email, rut: u.rut || "", role: u.role, specialty: u.specialty || "", username: u.username || "", password: "" });
@@ -174,29 +181,36 @@ export default function Configuracion() {
     setEditing(u); setFormError(""); setUserModal(true);
   }
 
-  async function uploadSignature(file: File) {
-    if (!editing) return;
+  async function uploadSignature(file: File, targetUser?: User) {
+    const u = targetUser ?? editing;
+    if (!u) return;
     if (!["image/png","image/jpeg","image/jpg","image/webp"].includes(file.type)) {
-      setFormError("Solo se permiten imágenes PNG, JPG o WebP"); return;
+      targetUser ? setSigError("Solo PNG, JPG o WebP") : setFormError("Solo se permiten imágenes PNG, JPG o WebP"); return;
     }
-    if (file.size > 2 * 1024 * 1024) { setFormError("La firma no puede superar 2MB"); return; }
-    setSigUploading(true); setFormError("");
+    if (file.size > 2 * 1024 * 1024) {
+      targetUser ? setSigError("Máximo 2MB") : setFormError("La firma no puede superar 2MB"); return;
+    }
+    setSigUploading(true);
+    targetUser ? setSigError("") : setFormError("");
     const fd = new FormData(); fd.append("signature", file);
-    const r = await fetch(`/api/users/${editing.id}/signature`, { method: "POST", body: fd });
+    const r = await fetch(`/api/users/${u.id}/signature`, { method: "POST", body: fd });
     const d = await r.json();
     if (d.ok) {
       const reader = new FileReader();
       reader.onload = e => setSigPreview(e.target?.result as string);
       reader.readAsDataURL(file);
       loadUsers();
-    } else { setFormError(d.error || "Error al subir firma"); }
+    } else {
+      targetUser ? setSigError(d.error || "Error al subir firma") : setFormError(d.error || "Error al subir firma");
+    }
     setSigUploading(false);
   }
 
-  async function deleteSignature() {
-    if (!editing) return;
+  async function deleteSignature(targetUser?: User) {
+    const u = targetUser ?? editing;
+    if (!u) return;
     setSigDeleting(true);
-    await fetch(`/api/users/${editing.id}/signature`, { method: "DELETE" });
+    await fetch(`/api/users/${u.id}/signature`, { method: "DELETE" });
     setSigPreview(null); loadUsers();
     setSigDeleting(false);
   }
@@ -374,9 +388,15 @@ export default function Configuracion() {
                     </div>
                   </div>
                   <div className="flex flex-col gap-1.5 flex-shrink-0">
-                    <button onClick={() => openEdit(u)}
+                    <button onClick={() => openEdit(u)} title="Editar usuario"
                       className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-primary-600 hover:bg-primary-50 transition-colors">
                       <Pencil size={13} />
+                    </button>
+                    <button onClick={() => openSigModal(u)} title="Gestionar firma digital"
+                      className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                        u.signatureUrl ? "text-emerald-600 hover:bg-emerald-50" : "text-amber-500 hover:bg-amber-50"
+                      }`}>
+                      <PenLine size={13} />
                     </button>
                     <button onClick={() => toggleActive(u)}
                       className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors text-xs font-semibold ${
@@ -680,6 +700,60 @@ export default function Configuracion() {
       </div>
       )}
 
+      {/* ── Modal firma digital ── */}
+      <Modal open={sigModal} onClose={() => setSigModal(false)} title="Firma digital">
+        <div className="p-6 space-y-5">
+          {sigUser && (
+            <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${(ROLE_META[sigUser.role] ?? ROLE_META.DENTIST).avatarBg}`}>
+                <span className="text-white text-xs font-bold">{initials(sigUser.name)}</span>
+              </div>
+              <div>
+                <p className="font-semibold text-slate-900 text-sm">{sigUser.name}</p>
+                <p className="text-xs text-slate-400">{sigUser.rut ?? "Sin RUT registrado"}</p>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Vista previa de la firma</p>
+            <div className="w-full h-[120px] border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 flex items-center justify-center overflow-hidden">
+              {sigPreview
+                ? <img src={sigPreview} alt="Firma" className="max-h-[110px] max-w-full object-contain p-2" />
+                : <div className="text-center">
+                    <PenLine size={28} className="mx-auto mb-2 text-slate-300" />
+                    <p className="text-xs text-slate-400">Sin firma cargada</p>
+                    <p className="text-[10px] text-slate-300 mt-0.5">La firma aparecerá en recetas y documentos</p>
+                  </div>
+              }
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className={`flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border-2 border-primary-200 bg-primary-50 text-primary-700 font-semibold text-sm cursor-pointer hover:bg-primary-100 transition-colors ${sigUploading ? "opacity-50 pointer-events-none" : ""}`}>
+              <Upload size={15}/>
+              {sigUploading ? "Subiendo..." : sigPreview ? "Reemplazar firma" : "Subir firma"}
+              <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f && sigUser) uploadSignature(f, sigUser); e.target.value = ""; }} />
+            </label>
+            {sigPreview && (
+              <button onClick={() => sigUser && deleteSignature(sigUser)} disabled={sigDeleting}
+                className="flex items-center justify-center gap-2 w-full py-2 rounded-xl border border-red-200 text-red-600 text-sm font-medium hover:bg-red-50 transition-colors disabled:opacity-50">
+                <Trash2 size={14}/> {sigDeleting ? "Eliminando..." : "Eliminar firma"}
+              </button>
+            )}
+            <p className="text-[11px] text-slate-400 text-center">PNG, JPG o WebP · Máximo 2MB · Fondo transparente recomendado</p>
+          </div>
+
+          {sigError && (
+            <p className="text-red-500 text-sm bg-red-50 border border-red-200 rounded-xl px-3 py-2">{sigError}</p>
+          )}
+        </div>
+        <div className="px-6 py-4 border-t border-slate-100 flex justify-end">
+          <button className="btn-primary" onClick={() => setSigModal(false)}>Listo</button>
+        </div>
+      </Modal>
+
       {/* User modal */}
       <Modal open={userModal} onClose={() => setUserModal(false)} title={editing ? "Editar usuario" : "Nuevo usuario"}>
         <div className="p-6 space-y-4">
@@ -772,7 +846,7 @@ export default function Configuracion() {
                       onChange={e => { const f = e.target.files?.[0]; if (f) uploadSignature(f); e.target.value = ""; }} />
                   </label>
                   {sigPreview && (
-                    <button onClick={deleteSignature} disabled={sigDeleting}
+                    <button onClick={() => deleteSignature()} disabled={sigDeleting}
                       className="inline-flex items-center gap-2 btn-danger btn-sm text-xs">
                       <Trash2 size={13}/> {sigDeleting ? "Eliminando..." : "Eliminar firma"}
                     </button>
