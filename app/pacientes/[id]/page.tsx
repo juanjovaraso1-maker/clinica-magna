@@ -512,11 +512,13 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
   }
 
   async function printBudgetPdf(b: Patient["budgets"][0]) {
+    if (!patient) return;
+    const patFullName = `${patient.firstName} ${patient.lastName}`;
     const itemDisc = b.items.reduce((s,it) => s + it.unitPrice * it.quantity * (it.discount||0) / 100, 0);
     const totalDisc = itemDisc + (b.discount || 0);
     const bodyHtml = buildPresupuestoBody({
       number: b.number, professionalName: b.user.name,
-      patientName: fullName, patientRut: patient.rut, date: b.date,
+      patientName: patFullName, patientRut: patient.rut, date: b.date,
       items: b.items, subtotal: b.subtotal,
       discount: totalDisc > 0 ? totalDisc : undefined, total: b.total,
     }, "/LOGO.jpeg");
