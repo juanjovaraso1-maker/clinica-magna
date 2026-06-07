@@ -112,6 +112,7 @@ export default function Finanzas() {
   useEffect(() => {
     if (isAdmin === false) router.replace("/dashboard");
   }, [isAdmin, router]);
+  if (isAdmin === undefined) return null;
   if (isAdmin === false) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
       <ShieldAlert size={48} className="text-red-400" />
@@ -119,6 +120,11 @@ export default function Finanzas() {
       <p className="text-sm text-slate-500">Solo administradores pueden ver esta sección.</p>
     </div>
   );
+  return <FinanzasInner />;
+}
+
+function FinanzasInner() {
+  const isAdmin = true;
 
   const now = new Date();
   const [activeTab, setActiveTab] = useState<"resumen"|"gastos"|"contabilidad"|"dashboard"|"tareas">("resumen");

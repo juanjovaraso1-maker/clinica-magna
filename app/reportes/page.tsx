@@ -83,6 +83,7 @@ export default function Reportes() {
   useEffect(() => {
     if (isAdmin === false) router.replace("/dashboard");
   }, [isAdmin, router]);
+  if (isAdmin === undefined) return null;
   if (isAdmin === false) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
       <ShieldAlert size={48} className="text-red-400" />
@@ -90,7 +91,10 @@ export default function Reportes() {
       <p className="text-sm text-slate-500">Solo administradores pueden ver esta sección.</p>
     </div>
   );
+  return <ReportesInner />;
+}
 
+function ReportesInner() {
   const [data, setData] = useState<ReportData|null>(null);
   const [period, setPeriod] = useState("6m");
   const [activeTab, setActiveTab] = useState(0);
