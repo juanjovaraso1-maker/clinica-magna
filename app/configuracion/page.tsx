@@ -218,38 +218,26 @@ function MiCuenta({ user, sessionUserId, onReload }: { user: User | undefined; s
             </div>
             <input type="text" value={perfSearch} onChange={e=>setPerfSearch(e.target.value)}
               placeholder="Buscar paciente..." className="input text-sm py-1.5 px-3 w-52"/>
-            {commissionRate > 0 && (
-              <span className="text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full font-medium">
-                Tu comisión: {commissionRate}%
-              </span>
-            )}
           </div>
 
-          {/* Resumen */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="card p-4">
-              <p className="text-xs text-slate-500 mb-1">Facturado</p>
-              <p className="text-xl font-bold text-slate-900">{fmt(totalValue)}</p>
-            </div>
-            <div className="card p-4 border-orange-100">
-              <p className="text-xs text-orange-600 mb-1">Costos directos</p>
-              <p className="text-xl font-bold text-orange-700">{fmt(totalDirectCost)}</p>
-              <p className="text-[10px] text-slate-400">Lab + insumos</p>
-            </div>
-            {commissionRate > 0 && (
-              <div className="card p-4 border-blue-200 bg-blue-50">
-                <p className="text-xs text-blue-600 mb-1">Tu sueldo ({commissionRate}%)</p>
-                <p className="text-xl font-bold text-blue-700">{fmt(totalSalary)}</p>
+          {/* Tarjeta principal — ganancia del doctor */}
+          {commissionRate > 0 ? (
+            <div className="rounded-2xl bg-gradient-to-br from-[#0057FF] to-[#0041CC] p-6 text-white shadow-lg">
+              <p className="text-blue-200 text-sm font-medium mb-1">Tu ganancia del mes</p>
+              <p className="text-4xl font-bold tracking-tight mb-3">{fmt(totalSalary)}</p>
+              <div className="flex flex-wrap gap-4 text-sm text-blue-100">
+                <span>{perfRows.length} prestaciones · {fmt(totalValue)} facturado</span>
+                <span>Comisión {commissionRate}% sobre cada prestación</span>
               </div>
-            )}
-            <div className="card p-4 border-emerald-200 bg-emerald-50">
-              <p className="text-xs text-emerald-700 mb-1">Neto clínica</p>
-              <p className="text-xl font-bold text-emerald-800">{fmt(totalNetClinic)}</p>
-              <p className="text-[10px] text-slate-400">Después de descuentos</p>
             </div>
-          </div>
+          ) : (
+            <div className="card p-5 border-amber-200 bg-amber-50">
+              <p className="text-amber-700 font-medium text-sm">Sin porcentaje de comisión configurado</p>
+              <p className="text-amber-600 text-xs mt-1">Pídele al administrador que configure tu % de comisión en Configuración → Usuarios.</p>
+            </div>
+          )}
 
-          {/* Tabla */}
+          {/* Tabla de prestaciones */}
           {perfLoading ? (
             <div className="card p-12 text-center text-slate-400">Cargando...</div>
           ) : perfRows.length === 0 ? (
@@ -262,47 +250,69 @@ function MiCuenta({ user, sessionUserId, onReload }: { user: User | undefined; s
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50">
-                    <th className="text-left px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Paciente</th>
-                    <th className="text-left px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Prestación</th>
-                    <th className="text-left px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Presupuesto</th>
-                    <th className="text-right px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Cobrado</th>
-                    <th className="text-right px-3 py-3 text-xs font-semibold text-orange-500 uppercase tracking-wide">Costo Lab</th>
-                    <th className="text-right px-3 py-3 text-xs font-semibold text-red-400 uppercase tracking-wide">TUU</th>
-                    {commissionRate > 0 && <th className="text-right px-3 py-3 text-xs font-semibold text-blue-500 uppercase tracking-wide">Sueldo {commissionRate}%</th>}
-                    <th className="text-right px-3 py-3 text-xs font-semibold text-emerald-600 uppercase tracking-wide">Neto Clínica</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Paciente</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Prestación</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Fecha</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Cobrado</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-[#0057FF] uppercase tracking-wide">Tu ganancia</th>
                   </tr>
                 </thead>
                 <tbody>
                   {perfRows.map((r, i) => (
                     <tr key={i} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                      <td className="px-3 py-3">
-                        <a href={`/pacientes/${r.patientId}`} className="text-blue-600 hover:underline font-medium text-sm">{r.patientName}</a>
+                      <td className="px-4 py-3">
+                        <a href={`/pacientes/${r.patientId}`} className="text-blue-600 hover:underline font-medium">{r.patientName}</a>
                       </td>
-                      <td className="px-3 py-3 text-slate-700 max-w-[180px] text-sm">
-                        <span className="line-clamp-2">{r.treatment}</span>
+                      <td className="px-4 py-3 text-slate-700 max-w-[200px]">
+                        <span className="line-clamp-2 text-sm">{r.treatment}</span>
+                        {r.directCost > 0 && (
+                          <span className="text-[11px] text-orange-500 block">Lab: {fmt(r.directCost)}</span>
+                        )}
                       </td>
-                      <td className="px-3 py-3 text-slate-400 text-xs whitespace-nowrap">
+                      <td className="px-4 py-3 text-slate-400 text-xs hidden sm:table-cell whitespace-nowrap">
                         #{String(r.budgetNumber).padStart(4,"0")}<br/>{r.budgetDate}
                       </td>
-                      <td className="px-3 py-3 text-right font-semibold text-slate-900 text-sm">{fmt(r.itemValue)}</td>
-                      <td className="px-3 py-3 text-right text-orange-700 text-sm">{r.directCost > 0 ? fmt(r.directCost) : <span className="text-slate-300">—</span>}</td>
-                      <td className="px-3 py-3 text-right text-red-500 text-sm">{r.itemTuu > 0 ? fmt(r.itemTuu) : <span className="text-slate-300">—</span>}</td>
-                      {commissionRate > 0 && <td className="px-3 py-3 text-right font-semibold text-blue-700 text-sm">{fmt(r.salary)}</td>}
-                      <td className="px-3 py-3 text-right font-bold text-emerald-700 text-sm">{fmt(r.netClinic)}</td>
+                      <td className="px-4 py-3 text-right text-slate-700 font-medium">{fmt(r.itemValue)}</td>
+                      <td className="px-4 py-3 text-right font-bold text-[#0057FF] text-[15px]">{fmt(r.salary)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="bg-slate-50 border-t border-slate-200">
-                    <td colSpan={3} className="px-3 py-3 text-xs font-bold text-slate-600 uppercase">Total</td>
-                    <td className="px-3 py-3 text-right font-bold text-slate-900">{fmt(totalValue)}</td>
-                    <td className="px-3 py-3 text-right font-bold text-orange-700">{fmt(totalDirectCost)}</td>
-                    <td className="px-3 py-3 text-right font-bold text-red-500">{fmt(totalTuu)}</td>
-                    {commissionRate > 0 && <td className="px-3 py-3 text-right font-bold text-blue-700">{fmt(totalSalary)}</td>}
-                    <td className="px-3 py-3 text-right font-bold text-emerald-700">{fmt(totalNetClinic)}</td>
+                  <tr className="bg-[#F0F5FF] border-t-2 border-[#0057FF]/20">
+                    <td colSpan={2} className="px-4 py-3 text-xs font-bold text-slate-600 uppercase">
+                      Total mes · {perfRows.length} prestaciones
+                    </td>
+                    <td className="px-4 py-3 hidden sm:table-cell"/>
+                    <td className="px-4 py-3 text-right font-bold text-slate-900">{fmt(totalValue)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-[#0057FF] text-[15px]">{fmt(totalSalary)}</td>
                   </tr>
                 </tfoot>
               </table>
+            </div>
+          )}
+
+          {/* Info secundaria colapsada */}
+          {perfRows.length > 0 && (
+            <div className="card p-4 bg-slate-50 border-slate-100">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Desglose informativo</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                <div>
+                  <p className="text-xs text-slate-400">Facturado</p>
+                  <p className="text-sm font-bold text-slate-700">{fmt(totalValue)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-orange-400">Costos lab/insumos</p>
+                  <p className="text-sm font-bold text-orange-600">{fmt(totalDirectCost)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-red-400">Comisión TUU</p>
+                  <p className="text-sm font-bold text-red-500">{fmt(totalTuu)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-emerald-500">Neto clínica</p>
+                  <p className="text-sm font-bold text-emerald-700">{fmt(totalNetClinic)}</p>
+                </div>
+              </div>
             </div>
           )}
         </div>
