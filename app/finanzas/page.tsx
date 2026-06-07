@@ -41,6 +41,16 @@ function fmtShort(n: number) {
   if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}k`;
   return `$${n}`;
 }
+// Formatea mientras escribe: solo dígitos, con puntos de miles (estilo CLP)
+function fmtInput(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return "";
+  return Number(digits).toLocaleString("es-CL");
+}
+// Convierte "1.234.567" → 1234567
+function parseInputAmt(val: string): number {
+  return parseFloat(val.replace(/\./g, "").replace(",", ".")) || 0;
+}
 
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2];
@@ -265,10 +275,12 @@ function FinanzasInner() {
   const tuuComm = payments.reduce((s,p) => s + (p.tuuCommission||0), 0);
 
   async function savePay() {
+    const amt = parseInputAmt(payForm.amount);
+    if (!amt || amt <= 0) return;
     setSaving(true);
     await fetch("/api/payments", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...payForm, amount: parseFloat(payForm.amount), budgetId: payForm.budgetId || null }),
+      body: JSON.stringify({ ...payForm, amount: amt, budgetId: payForm.budgetId || null }),
     });
     setPayModal(false); load(); setSaving(false);
   }
@@ -279,7 +291,7 @@ function FinanzasInner() {
       date: e.date,
       category: e.category,
       description: e.description,
-      amount: String(e.amount),
+      amount: fmtInput(String(Math.round(e.amount))),
       provider: e.provider ?? "",
       paymentMethod: e.paymentMethod ?? "efectivo",
       notes: "",
@@ -288,22 +300,28 @@ function FinanzasInner() {
   }
 
   async function saveExp() {
+    const amt = parseInputAmt(expForm.amount);
+    if (!amt || amt <= 0) return;
     setSaving(true);
     if (editExpId) {
       await fetch("/api/expenses", {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: editExpId, ...expForm, amount: parseFloat(expForm.amount) }),
+        body: JSON.stringify({ id: editExpId, ...expForm, amount: amt }),
       });
     } else {
       await fetch("/api/expenses", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...expForm, amount: parseFloat(expForm.amount) }),
+        body: JSON.stringify({ ...expForm, amount: amt }),
       });
     }
     setExpModal(false);
     setEditExpId(null);
+    // Si la fecha del gasto no coincide con el filtro activo, actualizarlo para que aparezca
+    const expMonth = expForm.date.substring(0, 7);
+    if (expMonth !== gastoFilterMonth) setGastoFilterMonth(expMonth);
     load();
     loadGastosExpenses();
+    if (activeTab === "contabilidad") loadAllExpenses();
     setSaving(false);
   }
 
@@ -1204,8 +1222,8 @@ function FinanzasInner() {
           </div>
           <div>
             <label className="label">Monto ($) *</label>
-            <input className="input" type="number" min="0" value={payForm.amount}
-              onChange={e => setPay("amount", e.target.value)} placeholder="0" />
+            <input className="input" type="text" inputMode="numeric" value={payForm.amount}
+              onChange={e => setPay("amount", fmtInput(e.target.value))} placeholder="0" />
           </div>
           <div>
             <label className="label">Notas</label>
@@ -1260,8 +1278,8 @@ function FinanzasInner() {
           </div>
           <div>
             <label className="label">Monto ($) *</label>
-            <input className="input" type="number" min="0" value={expForm.amount}
-              onChange={e => setExp("amount", e.target.value)} placeholder="0" />
+            <input className="input" type="text" inputMode="numeric" value={expForm.amount}
+              onChange={e => setExp("amount", fmtInput(e.target.value))} placeholder="0" />
           </div>
           <div>
             <label className="label">Notas</label>
