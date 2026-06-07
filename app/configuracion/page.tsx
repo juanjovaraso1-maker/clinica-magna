@@ -528,7 +528,7 @@ export default function Configuracion() {
   async function toggleActive(u: User) {
     await fetch(`/api/users/${u.id}`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: u.name, email: u.email, role: u.role, specialty: u.specialty, active: !u.active }),
+      body: JSON.stringify({ name: u.name, email: u.email, rut: u.rut, role: u.role, specialty: u.specialty, active: !u.active }),
     });
     loadUsers();
   }
