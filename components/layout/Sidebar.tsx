@@ -173,7 +173,7 @@ export default function Sidebar() {
               onChange={handleSearchChange}
               onFocus={() => { if (searchResults.length > 0) setSearchOpen(true); }}
               placeholder="Buscar paciente..."
-              className="w-[220px] pl-8 pr-3 py-1.5 rounded-lg bg-white/[0.07] border border-white/10 text-white text-[13px] placeholder-[#9AA0B4] outline-none focus:bg-white/[0.10] focus:border-[#0057FF]/60 transition-all"
+              className="w-[340px] pl-8 pr-3 py-1.5 rounded-lg bg-white/[0.07] border border-white/10 text-white text-[13px] placeholder-[#9AA0B4] outline-none focus:bg-white/[0.10] focus:border-[#0057FF]/60 transition-all"
             />
             {searchLoading && (
               <div className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 border-2 border-[#0057FF]/40 border-t-[#0057FF] rounded-full animate-spin"/>

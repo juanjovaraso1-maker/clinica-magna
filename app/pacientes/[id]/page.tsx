@@ -1559,7 +1559,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
 
       {/* Tabs */}
       <div className="overflow-x-auto scrollbar-hide mb-4 -mx-4 px-4 sm:mx-0 sm:px-0">
-        <div className="inline-flex gap-[2px] bg-[#F0F2F7] rounded-[10px] p-[3px] border border-[#E3E8F0] min-w-max">
+        <div className="flex gap-2 min-w-max">
           {TABS.map((t,i)=>(
             <button key={t} onClick={()=>{
               if (budgetEditorOpen && i !== 1) {
@@ -1568,14 +1568,14 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
               }
               setTab(i);
             }}
-              className={`px-3 py-[9px] text-[13px] rounded-[7px] transition-all duration-150 whitespace-nowrap ${
+              className={`px-4 py-2 text-[13px] font-bold rounded-lg border transition-all duration-150 whitespace-nowrap ${
                 tab===i
-                  ? "bg-white text-[#1A1D2E] shadow-sm font-semibold"
-                  : "text-[#9AA0B4] font-medium cursor-pointer hover:text-[#1A1D2E]"
+                  ? "bg-[#1A1D2E] text-white border-[#1A1D2E] shadow-sm"
+                  : "bg-white text-[#5A6072] border-[#D1D5DB] hover:border-[#1A1D2E] hover:text-[#1A1D2E]"
               }`}>
               {t}
               {t==="Historial" && timeline.length > 0 && (
-                <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full font-bold ${tab===i?"bg-[#EEF3FF] text-[#0057FF]":"bg-[#E3E8F0] text-[#9AA0B4]"}`}>{timeline.length}</span>
+                <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full font-bold ${tab===i?"bg-white/20 text-white":"bg-[#E3E8F0] text-[#9AA0B4]"}`}>{timeline.length}</span>
               )}
             </button>
           ))}
@@ -1628,10 +1628,10 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
 
       {/* ===== TAB 0: FICHA CLÍNICA — sub-tab nav ===== */}
       {tab===0&&(
-        <div className="flex gap-[2px] bg-[#F0F2F7] rounded-[10px] p-[3px] border border-[#E3E8F0] mb-4 w-fit">
+        <div className="flex gap-2 mb-4 flex-wrap">
           {FICHA_SUBTABS.map((t,i)=>(
             <button key={t} onClick={()=>setFichaSubTab(i)}
-              className={`px-3 py-[7px] text-[12px] rounded-[7px] transition-all duration-150 whitespace-nowrap ${fichaSubTab===i?"bg-white text-[#1A1D2E] shadow-sm font-semibold":"text-[#9AA0B4] font-medium cursor-pointer hover:text-[#1A1D2E]"}`}>
+              className={`px-4 py-2 text-[12px] font-bold rounded-lg border transition-all duration-150 whitespace-nowrap ${fichaSubTab===i?"bg-[#1A1D2E] text-white border-[#1A1D2E] shadow-sm":"bg-white text-[#5A6072] border-[#D1D5DB] hover:border-[#1A1D2E] hover:text-[#1A1D2E]"}`}>
               {t}
             </button>
           ))}
