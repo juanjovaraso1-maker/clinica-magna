@@ -169,6 +169,12 @@ function FinanzasInner() {
   const [debtForm, setDebtForm] = useState({ creditor:"", description:"", totalAmount:"", paidAmount:"0", startDate:"", dueDate:"", notes:"" });
   const [debtSaving, setDebtSaving] = useState(false);
 
+  // ---- Socios (cálculo automático) ----
+  const [allExpenses, setAllExpenses] = useState<Expense[]>([]);
+  const [socioPayModal, setSocioPayModal] = useState<"Juanjo"|"Caro"|null>(null);
+  const [socioPayForm, setSocioPayForm] = useState({ amount: "", date: now.toISOString().split("T")[0] });
+  const [socioPaySaving, setSocioPaySaving] = useState(false);
+
   // ---- Dashboard tab ----
   // Uses payments, expenses, chartData from Resumen
 
@@ -218,8 +224,13 @@ function FinanzasInner() {
     if (r.ok) setGastosExpenses(await r.json());
   }
 
+  async function loadAllExpenses() {
+    const r = await fetch("/api/expenses");
+    if (r.ok) setAllExpenses(await r.json());
+  }
+
   useEffect(() => {
-    if (activeTab === "contabilidad") { loadContab(); loadDebts(); }
+    if (activeTab === "contabilidad") { loadContab(); loadDebts(); loadAllExpenses(); }
     if (activeTab === "tareas") loadTasks();
     if (activeTab === "gastos") loadGastosExpenses();
   }, [activeTab]);
@@ -305,6 +316,38 @@ function FinanzasInner() {
     who,
     total: gastosExpenses.filter(e => e.provider === who).reduce((s,e) => s + e.amount, 0),
   })).filter(r => r.total > 0);
+
+  // Socios: cálculo automático de saldos (histórico completo)
+  function socioBalance(who: "Juanjo"|"Caro") {
+    const aportado = allExpenses.filter(e => e.provider === who).reduce((s,e) => s + e.amount, 0);
+    const devuelto = allExpenses.filter(e => e.category === `Pago a ${who}`).reduce((s,e) => s + e.amount, 0);
+    return { aportado, devuelto, saldo: aportado - devuelto };
+  }
+
+  async function pagarSocio() {
+    if (!socioPayModal) return;
+    const amt = parseFloat(socioPayForm.amount);
+    if (!amt || amt <= 0) return;
+    setSocioPaySaving(true);
+    await fetch("/api/expenses", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date: socioPayForm.date,
+        category: `Pago a ${socioPayModal}`,
+        description: `Pago deuda a ${socioPayModal}`,
+        amount: amt,
+        provider: "Magna",
+        paymentMethod: "transferencia",
+        notes: `Devolución de inversión a ${socioPayModal}`,
+      }),
+    });
+    setSocioPayModal(null);
+    setSocioPayForm({ amount: "", date: now.toISOString().split("T")[0] });
+    loadAllExpenses();
+    loadGastosExpenses();
+    load();
+    setSocioPaySaving(false);
+  }
 
   // Contabilidad calcs
   const contabIncome = contabPayments.reduce((s,p) => s + p.amount, 0);
@@ -804,10 +847,49 @@ function FinanzasInner() {
             </div>
           </div>
 
-          {/* Deudas y Obligaciones */}
+          {/* Saldo socios — cálculo automático */}
+          <div className="card p-5 space-y-4">
+            <h2 className="section-title">Lo que la clínica debe a los socios</h2>
+            <p className="text-xs text-slate-400">Se calcula automáticamente sumando todos los gastos pagados por cada socio, descontando lo que ya se les ha devuelto.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {(["Juanjo","Caro"] as const).map(who => {
+                const b = socioBalance(who);
+                return (
+                  <div key={who} className={`rounded-xl border p-5 space-y-3 ${who==="Juanjo" ? "bg-blue-50 border-blue-200" : "bg-purple-50 border-purple-200"}`}>
+                    <p className={`font-bold text-lg ${who==="Juanjo" ? "text-blue-800" : "text-purple-800"}`}>{who}</p>
+                    <div className="space-y-1.5 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Total aportado</span>
+                        <span className="font-semibold text-slate-800">{fmt(b.aportado)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Ya devuelto</span>
+                        <span className="font-semibold text-emerald-700">-{fmt(b.devuelto)}</span>
+                      </div>
+                      <div className="border-t border-slate-200 pt-2 flex justify-between">
+                        <span className="font-semibold text-slate-700">Saldo pendiente</span>
+                        <span className={`font-bold text-base ${b.saldo > 0 ? "text-red-600" : "text-emerald-700"}`}>{fmt(b.saldo)}</span>
+                      </div>
+                    </div>
+                    {b.saldo > 0 && (
+                      <button onClick={() => { setSocioPayModal(who); setSocioPayForm(f=>({...f, amount:""})); }}
+                        className="btn-primary w-full justify-center text-sm">
+                        Registrar pago a {who}
+                      </button>
+                    )}
+                    {b.saldo <= 0 && b.aportado > 0 && (
+                      <p className="text-center text-xs text-emerald-700 font-semibold">✓ Deuda saldada</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Otras deudas y obligaciones */}
           <div className="card p-5 space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-3">
-              <h2 className="section-title">Deudas y Obligaciones</h2>
+              <h2 className="section-title">Otras deudas y obligaciones</h2>
               <button onClick={() => setDebtModal(true)} className="btn-primary text-sm">
                 <Plus size={14} /> Nueva deuda
               </button>
@@ -1223,6 +1305,40 @@ function FinanzasInner() {
           <button className="btn-secondary" onClick={() => {setDebtPayModal(null);setDebtPayAmt("");}}>Cancelar</button>
           <button className="btn-primary" onClick={() => debtPayModal && payDebt(debtPayModal)} disabled={!debtPayAmt}>
             Registrar pago
+          </button>
+        </div>
+      </Modal>
+
+      {/* Socio payment modal */}
+      <Modal open={!!socioPayModal} onClose={() => setSocioPayModal(null)} title={`Registrar pago a ${socioPayModal}`}>
+        <div className="p-6 space-y-4">
+          {socioPayModal && (() => {
+            const b = socioBalance(socioPayModal);
+            return (
+              <div className="bg-slate-50 rounded-lg p-3 text-sm space-y-1">
+                <div className="flex justify-between"><span className="text-slate-500">Total aportado</span><span className="font-semibold">{fmt(b.aportado)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Ya devuelto</span><span className="font-semibold text-emerald-600">{fmt(b.devuelto)}</span></div>
+                <div className="flex justify-between border-t border-slate-200 pt-1"><span className="font-semibold text-slate-700">Saldo pendiente</span><span className="font-bold text-red-600">{fmt(b.saldo)}</span></div>
+              </div>
+            );
+          })()}
+          <div>
+            <label className="label">Monto a pagar ($) *</label>
+            <input className="input" type="number" min="1" value={socioPayForm.amount}
+              onChange={e => setSocioPayForm(f=>({...f, amount: e.target.value}))}
+              placeholder="0" />
+          </div>
+          <div>
+            <label className="label">Fecha del pago *</label>
+            <input className="input" type="date" value={socioPayForm.date}
+              onChange={e => setSocioPayForm(f=>({...f, date: e.target.value}))} />
+          </div>
+          <p className="text-xs text-slate-400">Se creará automáticamente un gasto en la categoría &quot;Pago a {socioPayModal}&quot; pagado por Magna.</p>
+        </div>
+        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
+          <button className="btn-secondary" onClick={() => setSocioPayModal(null)}>Cancelar</button>
+          <button className="btn-primary" onClick={pagarSocio} disabled={socioPaySaving || !socioPayForm.amount || parseFloat(socioPayForm.amount) <= 0}>
+            {socioPaySaving ? "Guardando..." : `Pagar a ${socioPayModal}`}
           </button>
         </div>
       </Modal>
