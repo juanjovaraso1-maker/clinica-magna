@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
-  const { name, username, role, password, active } = await req.json();
+  const { name, username, role, password, active, commissionRate } = await req.json();
 
   if (username) {
     const conflict = await prisma.user.findFirst({ where: { username, NOT: { id: params.id } } });
@@ -17,7 +17,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   if (username)          data.username = username;
   if (role)              data.role     = role;
   if (password)          data.password = await bcrypt.hash(password, 12);
-  if (active !== undefined) data.active = active;
+  if (active !== undefined)          data.active         = active;
+  if (commissionRate !== undefined)  data.commissionRate = commissionRate;
 
   const user = await prisma.user.update({
     where: { id: params.id },

@@ -16,9 +16,10 @@ model User {
   password     String?
   rut          String?
   signatureUrl String?
-  role         String   @default("DENTIST")
-  specialty    String?
-  active       Boolean  @default(true)
+  role           String   @default("DENTIST")
+  specialty      String?
+  commissionRate Float    @default(0)
+  active         Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { LogOut, Menu, X, Upload, Trash2, PenLine, Search, User } from "lucide-react";
+import { LogOut, Menu, X, Upload, Trash2, PenLine, Search, User, Settings } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/agenda",         label: "Agenda",         adminOnly: false },
@@ -12,7 +12,6 @@ const NAV_ITEMS = [
   { href: "/prestaciones",   label: "Prestaciones",   adminOnly: false },
   { href: "/reportes",       label: "Reportes",       adminOnly: true  },
   { href: "/administracion", label: "Administración", adminOnly: true  },
-  { href: "/configuracion",  label: "Configuración",  adminOnly: false },
 ];
 
 interface PatientResult {
@@ -162,8 +161,10 @@ export default function Sidebar() {
           ))}
         </nav>
 
-        {/* Buscador de pacientes */}
-        <div ref={searchRef} className="relative flex-1 max-w-[280px] hidden md:block">
+        <div className="flex-1"/>
+
+        {/* Buscador de pacientes — pegado al usuario */}
+        <div ref={searchRef} className="relative hidden md:block">
           <div className="relative">
             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#9AA0B4] pointer-events-none"/>
             <input
@@ -172,7 +173,7 @@ export default function Sidebar() {
               onChange={handleSearchChange}
               onFocus={() => { if (searchResults.length > 0) setSearchOpen(true); }}
               placeholder="Buscar paciente..."
-              className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-white/[0.07] border border-white/10 text-white text-[13px] placeholder-[#9AA0B4] outline-none focus:bg-white/[0.10] focus:border-[#0057FF]/60 transition-all"
+              className="w-[220px] pl-8 pr-3 py-1.5 rounded-lg bg-white/[0.07] border border-white/10 text-white text-[13px] placeholder-[#9AA0B4] outline-none focus:bg-white/[0.10] focus:border-[#0057FF]/60 transition-all"
             />
             {searchLoading && (
               <div className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 border-2 border-[#0057FF]/40 border-t-[#0057FF] rounded-full animate-spin"/>
@@ -181,7 +182,7 @@ export default function Sidebar() {
 
           {/* Dropdown resultados */}
           {searchOpen && searchResults.length > 0 && (
-            <div className="absolute top-full mt-1.5 left-0 right-0 bg-[#1E2235] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50">
+            <div className="absolute top-full mt-1.5 right-0 w-[260px] bg-[#1E2235] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50">
               {searchResults.map((p) => (
                 <button
                   key={p.id}
@@ -203,14 +204,14 @@ export default function Sidebar() {
           )}
 
           {searchOpen && !searchLoading && searchQuery.trim() && searchResults.length === 0 && (
-            <div className="absolute top-full mt-1.5 left-0 right-0 bg-[#1E2235] border border-white/10 rounded-xl shadow-2xl z-50 px-3 py-3 text-center text-[#9AA0B4] text-[12px]">
+            <div className="absolute top-full mt-1.5 right-0 w-[260px] bg-[#1E2235] border border-white/10 rounded-xl shadow-2xl z-50 px-3 py-3 text-center text-[#9AA0B4] text-[12px]">
               Sin resultados para "{searchQuery}"
             </div>
           )}
         </div>
 
         {/* Usuario + logout */}
-        <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <button onClick={openProfile}
             className="hidden sm:flex flex-col text-right leading-tight hover:opacity-80 transition-opacity cursor-pointer">
             <span className="text-white text-[12px] font-semibold">{userName}</span>
@@ -351,9 +352,13 @@ export default function Sidebar() {
             </div>
 
             {/* Footer */}
-            <div className="border-t border-slate-100 px-5 py-3">
+            <div className="border-t border-slate-100 px-5 py-3 space-y-1">
+              <Link href="/configuracion" onClick={() => setProfileOpen(false)}
+                className="flex items-center gap-2 w-full text-[13px] text-slate-500 hover:text-[#0057FF] transition-colors font-medium py-1">
+                <Settings size={15}/> Configuración
+              </Link>
               <button onClick={() => signOut({ callbackUrl: "/login" })}
-                className="flex items-center gap-2 w-full text-[13px] text-slate-500 hover:text-red-600 transition-colors font-medium">
+                className="flex items-center gap-2 w-full text-[13px] text-slate-500 hover:text-red-600 transition-colors font-medium py-1">
                 <LogOut size={15}/> Cerrar sesión
               </button>
             </div>

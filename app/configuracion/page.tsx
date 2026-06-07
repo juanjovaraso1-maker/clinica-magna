@@ -4,12 +4,13 @@ import {
   Save, Info, Plus, Pencil, X, Check, Users, Building2,
   Calendar, Mail, Trash2, Shield, Stethoscope, Clock,
   HardDrive, Download, Upload, RefreshCw, AlertTriangle, PenLine,
+  TrendingUp, Filter,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import { useIsAdmin } from "@/hooks/useRole";
 import { useSession } from "next-auth/react";
 
-type User = { id: string; name: string; email: string; rut?: string; username?: string; role: string; specialty: string | null; active: boolean; signatureUrl?: string };
+type User = { id: string; name: string; email: string; rut?: string; username?: string; role: string; specialty: string | null; commissionRate: number; active: boolean; signatureUrl?: string };
 
 const TABS = [
   { key: "general",   label: "General",   icon: Building2 },
@@ -56,13 +57,22 @@ const DEFAULT_SCHEDULE: Schedule = {
   sun: { enabled: false, open: "09:00", close: "13:00" },
 };
 
-const EMPTY_USER = { name: "", email: "", rut: "", role: "DENTIST", specialty: "", username: "", password: "" };
+const EMPTY_USER = { name: "", email: "", rut: "", role: "DENTIST", specialty: "", username: "", password: "", commissionRate: "" };
 
 function initials(name: string) {
   return name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
 }
 
+type PerfBudget = {
+  id: string; number: number; date: string; updatedAt: string; status: string; total: number;
+  patient: { id: string; firstName: string; lastName: string };
+  user: { name: string; commissionRate: number };
+  items: { id: string; description: string; total: number; status: string }[];
+  payments: { amount: number; date: string }[];
+};
+
 function MiCuenta({ user, sessionUserId, onReload }: { user: User | undefined; sessionUserId: string | undefined; onReload: () => void }) {
+  const [tab, setTab] = useState<"cuenta"|"rendimiento">("cuenta");
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
   const [pwSaving, setPwSaving] = useState(false);
   const [pwMsg, setPwMsg] = useState("");
@@ -70,7 +80,26 @@ function MiCuenta({ user, sessionUserId, onReload }: { user: User | undefined; s
   const [sigUploading, setSigUploading] = useState(false);
   const [sigError, setSigError] = useState("");
 
+  // Rendimiento
+  const today = new Date();
+  const defaultMonth = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}`;
+  const [perfMonth, setPerfMonth] = useState(defaultMonth);
+  const [perfSearch, setPerfSearch] = useState("");
+  const [perfData, setPerfData] = useState<PerfBudget[]>([]);
+  const [perfLoading, setPerfLoading] = useState(false);
+
   useEffect(() => { setSigPreview(user?.signatureUrl ?? null); }, [user]);
+  useEffect(() => {
+    if (tab === "rendimiento" && sessionUserId) loadPerf();
+  }, [tab, perfMonth, sessionUserId]);
+
+  async function loadPerf() {
+    if (!sessionUserId) return;
+    setPerfLoading(true);
+    const r = await fetch(`/api/doctor-performance?userId=${sessionUserId}&month=${perfMonth}`);
+    if (r.ok) setPerfData(await r.json());
+    setPerfLoading(false);
+  }
 
   async function changePassword() {
     if (!pwForm.next || pwForm.next.length < 8) { setPwMsg("La contraseña debe tener mínimo 8 caracteres"); return; }
@@ -96,34 +125,156 @@ function MiCuenta({ user, sessionUserId, onReload }: { user: User | undefined; s
     setSigUploading(false);
   }
 
+  const fmt = (n: number) => new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(n);
+  const commissionRate = user?.commissionRate ?? 0;
+
+  // Rows = one per budget item, filtered by patient name search
+  const perfRows = perfData.flatMap(b =>
+    b.items.map(item => ({
+      patientName: `${b.patient.firstName} ${b.patient.lastName}`,
+      patientId: b.patient.id,
+      treatment: item.description,
+      budgetDate: b.date,
+      itemStatus: item.status,
+      itemValue: item.total,
+      commission: item.total * commissionRate / 100,
+      budgetNumber: b.number,
+      paidTotal: b.payments.reduce((s,p)=>s+p.amount,0),
+    }))
+  ).filter(r => !perfSearch.trim() || r.patientName.toLowerCase().includes(perfSearch.toLowerCase()));
+
+  const totalValue      = perfRows.reduce((s,r)=>s+r.itemValue,0);
+  const totalCommission = perfRows.reduce((s,r)=>s+r.commission,0);
+
   return (
-    <div className="space-y-5 max-w-lg">
-      <div><h1 className="page-title">Mi cuenta</h1><p className="text-muted">Cambia tu contraseña y firma digital</p></div>
-      {/* Password */}
-      <div className="card p-6 space-y-4">
-        <h2 className="section-title flex items-center gap-2"><Shield size={15} className="text-blue-600" /> Cambiar contraseña</h2>
-        <div><label className="label">Nueva contraseña</label><input className="input" type="password" value={pwForm.next} onChange={e => setPwForm(f=>({...f,next:e.target.value}))} placeholder="Mínimo 8 caracteres" /></div>
-        <div><label className="label">Confirmar contraseña</label><input className="input" type="password" value={pwForm.confirm} onChange={e => setPwForm(f=>({...f,confirm:e.target.value}))} /></div>
-        {pwMsg && <p className={`text-sm ${pwMsg.startsWith("✅") ? "text-emerald-600" : "text-red-600"}`}>{pwMsg}</p>}
-        <button className="btn-primary" onClick={changePassword} disabled={pwSaving || !pwForm.next || !pwForm.confirm}>
-          {pwSaving ? "Guardando..." : "Actualizar contraseña"}
+    <div className="space-y-5 max-w-4xl">
+      <div><h1 className="page-title">Mi cuenta</h1><p className="text-muted">Gestiona tu cuenta y consulta tu rendimiento</p></div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 bg-slate-100 p-1 rounded-2xl w-fit">
+        <button onClick={()=>setTab("cuenta")} className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl transition-all ${tab==="cuenta"?"bg-white text-primary-700 shadow-sm":"text-slate-500 hover:text-slate-700"}`}>
+          <Shield size={14}/> Mi Cuenta
+        </button>
+        <button onClick={()=>setTab("rendimiento")} className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl transition-all ${tab==="rendimiento"?"bg-white text-primary-700 shadow-sm":"text-slate-500 hover:text-slate-700"}`}>
+          <TrendingUp size={14}/> Mi Rendimiento
         </button>
       </div>
-      {/* Firma */}
-      <div className="card p-6 space-y-4">
-        <h2 className="section-title flex items-center gap-2"><PenLine size={15} className="text-blue-600" /> Mi firma digital</h2>
-        <p className="text-xs text-slate-400">Se mostrará en recetas, presupuestos y documentos clínicos.</p>
-        <div className="w-full h-[110px] border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 flex items-center justify-center overflow-hidden">
-          {sigPreview ? <img src={sigPreview} alt="Firma" className="max-h-[100px] max-w-full object-contain p-2"/>
-            : <div className="text-center"><PenLine size={24} className="mx-auto mb-1.5 text-slate-300"/><p className="text-xs text-slate-400">Sin firma cargada</p></div>}
+
+      {/* TAB MI CUENTA */}
+      {tab === "cuenta" && (
+        <div className="space-y-5 max-w-lg">
+          <div className="card p-6 space-y-4">
+            <h2 className="section-title flex items-center gap-2"><Shield size={15} className="text-blue-600" /> Cambiar contraseña</h2>
+            <div><label className="label">Nueva contraseña</label><input className="input" type="password" value={pwForm.next} onChange={e => setPwForm(f=>({...f,next:e.target.value}))} placeholder="Mínimo 8 caracteres" /></div>
+            <div><label className="label">Confirmar contraseña</label><input className="input" type="password" value={pwForm.confirm} onChange={e => setPwForm(f=>({...f,confirm:e.target.value}))} /></div>
+            {pwMsg && <p className={`text-sm ${pwMsg.startsWith("✅") ? "text-emerald-600" : "text-red-600"}`}>{pwMsg}</p>}
+            <button className="btn-primary" onClick={changePassword} disabled={pwSaving || !pwForm.next || !pwForm.confirm}>
+              {pwSaving ? "Guardando..." : "Actualizar contraseña"}
+            </button>
+          </div>
+          <div className="card p-6 space-y-4">
+            <h2 className="section-title flex items-center gap-2"><PenLine size={15} className="text-blue-600" /> Mi firma digital</h2>
+            <p className="text-xs text-slate-400">Se mostrará en recetas, presupuestos y documentos clínicos.</p>
+            <div className="w-full h-[110px] border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 flex items-center justify-center overflow-hidden">
+              {sigPreview ? <img src={sigPreview} alt="Firma" className="max-h-[100px] max-w-full object-contain p-2"/>
+                : <div className="text-center"><PenLine size={24} className="mx-auto mb-1.5 text-slate-300"/><p className="text-xs text-slate-400">Sin firma cargada</p></div>}
+            </div>
+            {sigError && <p className="text-sm text-red-500">{sigError}</p>}
+            <label className={`flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border-2 border-blue-200 bg-blue-50 text-blue-700 font-semibold text-sm cursor-pointer hover:bg-blue-600 hover:text-white transition-all ${sigUploading ? "opacity-50 pointer-events-none" : ""}`}>
+              <Upload size={15}/>{sigUploading ? "Subiendo..." : sigPreview ? "Reemplazar firma" : "Subir firma"}
+              <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) uploadSig(f); e.target.value = ""; }}/>
+            </label>
+            <p className="text-xs text-slate-400 text-center">PNG, JPG o WebP · Máx. 2MB · Fondo transparente recomendado</p>
+          </div>
         </div>
-        {sigError && <p className="text-sm text-red-500">{sigError}</p>}
-        <label className={`flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border-2 border-blue-200 bg-blue-50 text-blue-700 font-semibold text-sm cursor-pointer hover:bg-blue-600 hover:text-white transition-all ${sigUploading ? "opacity-50 pointer-events-none" : ""}`}>
-          <Upload size={15}/>{sigUploading ? "Subiendo..." : sigPreview ? "Reemplazar firma" : "Subir firma"}
-          <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) uploadSig(f); e.target.value = ""; }}/>
-        </label>
-        <p className="text-xs text-slate-400 text-center">PNG, JPG o WebP · Máx. 2MB · Fondo transparente recomendado</p>
-      </div>
+      )}
+
+      {/* TAB MI RENDIMIENTO */}
+      {tab === "rendimiento" && (
+        <div className="space-y-4">
+          {/* Filtros */}
+          <div className="flex flex-wrap gap-3 items-center">
+            <div className="flex items-center gap-2">
+              <Filter size={14} className="text-slate-400"/>
+              <input type="month" value={perfMonth} onChange={e=>setPerfMonth(e.target.value)}
+                className="input text-sm py-1.5 px-3 w-auto"/>
+            </div>
+            <input type="text" value={perfSearch} onChange={e=>setPerfSearch(e.target.value)}
+              placeholder="Buscar paciente..." className="input text-sm py-1.5 px-3 w-52"/>
+            {commissionRate > 0 && (
+              <span className="text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full font-medium">
+                Tu comisión: {commissionRate}%
+              </span>
+            )}
+          </div>
+
+          {/* Resumen */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="card p-4">
+              <p className="text-xs text-slate-500 mb-1">Prestaciones</p>
+              <p className="text-xl font-bold text-slate-900">{perfRows.length}</p>
+            </div>
+            <div className="card p-4">
+              <p className="text-xs text-slate-500 mb-1">Valor total</p>
+              <p className="text-xl font-bold text-slate-900">{fmt(totalValue)}</p>
+            </div>
+            {commissionRate > 0 && (
+              <div className="card p-4 border-blue-200 bg-blue-50">
+                <p className="text-xs text-blue-600 mb-1">Tu comisión ({commissionRate}%)</p>
+                <p className="text-xl font-bold text-blue-700">{fmt(totalCommission)}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Tabla */}
+          {perfLoading ? (
+            <div className="card p-12 text-center text-slate-400">Cargando...</div>
+          ) : perfRows.length === 0 ? (
+            <div className="card p-12 text-center">
+              <TrendingUp size={32} className="mx-auto mb-3 text-slate-300"/>
+              <p className="text-slate-500">No hay prestaciones registradas para este período</p>
+            </div>
+          ) : (
+            <div className="card overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50">
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Paciente</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Prestación</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Presupuesto</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Valor</th>
+                    {commissionRate > 0 && <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Comisión</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {perfRows.map((r, i) => (
+                    <tr key={i} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-3">
+                        <a href={`/pacientes/${r.patientId}`} className="text-blue-600 hover:underline font-medium">{r.patientName}</a>
+                      </td>
+                      <td className="px-4 py-3 text-slate-700 max-w-[220px]">
+                        <span className="line-clamp-2">{r.treatment}</span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-500">
+                        #{String(r.budgetNumber).padStart(4,"0")} · {r.budgetDate}
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-slate-900">{fmt(r.itemValue)}</td>
+                      {commissionRate > 0 && <td className="px-4 py-3 text-right font-semibold text-blue-700">{fmt(r.commission)}</td>}
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-slate-50 border-t border-slate-200">
+                    <td colSpan={commissionRate > 0 ? 3 : 3} className="px-4 py-3 text-xs font-bold text-slate-600 uppercase">Total</td>
+                    <td className="px-4 py-3 text-right font-bold text-slate-900">{fmt(totalValue)}</td>
+                    {commissionRate > 0 && <td className="px-4 py-3 text-right font-bold text-blue-700">{fmt(totalCommission)}</td>}
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -269,7 +420,7 @@ export default function Configuracion() {
 
   function openNew() { setForm(EMPTY_USER); setEditing(null); setFormError(""); setSigPreview(null); setUserModal(true); }
   function openEdit(u: User) {
-    setForm({ name: u.name, email: u.email, rut: u.rut || "", role: u.role, specialty: u.specialty || "", username: u.username || "", password: "" });
+    setForm({ name: u.name, email: u.email, rut: u.rut || "", role: u.role, specialty: u.specialty || "", username: u.username || "", password: "", commissionRate: String(u.commissionRate ?? 0) });
     setSigPreview(u.signatureUrl ?? null);
     setEditing(u); setFormError(""); setUserModal(true);
   }
@@ -318,7 +469,7 @@ export default function Configuracion() {
       if (editing) {
         await fetch(`/api/users/${editing.id}`, {
           method: "PUT", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...form, active: editing.active }),
+          body: JSON.stringify({ ...form, commissionRate: parseFloat(form.commissionRate as string) || 0, active: editing.active }),
         });
       } else {
         const res = await fetch("/api/users", {
@@ -992,6 +1143,16 @@ export default function Configuracion() {
                 <option value="">Sin especialidad</option>
                 {SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
+            </div>
+            <div>
+              <label className="label">% Comisión / Sueldo</label>
+              <div className="relative">
+                <input className="input pr-8" type="number" min="0" max="100" step="0.1"
+                  value={form.commissionRate}
+                  onChange={e => setForm(f => ({ ...f, commissionRate: e.target.value }))}
+                  placeholder="0" />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">%</span>
+              </div>
             </div>
           </div>
 

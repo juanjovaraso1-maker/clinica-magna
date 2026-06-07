@@ -511,6 +511,22 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     }
   }
 
+  async function printBudgetPdf(b: Patient["budgets"][0]) {
+    const itemDisc = b.items.reduce((s,it) => s + it.unitPrice * it.quantity * (it.discount||0) / 100, 0);
+    const totalDisc = itemDisc + (b.discount || 0);
+    const bodyHtml = buildPresupuestoBody({
+      number: b.number, professionalName: b.user.name,
+      patientName: fullName, patientRut: patient.rut, date: b.date,
+      items: b.items, subtotal: b.subtotal,
+      discount: totalDisc > 0 ? totalDisc : undefined, total: b.total,
+    }, "/LOGO.jpeg");
+    const win = window.open("","_blank");
+    if (!win) return;
+    win.document.write(bodyHtml);
+    win.document.close();
+    setTimeout(() => win.print(), 600);
+  }
+
   function sendBudgetWA(b: { number:number; date:string; total:number; items:BudgetItem[] }) {
     if (!patient?.phone) { showToast("❌ El paciente no tiene teléfono"); return; }
     const fmtCLP = (n:number) => new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(n);
@@ -2099,13 +2115,12 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                                 <Mail size={18}/>
                               </button>
                             )}
+                            <button onClick={()=>printBudgetPdf(b)} className="p-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors min-h-[40px]" title="Imprimir PDF">
+                              <Printer size={18}/>
+                            </button>
                             <button onClick={()=>openBudgetEdit(b)}
                               className="text-[13px] font-semibold px-4 py-2.5 rounded-xl bg-[#F0F2F7] text-[#4B5563] hover:bg-[#E3E8F0] transition-colors min-h-[40px]">
                               Editar
-                            </button>
-                            <button onClick={()=>setBudgetDetailId(b.id)}
-                              className="text-[13px] font-semibold px-4 py-2.5 rounded-xl bg-[#0057FF] text-white hover:bg-[#0041CC] transition-colors min-h-[40px]">
-                              Ver detalle
                             </button>
                           </div>
                         </div>
@@ -2146,6 +2161,9 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                                 <Mail size={17}/>
                               </button>
                             )}
+                            <button onClick={()=>printBudgetPdf(b)} className="p-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors min-h-[40px]" title="Imprimir PDF">
+                              <Printer size={17}/>
+                            </button>
                             <button onClick={()=>openBudgetEdit(b)} className="text-[13px] font-semibold px-4 py-2.5 rounded-xl bg-[#F0F2F7] text-[#0057FF] hover:bg-[#EEF3FF] transition-colors min-h-[40px]">Editar</button>
                             {isAdmin && (
                               <button onClick={async()=>{ if(!confirm("¿Eliminar?"))return; await fetch(`/api/budgets/${b.id}`,{method:"DELETE"}); load(); }}
