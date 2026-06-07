@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 
   const [payments, expenses, patients, appointments, budgets] = await Promise.all([
     prisma.payment.findMany({
-      where: { date: { gte: startDate } },
+      where: { date: { gte: startDate }, patient: { isTest: false } },
       select: { date: true, amount: true },
     }),
     prisma.expense.findMany({
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
       select: { date: true, amount: true },
     }),
     prisma.patient.findMany({
-      where: { createdAt: { gte: new Date(startDate) } },
+      where: { createdAt: { gte: new Date(startDate) }, isTest: false },
       select: { createdAt: true, healthInsurance: true },
     }),
     prisma.appointment.findMany({

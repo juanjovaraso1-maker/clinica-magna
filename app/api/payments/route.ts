@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 export async function GET(req: NextRequest) {
   const month = req.nextUrl.searchParams.get("month");
   const patientId = req.nextUrl.searchParams.get("patientId");
-  const where: any = {};
+  const where: any = { patient: { isTest: false } };
   if (month) where.date = { startsWith: month };
   if (patientId) where.patientId = patientId;
   const payments = await prisma.payment.findMany({
