@@ -67,8 +67,8 @@ type PerfBudget = {
   id: string; number: number; date: string; updatedAt: string; status: string; total: number;
   patient: { id: string; firstName: string; lastName: string };
   user: { name: string; commissionRate: number };
-  items: { id: string; description: string; total: number; status: string }[];
-  payments: { amount: number; date: string }[];
+  items: { id: string; description: string; total: number; status: string; directCost: number }[];
+  payments: { amount: number; date: string; method?: string; tuuCommission?: number }[];
 };
 
 function MiCuenta({ user, sessionUserId, onReload }: { user: User | undefined; sessionUserId: string | undefined; onReload: () => void }) {
@@ -129,22 +129,39 @@ function MiCuenta({ user, sessionUserId, onReload }: { user: User | undefined; s
   const commissionRate = user?.commissionRate ?? 0;
 
   // Rows = one per budget item, filtered by patient name search
-  const perfRows = perfData.flatMap(b =>
-    b.items.map(item => ({
-      patientName: `${b.patient.firstName} ${b.patient.lastName}`,
-      patientId: b.patient.id,
-      treatment: item.description,
-      budgetDate: b.date,
-      itemStatus: item.status,
-      itemValue: item.total,
-      commission: item.total * commissionRate / 100,
-      budgetNumber: b.number,
-      paidTotal: b.payments.reduce((s,p)=>s+p.amount,0),
-    }))
-  ).filter(r => !perfSearch.trim() || r.patientName.toLowerCase().includes(perfSearch.toLowerCase()));
+  const perfRows = perfData.flatMap(b => {
+    const budgetPaid    = b.payments.reduce((s,p)=>s+p.amount,0);
+    const budgetTuu     = b.payments.reduce((s,p)=>s+(p.tuuCommission??0),0);
+    const itemsTotal    = b.items.reduce((s,i)=>s+i.total,0);
+    return b.items.map(item => {
+      // Prorate TUU commission proportionally to item's share of budget
+      const itemShare  = itemsTotal > 0 ? item.total / itemsTotal : 0;
+      const itemTuu    = Math.round(budgetTuu * itemShare);
+      const netIncome  = item.total - itemTuu - (item.directCost??0);
+      const salary     = Math.round(item.total * commissionRate / 100);
+      const netClinic  = netIncome - salary;
+      return {
+        patientName:  `${b.patient.firstName} ${b.patient.lastName}`,
+        patientId:    b.patient.id,
+        treatment:    item.description,
+        budgetDate:   b.date,
+        itemStatus:   item.status,
+        itemValue:    item.total,
+        directCost:   item.directCost ?? 0,
+        itemTuu,
+        salary,
+        netClinic,
+        budgetNumber: b.number,
+        paidTotal:    budgetPaid,
+      };
+    });
+  }).filter(r => !perfSearch.trim() || r.patientName.toLowerCase().includes(perfSearch.toLowerCase()));
 
   const totalValue      = perfRows.reduce((s,r)=>s+r.itemValue,0);
-  const totalCommission = perfRows.reduce((s,r)=>s+r.commission,0);
+  const totalDirectCost = perfRows.reduce((s,r)=>s+r.directCost,0);
+  const totalTuu        = perfRows.reduce((s,r)=>s+r.itemTuu,0);
+  const totalSalary     = perfRows.reduce((s,r)=>s+r.salary,0);
+  const totalNetClinic  = perfRows.reduce((s,r)=>s+r.netClinic,0);
 
   return (
     <div className="space-y-5 max-w-4xl">
@@ -209,21 +226,27 @@ function MiCuenta({ user, sessionUserId, onReload }: { user: User | undefined; s
           </div>
 
           {/* Resumen */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="card p-4">
-              <p className="text-xs text-slate-500 mb-1">Prestaciones</p>
-              <p className="text-xl font-bold text-slate-900">{perfRows.length}</p>
-            </div>
-            <div className="card p-4">
-              <p className="text-xs text-slate-500 mb-1">Valor total</p>
+              <p className="text-xs text-slate-500 mb-1">Facturado</p>
               <p className="text-xl font-bold text-slate-900">{fmt(totalValue)}</p>
+            </div>
+            <div className="card p-4 border-orange-100">
+              <p className="text-xs text-orange-600 mb-1">Costos directos</p>
+              <p className="text-xl font-bold text-orange-700">{fmt(totalDirectCost)}</p>
+              <p className="text-[10px] text-slate-400">Lab + insumos</p>
             </div>
             {commissionRate > 0 && (
               <div className="card p-4 border-blue-200 bg-blue-50">
-                <p className="text-xs text-blue-600 mb-1">Tu comisión ({commissionRate}%)</p>
-                <p className="text-xl font-bold text-blue-700">{fmt(totalCommission)}</p>
+                <p className="text-xs text-blue-600 mb-1">Tu sueldo ({commissionRate}%)</p>
+                <p className="text-xl font-bold text-blue-700">{fmt(totalSalary)}</p>
               </div>
             )}
+            <div className="card p-4 border-emerald-200 bg-emerald-50">
+              <p className="text-xs text-emerald-700 mb-1">Neto clínica</p>
+              <p className="text-xl font-bold text-emerald-800">{fmt(totalNetClinic)}</p>
+              <p className="text-[10px] text-slate-400">Después de descuentos</p>
+            </div>
           </div>
 
           {/* Tabla */}
@@ -239,35 +262,44 @@ function MiCuenta({ user, sessionUserId, onReload }: { user: User | undefined; s
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50">
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Paciente</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Prestación</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Presupuesto</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Valor</th>
-                    {commissionRate > 0 && <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Comisión</th>}
+                    <th className="text-left px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Paciente</th>
+                    <th className="text-left px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Prestación</th>
+                    <th className="text-left px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Presupuesto</th>
+                    <th className="text-right px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Cobrado</th>
+                    <th className="text-right px-3 py-3 text-xs font-semibold text-orange-500 uppercase tracking-wide">Costo Lab</th>
+                    <th className="text-right px-3 py-3 text-xs font-semibold text-red-400 uppercase tracking-wide">TUU</th>
+                    {commissionRate > 0 && <th className="text-right px-3 py-3 text-xs font-semibold text-blue-500 uppercase tracking-wide">Sueldo {commissionRate}%</th>}
+                    <th className="text-right px-3 py-3 text-xs font-semibold text-emerald-600 uppercase tracking-wide">Neto Clínica</th>
                   </tr>
                 </thead>
                 <tbody>
                   {perfRows.map((r, i) => (
                     <tr key={i} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                      <td className="px-4 py-3">
-                        <a href={`/pacientes/${r.patientId}`} className="text-blue-600 hover:underline font-medium">{r.patientName}</a>
+                      <td className="px-3 py-3">
+                        <a href={`/pacientes/${r.patientId}`} className="text-blue-600 hover:underline font-medium text-sm">{r.patientName}</a>
                       </td>
-                      <td className="px-4 py-3 text-slate-700 max-w-[220px]">
+                      <td className="px-3 py-3 text-slate-700 max-w-[180px] text-sm">
                         <span className="line-clamp-2">{r.treatment}</span>
                       </td>
-                      <td className="px-4 py-3 text-slate-500">
-                        #{String(r.budgetNumber).padStart(4,"0")} · {r.budgetDate}
+                      <td className="px-3 py-3 text-slate-400 text-xs whitespace-nowrap">
+                        #{String(r.budgetNumber).padStart(4,"0")}<br/>{r.budgetDate}
                       </td>
-                      <td className="px-4 py-3 text-right font-semibold text-slate-900">{fmt(r.itemValue)}</td>
-                      {commissionRate > 0 && <td className="px-4 py-3 text-right font-semibold text-blue-700">{fmt(r.commission)}</td>}
+                      <td className="px-3 py-3 text-right font-semibold text-slate-900 text-sm">{fmt(r.itemValue)}</td>
+                      <td className="px-3 py-3 text-right text-orange-700 text-sm">{r.directCost > 0 ? fmt(r.directCost) : <span className="text-slate-300">—</span>}</td>
+                      <td className="px-3 py-3 text-right text-red-500 text-sm">{r.itemTuu > 0 ? fmt(r.itemTuu) : <span className="text-slate-300">—</span>}</td>
+                      {commissionRate > 0 && <td className="px-3 py-3 text-right font-semibold text-blue-700 text-sm">{fmt(r.salary)}</td>}
+                      <td className="px-3 py-3 text-right font-bold text-emerald-700 text-sm">{fmt(r.netClinic)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr className="bg-slate-50 border-t border-slate-200">
-                    <td colSpan={commissionRate > 0 ? 3 : 3} className="px-4 py-3 text-xs font-bold text-slate-600 uppercase">Total</td>
-                    <td className="px-4 py-3 text-right font-bold text-slate-900">{fmt(totalValue)}</td>
-                    {commissionRate > 0 && <td className="px-4 py-3 text-right font-bold text-blue-700">{fmt(totalCommission)}</td>}
+                    <td colSpan={3} className="px-3 py-3 text-xs font-bold text-slate-600 uppercase">Total</td>
+                    <td className="px-3 py-3 text-right font-bold text-slate-900">{fmt(totalValue)}</td>
+                    <td className="px-3 py-3 text-right font-bold text-orange-700">{fmt(totalDirectCost)}</td>
+                    <td className="px-3 py-3 text-right font-bold text-red-500">{fmt(totalTuu)}</td>
+                    {commissionRate > 0 && <td className="px-3 py-3 text-right font-bold text-blue-700">{fmt(totalSalary)}</td>}
+                    <td className="px-3 py-3 text-right font-bold text-emerald-700">{fmt(totalNetClinic)}</td>
                   </tr>
                 </tfoot>
               </table>

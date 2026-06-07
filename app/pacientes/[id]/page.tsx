@@ -280,7 +280,7 @@ export default function PatientDetail() {
   const [editSaving, setEditSaving] = useState(false);
   const [clinicCfg, setClinicCfg] = useState<Record<string,string>>({});
   const [toast, setToast] = useState<string|null>(null);
-  const [treatments, setTreatments] = useState<Array<{id:string;name:string;category:string;price:number}>>([]);
+  const [treatments, setTreatments] = useState<Array<{id:string;name:string;category:string;price:number;requiresLab?:boolean;defaultLabCost?:number;defaultLabName?:string}>>([]);
   const [budgetDetailId, setBudgetDetailId] = useState<string|null>(null);
   const [budgetPayForm, setBudgetPayForm] = useState({ date:new Date().toISOString().split("T")[0], amount:"", method:"efectivo", notes:"" });
   const [budgetPaySaving, setBudgetPaySaving] = useState(false);
@@ -1979,7 +1979,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
               initStatus={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.status : "pending"}
               initDiscount={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.discount : 0}
               initNotes={budgetEditorEditId ? (patient.budgets.find(b=>b.id===budgetEditorEditId)?.notes ?? "") : (nextBudgetNum ? `Presupuesto #${String(nextBudgetNum).padStart(4,"0")}` : "")}
-              initLines={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.items.map((i,idx)=>({_key:String(idx),toothNum:undefined,surfaces:[],description:i.description,quantity:i.quantity,unitPrice:i.unitPrice,discount:i.discount??0,discountAmt:(i as any).discountAmt??0,total:i.total,status:(i as any).status||"pending"})) : []}
+              initLines={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.items.map((i,idx)=>({_key:String(idx),toothNum:undefined,surfaces:[],description:i.description,quantity:i.quantity,unitPrice:i.unitPrice,discount:i.discount??0,discountAmt:(i as any).discountAmt??0,total:i.total,status:(i as any).status||"pending",directCost:(i as any).directCost??0})) : []}
               users={users}
               treatments={treatments}
               convenios={convenios}

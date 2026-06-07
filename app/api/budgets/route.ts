@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   const last = await prisma.budget.findFirst({ orderBy: { number: "desc" } });
   const number = (last?.number ?? 0) + 1;
   const budget = await prisma.budget.create({
-    data: { ...data, number, items: { create: items } },
+    data: { ...data, number, items: { create: items.map((i: any) => ({ ...i, directCost: i.directCost ?? 0 })) } },
     include: { patient: true, user: true, items: true },
   });
   return NextResponse.json(budget, { status: 201 });

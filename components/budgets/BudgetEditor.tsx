@@ -4,12 +4,12 @@ import { Plus, Trash2, X, ChevronLeft, Save, Mail, MessageCircle, ChevronDown } 
 import { ToothPNG } from "../odontogram/ToothPNG";
 
 /* ─── Tipos ─────────────────────────────────────────────────────────── */
-interface Treatment { id: string; name: string; category: string; price: number }
+interface Treatment { id: string; name: string; category: string; price: number; requiresLab?: boolean; defaultLabCost?: number; defaultLabName?: string }
 interface Convenio  { id: string; name: string; discount: number; discountType: string }
 export interface BudgetLine {
   _key: string; toothNum?: number; area?: string; surfaces: string[];
   description: string; quantity: number; unitPrice: number; discount: number; discountAmt: number; total: number;
-  status: string;
+  status: string; directCost: number;
 }
 
 const ITEM_STATUSES: Record<string, { label: string; color: string; bg: string }> = {
@@ -76,7 +76,7 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
 
   function addLine(toothNum?: number, area?: string) {
     if(!selTreat) return;
-    setLines(prev=>[...prev,{_key:`${Date.now()}`,toothNum,area,surfaces:[],description:selTreat.name,quantity:1,unitPrice:selTreat.price,discount:0,discountAmt:0,total:selTreat.price,status:"pending"}]);
+    setLines(prev=>[...prev,{_key:`${Date.now()}`,toothNum,area,surfaces:[],description:selTreat.name,quantity:1,unitPrice:selTreat.price,discount:0,discountAmt:0,total:selTreat.price,status:"pending",directCost:selTreat.requiresLab ? (selTreat.defaultLabCost??0) : 0}]);
   }
 
   async function handleDelete() {
@@ -111,7 +111,7 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
       tooth:rest.toothNum?fmtTooth(rest.toothNum):"",
       area:rest.area||"",
       quantity:rest.quantity,unitPrice:rest.unitPrice,discount:rest.discount,discountAmt:rest.discountAmt??0,total:rest.total,
-      status:rest.status||"pending",
+      status:rest.status||"pending",directCost:rest.directCost??0,
     }));
     await onSave({userId,date,validUntil,status,discount:gDiscount + Math.round(subtotal * gDiscountPct / 100),notes,subtotal,total,items});
   }
@@ -119,7 +119,7 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
   const toothHasLine=(num:number)=>lines.some(l=>l.toothNum===num);
 
   /* ── Grid columns for items table ── */
-  const gridCols = "100px minmax(120px,1fr) 70px 110px 60px 65px 90px 110px 36px";
+  const gridCols = "100px minmax(120px,1fr) 70px 110px 60px 65px 90px 90px 110px 36px";
 
   return (
     <div className="bg-white border border-[#E3E8F0] rounded-2xl overflow-hidden shadow-sm">
@@ -308,6 +308,7 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
           <span className="text-right">Cant.</span>
           <span className="text-right">Dto%</span>
           <span className="text-right">Dto $</span>
+          <span className="text-right" title="Costo directo (lab, insumos)">Costo Dir.</span>
           <span className="text-right">Total</span>
           <span/>
         </div>
@@ -358,6 +359,11 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
                 <input type="number" min="0"
                   className="text-[13px] border border-[#E3E8F0] rounded-lg px-2 py-1.5 text-right text-[#1A1D2E] w-full focus:outline-none focus:ring-1 focus:ring-[#0057FF] focus:border-[#0057FF]"
                   value={l.discountAmt??0} onChange={e=>updateLine(i,"discountAmt",parseFloat(e.target.value)||0)}/>
+                {/* Costo Directo */}
+                <input type="number" min="0"
+                  title="Costo directo (laboratorio, insumos). No se descuenta del total cobrado al paciente."
+                  className="text-[13px] border border-orange-200 bg-orange-50 rounded-lg px-2 py-1.5 text-right text-orange-700 w-full focus:outline-none focus:ring-1 focus:ring-orange-400 focus:border-orange-400"
+                  value={l.directCost??0} onChange={e=>updateLine(i,"directCost",parseFloat(e.target.value)||0)}/>
                 {/* Total */}
                 <span className="text-[14px] font-bold text-right text-[#1A1D2E]">{fmtN(l.total)}</span>
                 {/* Eliminar */}
@@ -372,7 +378,7 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
 
         {/* Agregar manual — botón más grande */}
         <div className="px-4 py-3 border-t border-[#F0F2F7]">
-          <button onClick={()=>setLines(prev=>[...prev,{_key:`${Date.now()}`,surfaces:[],description:"",quantity:1,unitPrice:0,discount:0,discountAmt:0,total:0,status:"pending"}])}
+          <button onClick={()=>setLines(prev=>[...prev,{_key:`${Date.now()}`,surfaces:[],description:"",quantity:1,unitPrice:0,discount:0,discountAmt:0,total:0,status:"pending",directCost:0}])}
             className="flex items-center gap-2 text-[13px] font-semibold text-[#0057FF] hover:text-[#0041CC] transition-colors border border-[#0057FF]/20 bg-[#EEF3FF] rounded-xl px-4 py-2.5 hover:bg-[#0057FF]/10">
             <Plus size={15}/> Agregar ítem manualmente
           </button>
