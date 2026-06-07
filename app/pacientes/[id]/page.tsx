@@ -287,8 +287,6 @@ export default function PatientDetail() {
   const [budgetCreateOpen, setBudgetCreateOpen] = useState(false);
   const [budgetEditorOpen, setBudgetEditorOpen] = useState(false);
   const [budgetEditorEditId, setBudgetEditorEditId] = useState<string|null>(null);
-  const [editBudgetNameId, setEditBudgetNameId] = useState<string|null>(null);
-  const [editBudgetNameVal, setEditBudgetNameVal] = useState("");
   const [budgetForm, setBudgetForm] = useState({ userId:"", date:new Date().toISOString().split("T")[0], validUntil:new Date(Date.now()+30*86400000).toISOString().split("T")[0], status:"pending", discount:0, notes:"" });
   const [budgetItems, setBudgetItems] = useState([{ description:"", tooth:"", area:"", quantity:1, unitPrice:0, discount:0, total:0 }]);
   const [budgetEditId, setBudgetEditId] = useState<string|null>(null);
@@ -356,11 +354,6 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     load();
   }
 
-  async function saveBudgetName(budgetId: string) {
-    await fetch(`/api/budgets/${budgetId}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({notes:editBudgetNameVal})});
-    setEditBudgetNameId(null);
-    load();
-  }
 
   const [nextBudgetNum, setNextBudgetNum] = useState<number|null>(null);
 
@@ -2044,27 +2037,6 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-0.5">
                               <span className="text-[14px] font-bold text-[#0057FF]">#{String(b.number).padStart(5,"0")}</span>
-                              {editBudgetNameId===b.id ? (
-                                <>
-                                  <input autoFocus className="text-[14px] font-bold text-[#1A1D2E] border-b border-[#0057FF] bg-transparent outline-none w-40"
-                                    value={editBudgetNameVal}
-                                    onChange={e=>setEditBudgetNameVal(e.target.value)}
-                                    onKeyDown={e=>{ if(e.key==="Enter") saveBudgetName(b.id); if(e.key==="Escape") setEditBudgetNameId(null); }}/>
-                                  <button onClick={()=>saveBudgetName(b.id)} className="p-1 rounded-lg text-emerald-600 hover:bg-emerald-50"><Check size={13}/></button>
-                                  <button onClick={()=>setEditBudgetNameId(null)} className="p-1 rounded-lg text-[#9AA0B4] hover:bg-[#F0F2F7]"><X size={13}/></button>
-                                </>
-                              ) : (
-                                <>
-                                  <span className="text-[14px] font-bold text-[#1A1D2E] cursor-pointer hover:text-[#0057FF]"
-                                    onClick={()=>{ setEditBudgetNameId(b.id); setEditBudgetNameVal(b.notes||""); }}
-                                    title="Haz clic para editar el nombre">
-                                    {b.notes || "Sin nombre"}
-                                  </span>
-                                  <button onClick={()=>{ setEditBudgetNameId(b.id); setEditBudgetNameVal(b.notes||""); }} className="p-1 rounded-lg text-[#9AA0B4] hover:text-[#0057FF] hover:bg-[#EEF3FF] transition-colors">
-                                    <Pencil size={13}/>
-                                  </button>
-                                </>
-                              )}
                             </div>
                           </div>
                           {isAdmin && (
@@ -2159,24 +2131,6 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-[13px] font-bold text-[#9AA0B4]">#{String(b.number).padStart(5,"0")}</span>
-                              {editBudgetNameId===b.id ? (
-                                <>
-                                  <input autoFocus className="text-[13px] font-medium text-[#4B5563] border-b border-[#0057FF] bg-transparent outline-none w-36"
-                                    value={editBudgetNameVal}
-                                    onChange={e=>setEditBudgetNameVal(e.target.value)}
-                                    onKeyDown={e=>{ if(e.key==="Enter") saveBudgetName(b.id); if(e.key==="Escape") setEditBudgetNameId(null); }}/>
-                                  <button onClick={()=>saveBudgetName(b.id)} className="p-0.5 rounded text-emerald-600 hover:bg-emerald-50"><Check size={12}/></button>
-                                  <button onClick={()=>setEditBudgetNameId(null)} className="p-0.5 rounded text-[#9AA0B4] hover:bg-[#F0F2F7]"><X size={12}/></button>
-                                </>
-                              ) : (
-                                <>
-                                  <span className="text-[13px] text-[#4B5563] cursor-pointer hover:text-[#0057FF]"
-                                    onClick={()=>{ setEditBudgetNameId(b.id); setEditBudgetNameVal(b.notes||""); }}>{b.notes || "Sin nombre"}</span>
-                                  <button onClick={()=>{ setEditBudgetNameId(b.id); setEditBudgetNameVal(b.notes||""); }} className="p-0.5 rounded text-[#9AA0B4] hover:text-[#0057FF]">
-                                    <Pencil size={11}/>
-                                  </button>
-                                </>
-                              )}
                               <Badge value={b.status}/>
                             </div>
                             <p className="text-[11px] text-[#9AA0B4] mt-0.5">{b.user.name} · {b.date} · Total: {fmt(b.total)}</p>

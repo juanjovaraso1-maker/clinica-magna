@@ -1,9 +1,9 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { LogOut, Menu, X, Upload, Trash2, PenLine } from "lucide-react";
+import { LogOut, Menu, X, Upload, Trash2, PenLine, Search, User } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/agenda",         label: "Agenda",         adminOnly: false },
@@ -15,8 +15,16 @@ const NAV_ITEMS = [
   { href: "/configuracion",  label: "Configuración",  adminOnly: false },
 ];
 
+interface PatientResult {
+  id: string;
+  firstName: string;
+  lastName: string;
+  rut: string;
+}
+
 export default function Sidebar() {
   const pathname          = usePathname();
+  const router            = useRouter();
   const [mobile, setMobile] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [sigPreview, setSigPreview]   = useState<string | null>(null);
@@ -26,11 +34,60 @@ export default function Sidebar() {
   const [sigError,  setSigError]      = useState("");
   const { data: session } = useSession();
 
+  // Patient search
+  const [searchQuery, setSearchQuery]       = useState("");
+  const [searchResults, setSearchResults]   = useState<PatientResult[]>([]);
+  const [searchOpen, setSearchOpen]         = useState(false);
+  const [searchLoading, setSearchLoading]   = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const userName  = session?.user?.name ?? "Usuario";
   const userId    = (session?.user as any)?.id as string | undefined;
   const role      = (session?.user as any)?.role ?? "DENTIST";
   const roleLabel = role === "ADMIN" ? "Administrador" : role === "RECEPTIONIST" ? "Recepcionista" : "Dentista";
   const initials  = userName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
+
+  // Close search dropdown when clicking outside
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const doSearch = useCallback(async (q: string) => {
+    if (!q.trim()) { setSearchResults([]); setSearchOpen(false); return; }
+    setSearchLoading(true);
+    try {
+      const r = await fetch(`/api/patients?search=${encodeURIComponent(q.trim())}`);
+      if (r.ok) {
+        const data = await r.json();
+        setSearchResults(data.slice(0, 8));
+        setSearchOpen(true);
+      }
+    } finally {
+      setSearchLoading(false);
+    }
+  }, []);
+
+  function handleSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const val = e.target.value;
+    setSearchQuery(val);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (!val.trim()) { setSearchResults([]); setSearchOpen(false); return; }
+    searchTimerRef.current = setTimeout(() => doSearch(val), 220);
+  }
+
+  function selectPatient(id: string) {
+    setSearchQuery("");
+    setSearchResults([]);
+    setSearchOpen(false);
+    router.push(`/pacientes/${id}`);
+  }
 
   async function openProfile() {
     setProfileOpen(true);
@@ -92,7 +149,7 @@ export default function Sidebar() {
         <div className="h-5 w-px bg-white/10 flex-shrink-0 hidden md:block"/>
 
         {/* Links de navegación — desktop */}
-        <nav className="hidden md:flex items-center gap-0.5 flex-1 overflow-x-auto">
+        <nav className="hidden md:flex items-center gap-0.5 flex-shrink-0">
           {NAV_ITEMS.filter(item => !item.adminOnly || role === "ADMIN").map(({ href, label }) => (
             <Link key={href} href={href}
               className={`px-3 py-1.5 rounded-lg text-[13px] font-medium whitespace-nowrap transition-all flex-shrink-0 ${
@@ -104,6 +161,53 @@ export default function Sidebar() {
             </Link>
           ))}
         </nav>
+
+        {/* Buscador de pacientes */}
+        <div ref={searchRef} className="relative flex-1 max-w-[280px] hidden md:block">
+          <div className="relative">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#9AA0B4] pointer-events-none"/>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={handleSearchChange}
+              onFocus={() => { if (searchResults.length > 0) setSearchOpen(true); }}
+              placeholder="Buscar paciente..."
+              className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-white/[0.07] border border-white/10 text-white text-[13px] placeholder-[#9AA0B4] outline-none focus:bg-white/[0.10] focus:border-[#0057FF]/60 transition-all"
+            />
+            {searchLoading && (
+              <div className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 border-2 border-[#0057FF]/40 border-t-[#0057FF] rounded-full animate-spin"/>
+            )}
+          </div>
+
+          {/* Dropdown resultados */}
+          {searchOpen && searchResults.length > 0 && (
+            <div className="absolute top-full mt-1.5 left-0 right-0 bg-[#1E2235] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50">
+              {searchResults.map((p) => (
+                <button
+                  key={p.id}
+                  onMouseDown={() => selectPatient(p.id)}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/[0.07] transition-colors text-left"
+                >
+                  <div className="w-7 h-7 rounded-full bg-[#0057FF]/20 flex items-center justify-center flex-shrink-0">
+                    <User size={13} className="text-[#5D96FF]"/>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-white text-[13px] font-medium truncate">
+                      {p.firstName} {p.lastName}
+                    </p>
+                    <p className="text-[#9AA0B4] text-[11px]">{p.rut}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {searchOpen && !searchLoading && searchQuery.trim() && searchResults.length === 0 && (
+            <div className="absolute top-full mt-1.5 left-0 right-0 bg-[#1E2235] border border-white/10 rounded-xl shadow-2xl z-50 px-3 py-3 text-center text-[#9AA0B4] text-[12px]">
+              Sin resultados para "{searchQuery}"
+            </div>
+          )}
+        </div>
 
         {/* Usuario + logout */}
         <div className="ml-auto flex items-center gap-2 flex-shrink-0">
@@ -139,6 +243,39 @@ export default function Sidebar() {
                 <X size={18}/>
               </button>
             </div>
+
+            {/* Buscador móvil */}
+            <div ref={undefined} className="relative mb-3">
+              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#9AA0B4] pointer-events-none"/>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={handleSearchChange}
+                placeholder="Buscar paciente..."
+                className="w-full pl-8 pr-3 py-2 rounded-lg bg-white/[0.07] border border-white/10 text-white text-[13px] placeholder-[#9AA0B4] outline-none focus:border-[#0057FF]/60 transition-all"
+              />
+            </div>
+
+            {searchResults.length > 0 && (
+              <div className="bg-[#1E2235] border border-white/10 rounded-xl overflow-hidden mb-3">
+                {searchResults.map((p) => (
+                  <button
+                    key={p.id}
+                    onMouseDown={() => { setMobile(false); selectPatient(p.id); }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/[0.07] transition-colors text-left"
+                  >
+                    <div className="w-6 h-6 rounded-full bg-[#0057FF]/20 flex items-center justify-center flex-shrink-0">
+                      <User size={12} className="text-[#5D96FF]"/>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-white text-[13px] font-medium truncate">{p.firstName} {p.lastName}</p>
+                      <p className="text-[#9AA0B4] text-[11px]">{p.rut}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
             <nav className="grid grid-cols-2 gap-1.5">
               {NAV_ITEMS.filter(item => !item.adminOnly || role === "ADMIN").map(({ href, label }) => (
                 <Link key={href} href={href} onClick={() => setMobile(false)}
