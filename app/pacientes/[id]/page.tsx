@@ -1760,7 +1760,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
             </div>
           ) : (
             <div className="space-y-2 relative pl-3">
-              {patient.evolutions.map((e,idx)=>(
+              {[...patient.evolutions].sort((a,b)=>b.date.localeCompare(a.date)).map((e,idx)=>(
                 <div key={e.id} className="flex gap-4 pb-6 relative">
                   {/* Línea vertical timeline */}
                   <div className="flex flex-col items-center flex-shrink-0">
