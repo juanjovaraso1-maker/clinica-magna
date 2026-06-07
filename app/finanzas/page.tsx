@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import {
   Plus, TrendingUp, TrendingDown, DollarSign, Download,
   Trash2, Wallet, BarChart3, ChevronDown, ShieldAlert,
-  CheckSquare, Square, AlertCircle, Pencil,
+  CheckSquare, Square, AlertCircle, Pencil, FlaskConical, PackageCheck,
 } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useRole";
 import Modal from "@/components/ui/Modal";
@@ -31,6 +31,11 @@ interface Debt {
 interface FinanceTask {
   id: string; description: string; dueDate?: string; priority: string;
   completed: boolean; createdAt: string;
+}
+interface LabWork {
+  id: string; patientName: string; treatmentName: string; labName: string;
+  description?: string; cost: number; sentDate: string; expectedDate?: string;
+  receivedDate?: string; status: string; invoiceNum?: string; notes?: string; debtId?: string;
 }
 
 function fmt(n: number) {
@@ -137,7 +142,7 @@ function FinanzasInner() {
   const isAdmin = true;
 
   const now = new Date();
-  const [activeTab, setActiveTab] = useState<"resumen"|"gastos"|"contabilidad"|"dashboard"|"tareas">("resumen");
+  const [activeTab, setActiveTab] = useState<"resumen"|"gastos"|"contabilidad"|"dashboard"|"tareas"|"laboratorio">("resumen");
   const [year, setYear] = useState(now.getFullYear());
   const [monthNum, setMonthNum] = useState(String(now.getMonth() + 1).padStart(2, "0"));
   const month = `${year}-${monthNum}`;
@@ -189,6 +194,18 @@ function FinanzasInner() {
   // ---- Dashboard tab ----
   // Uses payments, expenses, chartData from Resumen
 
+  // ---- Laboratorio tab ----
+  const [labWorks, setLabWorks] = useState<LabWork[]>([]);
+  const [labModal, setLabModal] = useState(false);
+  const [labSaving, setLabSaving] = useState(false);
+  const [labFilterStatus, setLabFilterStatus] = useState("");
+  const [labFilterLab, setLabFilterLab] = useState("");
+  const [labForm, setLabForm] = useState({
+    patientName: "", treatmentName: "", labName: "", description: "",
+    cost: "", sentDate: now.toISOString().split("T")[0], expectedDate: "", invoiceNum: "", notes: "",
+  });
+  const [treatments, setTreatments] = useState<Array<{ id: string; name: string; requiresLab: boolean; defaultLabName: string; defaultLabCost: number }>>([]);
+
   // ---- Tareas tab ----
   const [tasks, setTasks] = useState<FinanceTask[]>([]);
   const [taskModal, setTaskModal] = useState(false);
@@ -230,6 +247,43 @@ function FinanzasInner() {
     if (r.ok) setTasks(await r.json());
   }
 
+  async function loadLabWorks() {
+    const [lr, tr] = await Promise.all([fetch("/api/lab-works"), fetch("/api/treatments")]);
+    if (lr.ok) setLabWorks(await lr.json());
+    if (tr.ok) setTreatments(await tr.json());
+  }
+
+  async function saveLabWork() {
+    const cost = parseInputAmt(labForm.cost);
+    if (!labForm.patientName || !labForm.labName || !cost) return;
+    setLabSaving(true);
+    await fetch("/api/lab-works", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...labForm, cost, expectedDate: labForm.expectedDate || null, invoiceNum: labForm.invoiceNum || null, notes: labForm.notes || null }),
+    });
+    setLabModal(false);
+    setLabForm({ patientName: "", treatmentName: "", labName: "", description: "", cost: "", sentDate: now.toISOString().split("T")[0], expectedDate: "", invoiceNum: "", notes: "" });
+    loadLabWorks();
+    loadDebts();
+    setLabSaving(false);
+  }
+
+  async function markLabReceived(lw: LabWork) {
+    const date = new Date().toISOString().split("T")[0];
+    await fetch(`/api/lab-works/${lw.id}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "recibido", receivedDate: date }),
+    });
+    loadLabWorks();
+  }
+
+  async function deleteLabWork(id: string) {
+    if (!confirm("¿Eliminar este trabajo de laboratorio y su deuda asociada?")) return;
+    await fetch(`/api/lab-works/${id}`, { method: "DELETE" });
+    loadLabWorks();
+    loadDebts();
+  }
+
   async function loadGastosExpenses() {
     const r = await fetch(`/api/expenses?month=${gastoFilterMonth}`);
     if (r.ok) setGastosExpenses(await r.json());
@@ -244,6 +298,7 @@ function FinanzasInner() {
     if (activeTab === "contabilidad") { loadContab(); loadDebts(); loadAllExpenses(); }
     if (activeTab === "tareas") loadTasks();
     if (activeTab === "gastos") loadGastosExpenses();
+    if (activeTab === "laboratorio") loadLabWorks();
   }, [activeTab]);
 
   useEffect(() => {
@@ -468,6 +523,7 @@ function FinanzasInner() {
     { key: "gastos", label: "Gastos" },
     { key: "contabilidad", label: "Contabilidad" },
     { key: "dashboard", label: "Dashboard" },
+    { key: "laboratorio", label: "🔬 Laboratorio" },
     { key: "tareas", label: "Tareas" },
   ];
 
@@ -1112,6 +1168,126 @@ function FinanzasInner() {
         </div>
       )}
 
+      {/* ===== TAB LABORATORIO ===== */}
+      {activeTab === "laboratorio" && (() => {
+        const labsSet: Record<string,boolean> = {}; labWorks.forEach(l => { labsSet[l.labName] = true; });
+        const labs = Object.keys(labsSet);
+        const filtered = labWorks.filter(l =>
+          (!labFilterStatus || l.status === labFilterStatus) &&
+          (!labFilterLab || l.labName === labFilterLab)
+        );
+        const pendingByLab = labs.map(lab => ({
+          lab,
+          total: labWorks.filter(l => l.labName === lab && l.status !== "cancelado").reduce((s,l) => s + l.cost, 0),
+          pending: labWorks.filter(l => l.labName === lab && l.status === "enviado").reduce((s,l) => s + l.cost, 0),
+        }));
+        return (
+          <div className="space-y-4">
+            {/* Resumen por laboratorio */}
+            {pendingByLab.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {pendingByLab.map(({ lab, total, pending }) => (
+                  <div key={lab} className="card p-4 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <FlaskConical size={16} className="text-cyan-600" />
+                      <p className="font-semibold text-slate-800 text-sm">{lab}</p>
+                    </div>
+                    <div className="flex justify-between text-xs text-slate-500">
+                      <span>Total acumulado</span><span className="font-semibold text-slate-700">{fmt(total)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Por pagar (en lab)</span>
+                      <span className={`font-bold ${pending > 0 ? "text-red-600" : "text-emerald-600"}`}>{fmt(pending)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Controles */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex gap-2 flex-wrap">
+                <select className="select py-1.5 text-sm w-auto" value={labFilterStatus} onChange={e => setLabFilterStatus(e.target.value)}>
+                  <option value="">Todos los estados</option>
+                  <option value="enviado">Enviado al lab</option>
+                  <option value="recibido">Recibido</option>
+                  <option value="cancelado">Cancelado</option>
+                </select>
+                {labs.length > 1 && (
+                  <select className="select py-1.5 text-sm w-auto" value={labFilterLab} onChange={e => setLabFilterLab(e.target.value)}>
+                    <option value="">Todos los labs</option>
+                    {labs.map(l => <option key={l} value={l}>{l}</option>)}
+                  </select>
+                )}
+              </div>
+              <button onClick={() => { setLabForm({ patientName: "", treatmentName: "", labName: "", description: "", cost: "", sentDate: now.toISOString().split("T")[0], expectedDate: "", invoiceNum: "", notes: "" }); setLabModal(true); }}
+                className="btn-primary text-sm"><Plus size={14} /> Registrar trabajo de lab</button>
+            </div>
+
+            {/* Tabla */}
+            <div className="card overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b border-slate-100">
+                  <tr>
+                    <th className="text-left px-4 py-3 text-xs text-slate-500 uppercase tracking-wide">Fecha envío</th>
+                    <th className="text-left px-4 py-3 text-xs text-slate-500 uppercase tracking-wide">Paciente / Tratamiento</th>
+                    <th className="text-left px-4 py-3 text-xs text-slate-500 uppercase tracking-wide">Laboratorio</th>
+                    <th className="text-left px-4 py-3 text-xs text-slate-500 uppercase tracking-wide">Estado</th>
+                    <th className="text-right px-4 py-3 text-xs text-slate-500 uppercase tracking-wide">Costo</th>
+                    <th className="w-24" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.length === 0 ? (
+                    <tr><td colSpan={6} className="px-4 py-12 text-center text-muted">No hay trabajos registrados</td></tr>
+                  ) : filtered.map(lw => (
+                    <tr key={lw.id} className="table-row border-b border-slate-50 last:border-0">
+                      <td className="px-4 py-3 text-slate-500 tabular-nums text-xs">{lw.sentDate}</td>
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-slate-900">{lw.patientName}</p>
+                        <p className="text-xs text-slate-400">{lw.treatmentName}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-slate-700">{lw.labName}</p>
+                        {lw.description && <p className="text-xs text-slate-400">{lw.description}</p>}
+                        {lw.expectedDate && lw.status === "enviado" && <p className="text-xs text-amber-600">Esperado: {lw.expectedDate}</p>}
+                        {lw.receivedDate && <p className="text-xs text-emerald-600">Recibido: {lw.receivedDate}</p>}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${lw.status === "recibido" ? "bg-emerald-100 text-emerald-700" : lw.status === "cancelado" ? "bg-slate-100 text-slate-500" : "bg-amber-100 text-amber-700"}`}>
+                          {lw.status === "enviado" ? "En laboratorio" : lw.status === "recibido" ? "Recibido" : "Cancelado"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-slate-900">{fmt(lw.cost)}</td>
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-1.5 justify-end">
+                          {lw.status === "enviado" && (
+                            <button onClick={() => markLabReceived(lw)} title="Marcar como recibido"
+                              className="text-slate-300 hover:text-emerald-600 transition-colors">
+                              <PackageCheck size={15} />
+                            </button>
+                          )}
+                          <button onClick={() => deleteLabWork(lw.id)} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={14} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                {filtered.length > 0 && (
+                  <tfoot className="border-t-2 border-slate-200 bg-slate-50">
+                    <tr>
+                      <td colSpan={4} className="px-4 py-3 text-sm font-semibold text-slate-700">Total</td>
+                      <td className="px-4 py-3 text-right font-bold text-slate-900">{fmt(filtered.reduce((s,l)=>s+l.cost,0))}</td>
+                      <td />
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ===== TAB TAREAS ===== */}
       {activeTab === "tareas" && (
         <div className="space-y-4">
@@ -1357,6 +1533,73 @@ function FinanzasInner() {
           <button className="btn-secondary" onClick={() => {setDebtPayModal(null);setDebtPayAmt("");}}>Cancelar</button>
           <button className="btn-primary" onClick={() => debtPayModal && payDebt(debtPayModal)} disabled={!debtPayAmt}>
             Registrar pago
+          </button>
+        </div>
+      </Modal>
+
+      {/* Lab work modal */}
+      <Modal open={labModal} onClose={() => setLabModal(false)} title="Registrar trabajo de laboratorio">
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="label">Paciente *</label>
+              <input className="input" value={labForm.patientName} onChange={e => setLabForm(f=>({...f,patientName:e.target.value}))} placeholder="Nombre del paciente" />
+            </div>
+            <div>
+              <label className="label">Tratamiento</label>
+              <select className="select" value={labForm.treatmentName} onChange={e => {
+                const t = treatments.find(x => x.name === e.target.value);
+                setLabForm(f => ({ ...f, treatmentName: e.target.value,
+                  labName: t?.defaultLabName || f.labName,
+                  cost: t?.defaultLabCost ? fmtInput(String(t.defaultLabCost)) : f.cost,
+                }));
+              }}>
+                <option value="">— Seleccionar —</option>
+                {treatments.filter(t => t.requiresLab).map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+                <option value="__otro">Otro (escribir)</option>
+              </select>
+              {(labForm.treatmentName === "__otro" || !treatments.find(t => t.name === labForm.treatmentName)) && (
+                <input className="input mt-2" placeholder="Nombre del tratamiento" value={labForm.treatmentName === "__otro" ? "" : labForm.treatmentName}
+                  onChange={e => setLabForm(f=>({...f,treatmentName:e.target.value}))} />
+              )}
+            </div>
+            <div>
+              <label className="label">Laboratorio *</label>
+              <input className="input" value={labForm.labName} onChange={e => setLabForm(f=>({...f,labName:e.target.value}))} placeholder="Nombre del laboratorio" />
+            </div>
+            <div>
+              <label className="label">Descripción del trabajo</label>
+              <input className="input" value={labForm.description} onChange={e => setLabForm(f=>({...f,description:e.target.value}))} placeholder="Ej: Corona metal-cerámica diente 16" />
+            </div>
+            <div>
+              <label className="label">Costo ($) *</label>
+              <input className="input" type="text" inputMode="numeric" value={labForm.cost}
+                onChange={e => setLabForm(f=>({...f,cost:fmtInput(e.target.value)}))} placeholder="0" />
+            </div>
+            <div>
+              <label className="label">Fecha de envío *</label>
+              <input className="input" type="date" value={labForm.sentDate} onChange={e => setLabForm(f=>({...f,sentDate:e.target.value}))} />
+            </div>
+            <div>
+              <label className="label">Fecha esperada de entrega</label>
+              <input className="input" type="date" value={labForm.expectedDate} onChange={e => setLabForm(f=>({...f,expectedDate:e.target.value}))} />
+            </div>
+            <div>
+              <label className="label">N° factura / guía (opcional)</label>
+              <input className="input" value={labForm.invoiceNum} onChange={e => setLabForm(f=>({...f,invoiceNum:e.target.value}))} placeholder="123" />
+            </div>
+          </div>
+          <div>
+            <label className="label">Notas</label>
+            <textarea className="input" rows={2} value={labForm.notes} onChange={e => setLabForm(f=>({...f,notes:e.target.value}))} />
+          </div>
+          <p className="text-xs text-slate-400">Se creará automáticamente una deuda pendiente para este laboratorio en el tab Contabilidad.</p>
+        </div>
+        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
+          <button className="btn-secondary" onClick={() => setLabModal(false)}>Cancelar</button>
+          <button className="btn-primary" onClick={saveLabWork}
+            disabled={labSaving || !labForm.patientName || !labForm.labName || !labForm.cost}>
+            {labSaving ? "Guardando..." : "Registrar y crear deuda"}
           </button>
         </div>
       </Modal>

@@ -6,6 +6,7 @@ import Modal from "@/components/ui/Modal";
 
 interface Treatment {
   id: string; name: string; category: string; price: number; description: string; active: boolean;
+  requiresLab: boolean; defaultLabName: string; defaultLabCost: number;
 }
 interface Bundle {
   id: string; name: string; category: string; treatmentIds: string[];
@@ -28,7 +29,7 @@ function uid() { return Math.random().toString(36).slice(2, 10); }
 const CATEGORIES = ["Diagnóstico","Preventiva","Periodoncia","Endodoncia","Operatoria","Prótesis","Cirugía Oral","Ortodoncia","Implantología","Radiología","Estética Dental","Estética Facial","General"];
 const ROUTES = ["oral","tópica","inyectable","sublingual","inhalatoria","oftálmica"];
 
-const initForm = { name: "", category: "General", price: "", description: "" };
+const initForm = { name: "", category: "General", price: "", description: "", requiresLab: false, defaultLabName: "", defaultLabCost: "" };
 const initBundle = (): Bundle => ({ id: uid(), name: "", category: "General", treatmentIds: [] });
 const initMed = (): Medication => ({ drug: "", dose: "", freq: "", duration: "", route: "oral", instructions: "" });
 const initRx = (): RxTemplate => ({ id: uid(), name: "", medications: [initMed()], notes: "" });
@@ -154,12 +155,14 @@ export default function Prestaciones() {
   // ---- Treatments CRUD ----
   function openNew() { setForm(initForm); setEditing(null); setOpen(true); }
   function openEdit(t: Treatment) {
-    setForm({ name: t.name, category: t.category, price: String(t.price), description: t.description ?? "" });
+    setForm({ name: t.name, category: t.category, price: String(t.price), description: t.description ?? "",
+      requiresLab: t.requiresLab ?? false, defaultLabName: t.defaultLabName ?? "", defaultLabCost: String(t.defaultLabCost ?? "") });
     setEditing(t); setOpen(true);
   }
   async function save() {
     setSaving(true);
-    const body = { ...form, price: parseFloat(form.price) || 0 };
+    const body = { ...form, price: parseFloat(form.price as string) || 0,
+      defaultLabCost: parseFloat(form.defaultLabCost as string) || 0 };
     if (editing) {
       await fetch("/api/treatments", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: editing.id, ...body }) });
     } else {
@@ -274,8 +277,12 @@ export default function Prestaciones() {
                   {items.map(t => (
                     <tr key={t.id} className="table-row">
                       <td className="px-5 py-3">
-                        <p className="font-medium text-slate-900">{t.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-slate-900">{t.name}</p>
+                          {t.requiresLab && <span className="text-xs bg-cyan-100 text-cyan-700 px-1.5 py-0.5 rounded-full font-medium">🔬 Lab</span>}
+                        </div>
                         {t.description && <p className="text-xs text-slate-400">{t.description}</p>}
+                        {t.requiresLab && t.defaultLabName && <p className="text-xs text-cyan-600">{t.defaultLabName} · {fmt(t.defaultLabCost)}</p>}
                       </td>
                       <td className="px-4 py-3 text-right font-bold text-slate-900 w-32">{fmt(t.price)}</td>
                       <td className="px-4 py-3 w-20">
@@ -449,6 +456,27 @@ export default function Prestaciones() {
             <div><label className="label">Precio ($)</label><input className="input" type="number" min="0" value={form.price} onChange={e => set("price", e.target.value)} placeholder="0" /></div>
           </div>
           <div><label className="label">Descripción</label><textarea className="input resize-none" rows={2} value={form.description} onChange={e => set("description", e.target.value)} /></div>
+          {/* Lab */}
+          <div className="border-t border-slate-100 pt-4">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" checked={!!form.requiresLab}
+                onChange={e => setForm(f => ({ ...f, requiresLab: e.target.checked }))}
+                className="w-4 h-4 accent-blue-600" />
+              <span className="text-sm font-medium text-slate-700">Requiere trabajo de laboratorio</span>
+            </label>
+            {form.requiresLab && (
+              <div className="grid grid-cols-2 gap-4 mt-3">
+                <div>
+                  <label className="label">Laboratorio predeterminado</label>
+                  <input className="input" value={form.defaultLabName} onChange={e => set("defaultLabName", e.target.value)} placeholder="Ej: Lab Dental Fuentes" />
+                </div>
+                <div>
+                  <label className="label">Costo de lab ($)</label>
+                  <input className="input" type="number" min="0" value={form.defaultLabCost} onChange={e => set("defaultLabCost", e.target.value)} placeholder="0" />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
         <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
           <button className="btn-secondary" onClick={() => setOpen(false)}>Cancelar</button>
