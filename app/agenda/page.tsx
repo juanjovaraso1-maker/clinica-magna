@@ -89,6 +89,13 @@ export default function Agenda() {
   // Finance tasks for alerts
   const [pendingTasks, setPendingTasks] = useState<Array<{ id: string; description: string; dueDate?: string; priority: string }>>([]);
 
+  // Current time indicator
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(t);
+  }, []);
+
   // New state for expandable cards and mini calendar
   const [expandedId, setExpandedId] = useState<string|null>(null);
   const [patientCache, setPatientCache] = useState<Record<string,any>>({});
@@ -493,6 +500,21 @@ export default function Agenda() {
                         </div>
                       );
                     })}
+                    {/* Current time indicator */}
+                    {weekDays.includes(todayStr()) && (() => {
+                      const nowMin = now.getHours() * 60 + now.getMinutes();
+                      if (nowMin < HOUR_START * 60 || nowMin > HOUR_END * 60) return null;
+                      const top = (nowMin - HOUR_START * 60) / SLOT_MIN * SLOT_H;
+                      return (
+                        <div key="now-line" className="absolute pointer-events-none z-20" style={{ top: `${top}px`, left: "52px", right: 0 }}>
+                          <div className="relative flex items-center">
+                            <div className="w-2.5 h-2.5 rounded-full bg-[#0057FF] flex-shrink-0 -ml-1.5 shadow-sm"/>
+                            <div className="flex-1 h-[2px] bg-[#0057FF] opacity-80"/>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     {/* Blocked slots */}
                     {blockedSlots.map(b => {
                       const dayIdx = weekDays.indexOf(b.date);
