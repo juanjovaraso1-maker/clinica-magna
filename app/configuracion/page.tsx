@@ -10,7 +10,7 @@ import Modal from "@/components/ui/Modal";
 import { useIsAdmin } from "@/hooks/useRole";
 import { useSession } from "next-auth/react";
 
-type User = { id: string; name: string; email: string; rut?: string; username?: string; role: string; specialty: string | null; commissionRate: number; active: boolean; signatureUrl?: string };
+type User = { id: string; name: string; title?: string; email: string; rut?: string; username?: string; role: string; specialty: string | null; commissionRate: number; active: boolean; signatureUrl?: string };
 
 const TABS = [
   { key: "general",   label: "General",   icon: Building2 },
@@ -57,7 +57,7 @@ const DEFAULT_SCHEDULE: Schedule = {
   sun: { enabled: false, open: "09:00", close: "13:00" },
 };
 
-const EMPTY_USER = { name: "", email: "", rut: "", role: "DENTIST", specialty: "", username: "", password: "", commissionRate: "" };
+const EMPTY_USER = { name: "", title: "", email: "", rut: "", role: "DENTIST", specialty: "", username: "", password: "", commissionRate: "" };
 
 function initials(name: string) {
   return name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
@@ -438,7 +438,7 @@ export default function Configuracion() {
 
   function openNew() { setForm(EMPTY_USER); setEditing(null); setFormError(""); setSigPreview(null); setUserModal(true); }
   function openEdit(u: User) {
-    setForm({ name: u.name, email: u.email, rut: u.rut || "", role: u.role, specialty: u.specialty || "", username: u.username || "", password: "", commissionRate: String(u.commissionRate ?? 0) });
+    setForm({ name: u.name, title: u.title || "", email: u.email, rut: u.rut || "", role: u.role, specialty: u.specialty || "", username: u.username || "", password: "", commissionRate: String(u.commissionRate ?? 0) });
     setSigPreview(u.signatureUrl ?? null);
     setEditing(u); setFormError(""); setUserModal(true);
   }
@@ -1103,7 +1103,7 @@ export default function Configuracion() {
                 <span className="text-white text-sm font-bold">{initials(form.name)}</span>
               </div>
               <div>
-                <p className="font-semibold text-slate-900 text-sm">{form.name}</p>
+                <p className="font-semibold text-slate-900 text-sm">{form.title ? `${form.title} ` : ""}{form.name}</p>
                 <p className="text-xs text-slate-500">{(ROLE_META[form.role] ?? ROLE_META.DENTIST).label}{form.specialty ? ` · ${form.specialty}` : ""}</p>
               </div>
             </div>
@@ -1111,8 +1111,16 @@ export default function Configuracion() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
+              <label className="label">Título</label>
+              <select className="select" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}>
+                <option value="">— Sin título —</option>
+                <option value="Dr.">Dr.</option>
+                <option value="Dra.">Dra.</option>
+              </select>
+            </div>
+            <div>
               <label className="label">Nombre completo *</label>
-              <input className="input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Dra. Carolina López" />
+              <input className="input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Carolina López" />
             </div>
             <div>
               <label className="label">RUT</label>

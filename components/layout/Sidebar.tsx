@@ -41,11 +41,13 @@ export default function Sidebar() {
   const searchRef = useRef<HTMLDivElement>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const userName  = session?.user?.name ?? "Usuario";
-  const userId    = (session?.user as any)?.id as string | undefined;
-  const role      = (session?.user as any)?.role ?? "DENTIST";
-  const roleLabel = role === "ADMIN" ? "Administrador" : role === "RECEPTIONIST" ? "Recepcionista" : "Dentista";
-  const initials  = userName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
+  const userName    = session?.user?.name ?? "Usuario";
+  const userTitle   = (session?.user as any)?.title as string | undefined;
+  const displayName = userTitle ? `${userTitle} ${userName}` : userName;
+  const userId      = (session?.user as any)?.id as string | undefined;
+  const role        = (session?.user as any)?.role ?? "DENTIST";
+  const roleLabel   = role === "ADMIN" ? "Administrador" : role === "RECEPTIONIST" ? "Recepcionista" : "Dentista";
+  const initials    = userName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
 
   // Close search dropdown when clicking outside
   useEffect(() => {
@@ -214,7 +216,7 @@ export default function Sidebar() {
         <div className="flex items-center gap-2 flex-shrink-0">
           <button onClick={openProfile}
             className="hidden sm:flex flex-col text-right leading-tight hover:opacity-80 transition-opacity cursor-pointer">
-            <span className="text-white text-[12px] font-semibold">{userName}</span>
+            <span className="text-white text-[12px] font-semibold">{displayName}</span>
             <span className="text-[#9AA0B4] text-[10px]">{roleLabel}</span>
           </button>
           <button onClick={openProfile} title="Mi perfil y firma"
@@ -303,7 +305,7 @@ export default function Sidebar() {
                 <span className="text-white text-[14px] font-bold">{initials}</span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-white font-semibold text-[14px] truncate">{userName}</p>
+                <p className="text-white font-semibold text-[14px] truncate">{displayName}</p>
                 <p className="text-[#9AA0B4] text-[11px]">{roleLabel}</p>
               </div>
               <button onClick={() => setProfileOpen(false)} className="text-[#9AA0B4] hover:text-white transition-colors p-1">

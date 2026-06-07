@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
-  const { name, username, role, password, active, commissionRate, email, rut, specialty } = await req.json();
+  const { name, title, username, role, password, active, commissionRate, email, rut, specialty } = await req.json();
 
   if (username) {
     const conflict = await prisma.user.findFirst({ where: { username, NOT: { id: params.id } } });
@@ -14,6 +14,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
   const data: Record<string, unknown> = {};
   if (name !== undefined)            data.name           = name;
+  if (title !== undefined)           data.title          = title ?? "";
   if (username !== undefined)        data.username       = username;
   if (role !== undefined)            data.role           = role;
   if (password)                      data.password       = await bcrypt.hash(password, 12);
@@ -26,7 +27,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   const user = await prisma.user.update({
     where: { id: params.id },
     data,
-    select: { id: true, name: true, username: true, email: true, rut: true, role: true, specialty: true, commissionRate: true, active: true },
+    select: { id: true, name: true, title: true, username: true, email: true, rut: true, role: true, specialty: true, commissionRate: true, active: true },
   });
   return NextResponse.json(user);
 }
