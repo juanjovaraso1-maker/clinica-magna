@@ -149,6 +149,8 @@ export default function Finanzas() {
   // ---- Gastos tab ----
   const [gastoFilterMonth, setGastoFilterMonth] = useState(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`);
   const [gastoFilterCat, setGastoFilterCat] = useState("");
+  const [gastoFilterPaidBy, setGastoFilterPaidBy] = useState("");
+  const [gastosExpenses, setGastosExpenses] = useState<Expense[]>([]);
 
   // ---- Contabilidad tab ----
   const [contabMonth, setContabMonth] = useState(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`);
@@ -205,14 +207,24 @@ export default function Finanzas() {
     if (r.ok) setTasks(await r.json());
   }
 
+  async function loadGastosExpenses() {
+    const r = await fetch(`/api/expenses?month=${gastoFilterMonth}`);
+    if (r.ok) setGastosExpenses(await r.json());
+  }
+
   useEffect(() => {
     if (activeTab === "contabilidad") { loadContab(); loadDebts(); }
     if (activeTab === "tareas") loadTasks();
+    if (activeTab === "gastos") loadGastosExpenses();
   }, [activeTab]);
 
   useEffect(() => {
     if (activeTab === "contabilidad") loadContab();
   }, [contabMonth]);
+
+  useEffect(() => {
+    if (activeTab === "gastos") loadGastosExpenses();
+  }, [gastoFilterMonth]);
 
   const income = payments.reduce((s, p) => s + p.amount, 0);
   const expTotal = expenses.reduce((s, e) => s + e.amount, 0);
@@ -249,7 +261,10 @@ export default function Finanzas() {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...expForm, amount: parseFloat(expForm.amount) }),
     });
-    setExpModal(false); load(); setSaving(false);
+    setExpModal(false);
+    load();
+    loadGastosExpenses();
+    setSaving(false);
   }
 
   async function deletePay(id: string) {
@@ -262,6 +277,7 @@ export default function Finanzas() {
     if (!confirm("¿Eliminar este gasto?")) return;
     await fetch("/api/expenses", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
     load();
+    loadGastosExpenses();
   }
 
   const setPay = (k: string, v: string) => setPayForm(f => ({ ...f, [k]: v }));
@@ -269,14 +285,20 @@ export default function Finanzas() {
 
   const filteredBudgets = budgets.filter(b => !payForm.patientId || b.patient.firstName);
 
-  // Filtered expenses for Gastos tab
-  const filteredExpenses = expenses.filter(e => {
-    const expMonth = e.date.slice(0,7);
-    const matchMonth = !gastoFilterMonth || expMonth === gastoFilterMonth;
+  // Filtered expenses for Gastos tab (usa gastosExpenses cargado independientemente)
+  const filteredExpenses = gastosExpenses.filter(e => {
     const matchCat = !gastoFilterCat || e.category === gastoFilterCat;
-    return matchMonth && matchCat;
+    const matchPaidBy = !gastoFilterPaidBy || e.provider === gastoFilterPaidBy;
+    return matchCat && matchPaidBy;
   });
   const filteredExpTotal = filteredExpenses.reduce((s,e) => s + e.amount, 0);
+
+  // Resumen por "Pagado por" para el tab Gastos
+  const PAIDBY_OPTIONS = ["Juan José", "Carolina", "Clínica", "Otro"];
+  const paidByTotals = PAIDBY_OPTIONS.map(who => ({
+    who,
+    total: gastosExpenses.filter(e => e.provider === who).reduce((s,e) => s + e.amount, 0),
+  })).filter(r => r.total > 0);
 
   // Contabilidad calcs
   const contabIncome = contabPayments.reduce((s,p) => s + p.amount, 0);
@@ -642,6 +664,30 @@ export default function Finanzas() {
       {/* ===== TAB GASTOS ===== */}
       {activeTab === "gastos" && (
         <div className="space-y-4">
+
+          {/* Resumen "Lo que la clínica debe" */}
+          {paidByTotals.length > 0 && (
+            <div className="card p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">💰 Lo que la clínica debe (gastos pagados de bolsillo)</p>
+              <div className="flex flex-wrap gap-3">
+                {paidByTotals.filter(r => r.who !== "Clínica").map(r => (
+                  <div key={r.who} className="flex-1 min-w-[140px] bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
+                    <p className="text-xs text-slate-500 font-medium">{r.who}</p>
+                    <p className="text-lg font-bold text-amber-700">{fmt(r.total)}</p>
+                    <p className="text-[10px] text-slate-400">aportado este mes</p>
+                  </div>
+                ))}
+                {paidByTotals.filter(r => r.who === "Clínica").map(r => (
+                  <div key={r.who} className="flex-1 min-w-[140px] bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+                    <p className="text-xs text-slate-500 font-medium">Clínica</p>
+                    <p className="text-lg font-bold text-slate-700">{fmt(r.total)}</p>
+                    <p className="text-[10px] text-slate-400">fondos propios</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 flex-wrap">
               <input type="month" className="input py-1.5 text-sm w-auto"
@@ -650,6 +696,11 @@ export default function Finanzas() {
                 onChange={e => setGastoFilterCat(e.target.value)}>
                 <option value="">Todas las categorías</option>
                 {EXP_CATEGORIES_FORM.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <select className="select py-1.5 text-sm w-auto" value={gastoFilterPaidBy}
+                onChange={e => setGastoFilterPaidBy(e.target.value)}>
+                <option value="">Todos</option>
+                {PAIDBY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </div>
             <div className="flex gap-2">
@@ -662,6 +713,7 @@ export default function Finanzas() {
               </button>
             </div>
           </div>
+
           <div className="card overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 border-b border-slate-100">
@@ -669,13 +721,14 @@ export default function Finanzas() {
                   <th className="text-left px-5 py-3 text-xs text-slate-500 uppercase tracking-wide">Fecha</th>
                   <th className="text-left px-4 py-3 text-xs text-slate-500 uppercase tracking-wide">Categoría</th>
                   <th className="text-left px-4 py-3 text-xs text-slate-500 uppercase tracking-wide">Descripción</th>
+                  <th className="text-left px-4 py-3 text-xs text-slate-500 uppercase tracking-wide">Pagado por</th>
                   <th className="text-right px-5 py-3 text-xs text-slate-500 uppercase tracking-wide">Monto</th>
                   {isAdmin && <th className="w-10" />}
                 </tr>
               </thead>
               <tbody>
                 {filteredExpenses.length === 0 ? (
-                  <tr><td colSpan={5} className="px-5 py-12 text-center text-muted">Sin gastos</td></tr>
+                  <tr><td colSpan={6} className="px-5 py-12 text-center text-muted">Sin gastos registrados para este mes</td></tr>
                 ) : filteredExpenses.map(e => (
                   <tr key={e.id} className="table-row border-b border-slate-50 last:border-0">
                     <td className="px-5 py-3 text-slate-600 tabular-nums">{e.date}</td>
@@ -683,6 +736,16 @@ export default function Finanzas() {
                       <span className={`text-xs px-2 py-0.5 rounded-full capitalize font-medium ${CAT_BADGE[e.category] ?? "bg-slate-100 text-slate-600"}`}>{e.category}</span>
                     </td>
                     <td className="px-4 py-3 text-slate-900">{e.description}</td>
+                    <td className="px-4 py-3">
+                      {e.provider ? (
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          e.provider === "Juan José" ? "bg-blue-100 text-blue-700" :
+                          e.provider === "Carolina" ? "bg-purple-100 text-purple-700" :
+                          e.provider === "Clínica" ? "bg-slate-100 text-slate-600" :
+                          "bg-slate-100 text-slate-500"
+                        }`}>{e.provider}</span>
+                      ) : <span className="text-slate-400">—</span>}
+                    </td>
                     <td className="px-5 py-3 text-right font-bold text-red-600">{fmt(e.amount)}</td>
                     {isAdmin && (
                       <td className="px-3 py-3">
@@ -695,7 +758,7 @@ export default function Finanzas() {
               {filteredExpenses.length > 0 && (
                 <tfoot className="border-t-2 border-slate-200 bg-red-50">
                   <tr>
-                    <td colSpan={3} className="px-5 py-3 text-sm font-semibold text-slate-700">Total</td>
+                    <td colSpan={4} className="px-5 py-3 text-sm font-semibold text-slate-700">Total</td>
                     <td className="px-5 py-3 text-right font-bold text-red-600 text-base">{fmt(filteredExpTotal)}</td>
                     {isAdmin && <td />}
                   </tr>
@@ -1061,8 +1124,14 @@ export default function Finanzas() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="label">Proveedor</label>
-              <input className="input" value={expForm.provider} onChange={e => setExp("provider", e.target.value)} />
+              <label className="label">¿De dónde salió la plata?</label>
+              <select className="select" value={expForm.provider} onChange={e => setExp("provider", e.target.value)}>
+                <option value="">Sin especificar</option>
+                <option value="Juan José">Juan José (dueño)</option>
+                <option value="Carolina">Carolina (dueña)</option>
+                <option value="Clínica">Clínica (fondos propios)</option>
+                <option value="Otro">Otro</option>
+              </select>
             </div>
             <div>
               <label className="label">Forma de pago</label>
