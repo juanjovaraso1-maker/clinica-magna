@@ -294,7 +294,7 @@ export default function Finanzas() {
   const filteredExpTotal = filteredExpenses.reduce((s,e) => s + e.amount, 0);
 
   // Resumen por "Pagado por" para el tab Gastos
-  const PAIDBY_OPTIONS = ["Juan José", "Carolina", "Clínica", "Otro"];
+  const PAIDBY_OPTIONS = ["Juanjo", "Caro", "Magna"];
   const paidByTotals = PAIDBY_OPTIONS.map(who => ({
     who,
     total: gastosExpenses.filter(e => e.provider === who).reduce((s,e) => s + e.amount, 0),
@@ -670,18 +670,19 @@ export default function Finanzas() {
             <div className="card p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">💰 Lo que la clínica debe (gastos pagados de bolsillo)</p>
               <div className="flex flex-wrap gap-3">
-                {paidByTotals.filter(r => r.who !== "Clínica").map(r => (
-                  <div key={r.who} className="flex-1 min-w-[140px] bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
+                {paidByTotals.map(r => (
+                  <div key={r.who} className={`flex-1 min-w-[140px] rounded-xl p-3 text-center border ${
+                    r.who === "Juanjo" ? "bg-blue-50 border-blue-200" :
+                    r.who === "Caro"   ? "bg-purple-50 border-purple-200" :
+                    "bg-slate-50 border-slate-200"
+                  }`}>
                     <p className="text-xs text-slate-500 font-medium">{r.who}</p>
-                    <p className="text-lg font-bold text-amber-700">{fmt(r.total)}</p>
-                    <p className="text-[10px] text-slate-400">aportado este mes</p>
-                  </div>
-                ))}
-                {paidByTotals.filter(r => r.who === "Clínica").map(r => (
-                  <div key={r.who} className="flex-1 min-w-[140px] bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
-                    <p className="text-xs text-slate-500 font-medium">Clínica</p>
-                    <p className="text-lg font-bold text-slate-700">{fmt(r.total)}</p>
-                    <p className="text-[10px] text-slate-400">fondos propios</p>
+                    <p className={`text-lg font-bold ${
+                      r.who === "Juanjo" ? "text-blue-700" :
+                      r.who === "Caro"   ? "text-purple-700" :
+                      "text-slate-700"
+                    }`}>{fmt(r.total)}</p>
+                    <p className="text-[10px] text-slate-400">{r.who === "Magna" ? "fondos propios" : "aportado este mes"}</p>
                   </div>
                 ))}
               </div>
@@ -700,7 +701,9 @@ export default function Finanzas() {
               <select className="select py-1.5 text-sm w-auto" value={gastoFilterPaidBy}
                 onChange={e => setGastoFilterPaidBy(e.target.value)}>
                 <option value="">Todos</option>
-                {PAIDBY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                <option value="Juanjo">Juanjo</option>
+                <option value="Caro">Caro</option>
+                <option value="Magna">Magna</option>
               </select>
             </div>
             <div className="flex gap-2">
@@ -739,9 +742,9 @@ export default function Finanzas() {
                     <td className="px-4 py-3">
                       {e.provider ? (
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          e.provider === "Juan José" ? "bg-blue-100 text-blue-700" :
-                          e.provider === "Carolina" ? "bg-purple-100 text-purple-700" :
-                          e.provider === "Clínica" ? "bg-slate-100 text-slate-600" :
+                          e.provider === "Juanjo" ? "bg-blue-100 text-blue-700" :
+                          e.provider === "Caro"   ? "bg-purple-100 text-purple-700" :
+                          e.provider === "Magna"  ? "bg-slate-100 text-slate-600" :
                           "bg-slate-100 text-slate-500"
                         }`}>{e.provider}</span>
                       ) : <span className="text-slate-400">—</span>}
@@ -1127,10 +1130,9 @@ export default function Finanzas() {
               <label className="label">¿De dónde salió la plata?</label>
               <select className="select" value={expForm.provider} onChange={e => setExp("provider", e.target.value)}>
                 <option value="">Sin especificar</option>
-                <option value="Juan José">Juan José (dueño)</option>
-                <option value="Carolina">Carolina (dueña)</option>
-                <option value="Clínica">Clínica (fondos propios)</option>
-                <option value="Otro">Otro</option>
+                <option value="Juanjo">Juanjo</option>
+                <option value="Caro">Caro</option>
+                <option value="Magna">Magna</option>
               </select>
             </div>
             <div>
