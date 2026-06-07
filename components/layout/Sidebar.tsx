@@ -139,8 +139,8 @@ export default function Sidebar() {
 
         {/* Logo */}
         <Link href="/agenda" className="flex items-center gap-2.5 flex-shrink-0 mr-1">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#0057FF] to-[#0041CC] flex items-center justify-center shadow-sm">
-            <span className="text-white text-[10px] font-bold">CM</span>
+          <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 shadow-sm">
+            <img src="/LOGO.jpeg" alt="Logo" className="w-full h-full object-contain bg-white"/>
           </div>
           <span className="text-white font-bold text-[14px] hidden lg:block">Clínica Magna</span>
         </Link>
