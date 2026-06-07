@@ -1628,10 +1628,10 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
 
       {/* ===== TAB 0: FICHA CLÍNICA — sub-tab nav ===== */}
       {tab===0&&(
-        <div className="flex gap-2 mb-4 flex-wrap">
+        <div className="inline-flex gap-[2px] bg-[#F0F2F7] rounded-[10px] p-[3px] border border-[#E3E8F0] mb-4">
           {FICHA_SUBTABS.map((t,i)=>(
             <button key={t} onClick={()=>setFichaSubTab(i)}
-              className={`px-4 py-2 text-[12px] font-bold rounded-lg border transition-all duration-150 whitespace-nowrap ${fichaSubTab===i?"bg-[#1A1D2E] text-white border-[#1A1D2E] shadow-sm":"bg-white text-[#5A6072] border-[#D1D5DB] hover:border-[#1A1D2E] hover:text-[#1A1D2E]"}`}>
+              className={`px-3 py-[7px] text-[12px] rounded-[7px] transition-all duration-150 whitespace-nowrap ${fichaSubTab===i?"bg-white text-[#1A1D2E] shadow-sm font-semibold":"text-[#9AA0B4] font-medium cursor-pointer hover:text-[#1A1D2E]"}`}>
               {t}
             </button>
           ))}
