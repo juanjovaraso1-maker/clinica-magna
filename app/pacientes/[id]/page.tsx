@@ -94,7 +94,7 @@ interface Patient {
 }
 
 const TABS = ["Ficha Clínica","Presupuestos","Evoluciones","Recetas","Pagos","Citas","Historial"];
-const FICHA_SUBTABS = ["Ficha","Odontograma","Estética","Documentos"];
+const FICHA_SUBTABS = ["Ficha","Odontograma","Estética","Documentos","Radiografías"];
 
 function fmt(n:number) { return new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(n); }
 function fmtShort(n:number) { const abs=Math.abs(n); const sign=n<0?"-":""; if(abs>=1000000) return `${sign}$${(abs/1000000).toFixed(1)}M`; if(abs>=1000) return `${sign}$${Math.round(abs/1000)}K`; return fmt(n); }
@@ -2317,6 +2317,123 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* SUB-TAB 4: RADIOGRAFÍAS */}
+      {tab===0&&fichaSubTab===4&&(
+        <div className="space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex gap-2 flex-wrap items-center">
+              <select className="select text-sm w-auto" value={docType} onChange={e=>setDocType(e.target.value)}>
+                <option value="radiografia">Radiografía</option>
+                <option value="examen">Examen</option>
+                <option value="consentimiento">Consentimiento</option>
+                <option value="foto">Fotografía</option>
+                <option value="other">Otro</option>
+              </select>
+              <button onClick={()=>{ setRxDocUserId(sessionUserId); setRxForm({...EMPTY_RX_FORM}); setRxDocModal(true); }}
+                className="inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-2 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-500 hover:text-white transition-all">
+                <FileText size={14}/> Solicitud Rx
+              </button>
+            </div>
+            <button onClick={()=>fileRef.current?.click()} disabled={uploading}
+              className="btn-primary text-sm flex items-center gap-1.5">
+              <Upload size={14}/> {uploading?"Subiendo...":"Subir archivo"}
+            </button>
+            <input ref={fileRef} type="file" className="hidden" accept="image/*,.pdf,.dcm"
+              onChange={e=>{ if(e.target.files?.[0]) uploadDoc(e.target.files[0]); e.target.value=""; }}/>
+          </div>
+          {patient.documents.filter(d=>["radiografia","examen","foto","consentimiento"].includes(d.type)||docType==="other").length===0 ? (
+            <div className="bg-white border border-[#E3E8F0] rounded-2xl py-14 text-center shadow-sm">
+              <span className="text-4xl block mb-3">🦷</span>
+              <p className="text-[14px] font-semibold text-[#9AA0B4]">Sin radiografías ni documentos clínicos</p>
+              <p className="text-[12px] text-[#9AA0B4] mt-1">Sube una imagen o PDF con el botón de arriba</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {patient.documents.map(doc=>(
+                <div key={doc.id} className="bg-white border border-[#E3E8F0] rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow group">
+                  <div className="aspect-square bg-[#F0F2F7] flex items-center justify-center text-3xl">
+                    {doc.mimeType?.startsWith("image/") ? (
+                      <img src={`/api/documents/${doc.id}/file`} alt={doc.name}
+                        className="w-full h-full object-cover" onError={e=>(e.currentTarget.style.display="none")}/>
+                    ) : (
+                      <span>{docIcons[doc.type]||"📎"}</span>
+                    )}
+                  </div>
+                  <div className="p-2">
+                    <p className="text-[11px] font-semibold text-[#1A1D2E] truncate">{doc.name}</p>
+                    <p className="text-[10px] text-[#9AA0B4]">{new Date(doc.createdAt).toLocaleDateString("es-CL")}</p>
+                    <div className="flex gap-1 mt-1.5">
+                      <a href={`/api/documents/${doc.id}/file`} target="_blank"
+                        className="flex-1 text-center text-[10px] font-semibold bg-[#EEF3FF] text-[#0057FF] rounded-lg py-1 hover:bg-[#0057FF] hover:text-white transition-colors">
+                        Ver
+                      </a>
+                      {isAdmin&&<button onClick={()=>deleteDoc(doc.id)}
+                        className="text-[10px] px-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors">
+                        <Trash2 size={10}/>
+                      </button>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {prescriptions.filter(p=>p.type==="rxrequest").length > 0 && (
+            <div className="mt-4">
+              <h4 className="text-[12px] font-bold text-[#9AA0B4] uppercase tracking-wide mb-2">Solicitudes guardadas</h4>
+              <div className="space-y-2">
+                {prescriptions.filter(p=>p.type==="rxrequest").map(rx=>{
+                  let parsed: any = {};
+                  try { parsed = JSON.parse(rx.content); } catch {}
+                  return (
+                    <div key={rx.id} className="bg-white border border-[#E3E8F0] rounded-xl p-3 shadow-sm">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] bg-amber-100 text-amber-700 font-semibold px-2 py-0.5 rounded-full">Solicitud Rx</span>
+                          <span className="text-[11px] text-[#9AA0B4]">{new Date(rx.date+"T12:00:00").toLocaleDateString("es-CL")}</span>
+                          <span className="text-[11px] text-[#9AA0B4]">— {rx.user.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button onClick={()=>printSavedRxRequest(rx)}
+                            className="p-2.5 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors border border-slate-200" title="Imprimir / PDF">
+                            <Printer size={16}/>
+                          </button>
+                          {patient.phone && (
+                            <button onClick={()=>waSavedRxRequest(rx)}
+                              className="p-2.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition-colors border border-emerald-200" title="Enviar por WhatsApp">
+                              <MessageCircle size={16}/>
+                            </button>
+                          )}
+                          {patient.email && (
+                            <button onClick={()=>emailSavedRxRequest(rx)}
+                              className="p-2.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors border border-blue-200" title="Enviar por email">
+                              <Mail size={16}/>
+                            </button>
+                          )}
+                          {isAdmin && <button onClick={()=>deleteRx(rx.id)} className="p-2 rounded-lg text-[#D4C4A0] hover:text-red-500 hover:bg-red-50 transition-colors border border-transparent hover:border-red-100"><Trash2 size={16}/></button>}
+                        </div>
+                      </div>
+                      {parsed.rxi_periapical && <div className="text-[11px] text-[#1A1D2E]">• Periapical Digital{parsed.rxi_piezas?` — Piezas: ${parsed.rxi_piezas}`:""}</div>}
+                      {parsed.rxi_total && <div className="text-[11px] text-[#1A1D2E]">• RX Total</div>}
+                      {parsed.rxi_bitewing && <div className="text-[11px] text-[#1A1D2E]">• Bitewing{parsed.rxi_bitewingDer?" Derecha":""}{parsed.rxi_bitewingIzq?" Izquierda":""}</div>}
+                      {parsed.rxe_panoramica && <div className="text-[11px] text-[#1A1D2E]">• Panorámica</div>}
+                      {(parsed.rxe_telerLateral||parsed.rxe_telerAntero) && <div className="text-[11px] text-[#1A1D2E]">• Telerradiografía{parsed.rxe_telerLateral?" Lateral":""}{parsed.rxe_telerAntero?" Anteroposterior":""}</div>}
+                      {parsed.rxe_manoCarpo && <div className="text-[11px] text-[#1A1D2E]">• RX Mano/Carpo</div>}
+                      {(parsed.sc_arcadaSup||parsed.sc_arcadaInf) && <div className="text-[11px] text-[#1A1D2E]">• Scanner Intraoral{parsed.sc_arcadaSup?" Sup":""}{parsed.sc_arcadaInf?" Inf":""}</div>}
+                      {(parsed.cb_maxilarSup||parsed.cb_mandibula||parsed.cb_ATM) && <div className="text-[11px] text-[#1A1D2E]">• Cone Beam{parsed.cb_maxilarSup?" Maxilar Sup":""}{parsed.cb_mandibula?" Mandíbula":""}{parsed.cb_ATM?" ATM":""}{parsed.cb_zona?` Zona: ${parsed.cb_zona}`:""}</div>}
+                      {parsed.items?.map((item: any, i: number) => (
+                        <div key={i} className="text-[11px] text-[#1A1D2E]">• {item.type}{item.zone?` — ${item.zone}`:""}</div>
+                      ))}
+                      {parsed.indication && <p className="text-[11px] text-[#9AA0B4] mt-1">Indicación: {parsed.indication}</p>}
+                      {parsed.meInteresa && <p className="text-[11px] text-[#9AA0B4] mt-1">Notas: {parsed.meInteresa}</p>}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
