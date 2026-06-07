@@ -164,7 +164,7 @@ function FinanzasInner() {
   const [saving, setSaving] = useState(false);
 
   // ---- Gastos tab ----
-  const [gastoFilterMonth, setGastoFilterMonth] = useState(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`);
+  const [gastoFilterMonth, setGastoFilterMonth] = useState("");
   const [gastoFilterCat, setGastoFilterCat] = useState("");
   const [gastoFilterPaidBy, setGastoFilterPaidBy] = useState("");
   const [gastosExpenses, setGastosExpenses] = useState<Expense[]>([]);
@@ -316,9 +316,9 @@ function FinanzasInner() {
     }
     setExpModal(false);
     setEditExpId(null);
-    // Si la fecha del gasto no coincide con el filtro activo, actualizarlo para que aparezca
+    // Si hay filtro de mes activo y no coincide, cambiarlo para que aparezca el gasto
     const expMonth = expForm.date.substring(0, 7);
-    if (expMonth !== gastoFilterMonth) setGastoFilterMonth(expMonth);
+    if (gastoFilterMonth && expMonth !== gastoFilterMonth) setGastoFilterMonth(expMonth);
     load();
     loadGastosExpenses();
     if (activeTab === "contabilidad") loadAllExpenses();
@@ -781,8 +781,16 @@ function FinanzasInner() {
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 flex-wrap">
-              <input type="month" className="input py-1.5 text-sm w-auto"
-                value={gastoFilterMonth} onChange={e => setGastoFilterMonth(e.target.value)} />
+              {/* Filtro mes opcional */}
+              <div className="flex items-center gap-1">
+                <input type="month" className="input py-1.5 text-sm w-auto"
+                  value={gastoFilterMonth} onChange={e => setGastoFilterMonth(e.target.value)} />
+                {gastoFilterMonth && (
+                  <button onClick={() => setGastoFilterMonth("")}
+                    className="text-slate-400 hover:text-slate-700 px-1.5 py-1 rounded text-xs font-bold"
+                    title="Ver todos los meses">✕</button>
+                )}
+              </div>
               <select className="select py-1.5 text-sm w-auto" value={gastoFilterCat}
                 onChange={e => setGastoFilterCat(e.target.value)}>
                 <option value="">Todas las categorías</option>
