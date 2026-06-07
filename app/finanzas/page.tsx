@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import {
   Plus, TrendingUp, TrendingDown, DollarSign, Download,
   Trash2, Wallet, BarChart3, ChevronDown, ShieldAlert,
-  CheckSquare, Square, AlertCircle,
+  CheckSquare, Square, AlertCircle, Pencil,
 } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useRole";
 import Modal from "@/components/ui/Modal";
@@ -150,6 +150,7 @@ function FinanzasInner() {
     category: "Insumos clínicos", description: "", amount: "",
     provider: "", paymentMethod: "efectivo", notes: "",
   });
+  const [editExpId, setEditExpId] = useState<string|null>(null);
   const [saving, setSaving] = useState(false);
 
   // ---- Gastos tab ----
@@ -272,13 +273,35 @@ function FinanzasInner() {
     setPayModal(false); load(); setSaving(false);
   }
 
+  function openEditExp(e: Expense) {
+    setEditExpId(e.id);
+    setExpForm({
+      date: e.date,
+      category: e.category,
+      description: e.description,
+      amount: String(e.amount),
+      provider: e.provider ?? "",
+      paymentMethod: e.paymentMethod ?? "efectivo",
+      notes: "",
+    });
+    setExpModal(true);
+  }
+
   async function saveExp() {
     setSaving(true);
-    await fetch("/api/expenses", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...expForm, amount: parseFloat(expForm.amount) }),
-    });
+    if (editExpId) {
+      await fetch("/api/expenses", {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editExpId, ...expForm, amount: parseFloat(expForm.amount) }),
+      });
+    } else {
+      await fetch("/api/expenses", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...expForm, amount: parseFloat(expForm.amount) }),
+      });
+    }
     setExpModal(false);
+    setEditExpId(null);
     load();
     loadGastosExpenses();
     setSaving(false);
@@ -456,7 +479,7 @@ function FinanzasInner() {
                 className="btn-secondary text-xs gap-1.5">
                 <Download size={14} /> Exportar
               </button>
-              <button onClick={() => setExpModal(true)} className="btn-secondary text-xs">
+              <button onClick={() => { setEditExpId(null); setExpForm({ date: now.toISOString().split("T")[0], category: "Insumos clínicos", description: "", amount: "", provider: "", paymentMethod: "efectivo", notes: "" }); setExpModal(true); }} className="btn-secondary text-xs">
                 <Plus size={14} /> Gasto
               </button>
               <button onClick={() => setPayModal(true)} className="btn-primary text-xs">
@@ -760,7 +783,7 @@ function FinanzasInner() {
                 className="btn-secondary text-xs gap-1.5">
                 <Download size={14} /> Exportar Excel
               </button>
-              <button onClick={() => setExpModal(true)} className="btn-primary text-xs">
+              <button onClick={() => { setEditExpId(null); setExpForm({ date: now.toISOString().split("T")[0], category: "Insumos clínicos", description: "", amount: "", provider: "", paymentMethod: "efectivo", notes: "" }); setExpModal(true); }} className="btn-primary text-xs">
                 <Plus size={14} /> Nuevo gasto
               </button>
             </div>
@@ -801,7 +824,10 @@ function FinanzasInner() {
                     <td className="px-5 py-3 text-right font-bold text-red-600">{fmt(e.amount)}</td>
                     {isAdmin && (
                       <td className="px-3 py-3">
-                        <button onClick={() => deleteExp(e.id)} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={14} /></button>
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => openEditExp(e)} className="text-slate-300 hover:text-blue-500 transition-colors"><Pencil size={14} /></button>
+                          <button onClick={() => deleteExp(e.id)} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={14} /></button>
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -1195,7 +1221,7 @@ function FinanzasInner() {
       </Modal>
 
       {/* Expense modal */}
-      <Modal open={expModal} onClose={() => setExpModal(false)} title="Registrar Gasto">
+      <Modal open={expModal} onClose={() => { setExpModal(false); setEditExpId(null); }} title={editExpId ? "Editar Gasto" : "Registrar Gasto"}>
         <div className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -1245,7 +1271,7 @@ function FinanzasInner() {
         <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
           <button className="btn-secondary" onClick={() => setExpModal(false)}>Cancelar</button>
           <button className="btn-primary" onClick={saveExp} disabled={saving || !expForm.description || !expForm.amount}>
-            {saving ? "Guardando..." : "Registrar Gasto"}
+            {saving ? "Guardando..." : editExpId ? "Guardar cambios" : "Registrar Gasto"}
           </button>
         </div>
       </Modal>

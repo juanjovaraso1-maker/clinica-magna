@@ -16,6 +16,12 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(expense, { status: 201 });
 }
 
+export async function PUT(req: NextRequest) {
+  const { id, ...data } = await req.json();
+  const expense = await prisma.expense.update({ where: { id }, data });
+  return NextResponse.json(expense);
+}
+
 export async function DELETE(req: NextRequest) {
   const { id } = await req.json();
   await prisma.expense.delete({ where: { id } });
