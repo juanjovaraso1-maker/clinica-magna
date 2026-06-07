@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Users, Calendar, TrendingUp, TrendingDown, Clock, ChevronRight,
@@ -107,6 +109,15 @@ const CustomTooltipWeek = ({ active, payload, label }: any) => {
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [seeding, setSeeding] = useState(false);
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const role = (session?.user as any)?.role;
+
+  useEffect(() => {
+    if (status === "authenticated" && role !== "ADMIN") {
+      router.replace("/agenda");
+    }
+  }, [status, role, router]);
 
   async function load() {
     try {

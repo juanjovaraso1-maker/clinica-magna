@@ -19,7 +19,7 @@ export default function LoginPage() {
     const res = await signIn("credentials", { username, password, redirect: false });
     setLoading(false);
     if (res?.ok) {
-      router.replace("/dashboard");
+      router.replace("/agenda");
     } else {
       setError("Usuario o contraseña incorrectos.");
     }
