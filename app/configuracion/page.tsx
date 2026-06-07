@@ -254,6 +254,7 @@ function MiCuenta({ user, sessionUserId, onReload }: { user: User | undefined; s
                     <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Prestación</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Fecha</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Cobrado</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-orange-500 uppercase tracking-wide hidden sm:table-cell">Costo Lab.</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-[#0057FF] uppercase tracking-wide">Tu ganancia</th>
                   </tr>
                 </thead>
@@ -265,14 +266,12 @@ function MiCuenta({ user, sessionUserId, onReload }: { user: User | undefined; s
                       </td>
                       <td className="px-4 py-3 text-slate-700 max-w-[200px]">
                         <span className="line-clamp-2 text-sm">{r.treatment}</span>
-                        {r.directCost > 0 && (
-                          <span className="text-[11px] text-orange-500 block">Lab: {fmt(r.directCost)}</span>
-                        )}
                       </td>
                       <td className="px-4 py-3 text-slate-400 text-xs hidden sm:table-cell whitespace-nowrap">
                         #{String(r.budgetNumber).padStart(4,"0")}<br/>{r.budgetDate}
                       </td>
                       <td className="px-4 py-3 text-right text-slate-700 font-medium">{fmt(r.itemValue)}</td>
+                      <td className="px-4 py-3 text-right text-orange-500 font-medium hidden sm:table-cell">{r.directCost > 0 ? fmt(r.directCost) : "—"}</td>
                       <td className="px-4 py-3 text-right font-bold text-[#0057FF] text-[15px]">{fmt(r.salary)}</td>
                     </tr>
                   ))}
@@ -284,6 +283,7 @@ function MiCuenta({ user, sessionUserId, onReload }: { user: User | undefined; s
                     </td>
                     <td className="px-4 py-3 hidden sm:table-cell"/>
                     <td className="px-4 py-3 text-right font-bold text-slate-900">{fmt(totalValue)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-orange-500 hidden sm:table-cell">{fmt(totalDirectCost)}</td>
                     <td className="px-4 py-3 text-right font-bold text-[#0057FF] text-[15px]">{fmt(totalSalary)}</td>
                   </tr>
                 </tfoot>
@@ -291,30 +291,6 @@ function MiCuenta({ user, sessionUserId, onReload }: { user: User | undefined; s
             </div>
           )}
 
-          {/* Info secundaria colapsada */}
-          {perfRows.length > 0 && (
-            <div className="card p-4 bg-slate-50 border-slate-100">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Desglose informativo</p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-                <div>
-                  <p className="text-xs text-slate-400">Facturado</p>
-                  <p className="text-sm font-bold text-slate-700">{fmt(totalValue)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-orange-400">Costos lab/insumos</p>
-                  <p className="text-sm font-bold text-orange-600">{fmt(totalDirectCost)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-red-400">Comisión TUU</p>
-                  <p className="text-sm font-bold text-red-500">{fmt(totalTuu)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-emerald-500">Neto clínica</p>
-                  <p className="text-sm font-bold text-emerald-700">{fmt(totalNetClinic)}</p>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>
