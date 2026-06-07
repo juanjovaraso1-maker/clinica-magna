@@ -6,6 +6,8 @@ import {
   HardDrive, Download, Upload, RefreshCw, AlertTriangle, PenLine,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
+import { useIsAdmin } from "@/hooks/useRole";
+import { useSession } from "next-auth/react";
 
 type User = { id: string; name: string; email: string; rut?: string; username?: string; role: string; specialty: string | null; active: boolean; signatureUrl?: string };
 
@@ -60,7 +62,76 @@ function initials(name: string) {
   return name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
 }
 
+function MiCuenta({ user, sessionUserId, onReload }: { user: User | undefined; sessionUserId: string | undefined; onReload: () => void }) {
+  const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwMsg, setPwMsg] = useState("");
+  const [sigPreview, setSigPreview] = useState<string | null>(user?.signatureUrl ?? null);
+  const [sigUploading, setSigUploading] = useState(false);
+  const [sigError, setSigError] = useState("");
+
+  useEffect(() => { setSigPreview(user?.signatureUrl ?? null); }, [user]);
+
+  async function changePassword() {
+    if (!pwForm.next || pwForm.next.length < 8) { setPwMsg("La contraseña debe tener mínimo 8 caracteres"); return; }
+    if (pwForm.next !== pwForm.confirm) { setPwMsg("Las contraseñas no coinciden"); return; }
+    if (!sessionUserId) return;
+    setPwSaving(true); setPwMsg("");
+    const r = await fetch(`/api/users/${sessionUserId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: pwForm.next }) });
+    if (r.ok) { setPwMsg("✅ Contraseña actualizada"); setPwForm({ current: "", next: "", confirm: "" }); }
+    else { setPwMsg("❌ Error al actualizar contraseña"); }
+    setPwSaving(false);
+  }
+
+  async function uploadSig(file: File) {
+    if (!sessionUserId) return;
+    if (!["image/png","image/jpeg","image/jpg","image/webp"].includes(file.type)) { setSigError("Solo PNG, JPG o WebP"); return; }
+    if (file.size > 2 * 1024 * 1024) { setSigError("Máximo 2MB"); return; }
+    setSigUploading(true); setSigError("");
+    const fd = new FormData(); fd.append("signature", file);
+    const r = await fetch(`/api/users/${sessionUserId}/signature`, { method: "POST", body: fd });
+    const d = await r.json();
+    if (d.ok) { const reader = new FileReader(); reader.onload = e => setSigPreview(e.target?.result as string); reader.readAsDataURL(file); }
+    else setSigError(d.error || "Error al subir");
+    setSigUploading(false);
+  }
+
+  return (
+    <div className="space-y-5 max-w-lg">
+      <div><h1 className="page-title">Mi cuenta</h1><p className="text-muted">Cambia tu contraseña y firma digital</p></div>
+      {/* Password */}
+      <div className="card p-6 space-y-4">
+        <h2 className="section-title flex items-center gap-2"><Shield size={15} className="text-blue-600" /> Cambiar contraseña</h2>
+        <div><label className="label">Nueva contraseña</label><input className="input" type="password" value={pwForm.next} onChange={e => setPwForm(f=>({...f,next:e.target.value}))} placeholder="Mínimo 8 caracteres" /></div>
+        <div><label className="label">Confirmar contraseña</label><input className="input" type="password" value={pwForm.confirm} onChange={e => setPwForm(f=>({...f,confirm:e.target.value}))} /></div>
+        {pwMsg && <p className={`text-sm ${pwMsg.startsWith("✅") ? "text-emerald-600" : "text-red-600"}`}>{pwMsg}</p>}
+        <button className="btn-primary" onClick={changePassword} disabled={pwSaving || !pwForm.next || !pwForm.confirm}>
+          {pwSaving ? "Guardando..." : "Actualizar contraseña"}
+        </button>
+      </div>
+      {/* Firma */}
+      <div className="card p-6 space-y-4">
+        <h2 className="section-title flex items-center gap-2"><PenLine size={15} className="text-blue-600" /> Mi firma digital</h2>
+        <p className="text-xs text-slate-400">Se mostrará en recetas, presupuestos y documentos clínicos.</p>
+        <div className="w-full h-[110px] border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 flex items-center justify-center overflow-hidden">
+          {sigPreview ? <img src={sigPreview} alt="Firma" className="max-h-[100px] max-w-full object-contain p-2"/>
+            : <div className="text-center"><PenLine size={24} className="mx-auto mb-1.5 text-slate-300"/><p className="text-xs text-slate-400">Sin firma cargada</p></div>}
+        </div>
+        {sigError && <p className="text-sm text-red-500">{sigError}</p>}
+        <label className={`flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border-2 border-blue-200 bg-blue-50 text-blue-700 font-semibold text-sm cursor-pointer hover:bg-blue-600 hover:text-white transition-all ${sigUploading ? "opacity-50 pointer-events-none" : ""}`}>
+          <Upload size={15}/>{sigUploading ? "Subiendo..." : sigPreview ? "Reemplazar firma" : "Subir firma"}
+          <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) uploadSig(f); e.target.value = ""; }}/>
+        </label>
+        <p className="text-xs text-slate-400 text-center">PNG, JPG o WebP · Máx. 2MB · Fondo transparente recomendado</p>
+      </div>
+    </div>
+  );
+}
+
 export default function Configuracion() {
+  const isAdmin = useIsAdmin();
+  const { data: session } = useSession();
+  const sessionUserId = (session?.user as any)?.id as string | undefined;
   const [tab, setTab] = useState("general");
   const [users, setUsers] = useState<User[]>([]);
   const [cfg, setCfg] = useState<Record<string, string>>({});
@@ -68,7 +139,6 @@ export default function Configuracion() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [tuuConfig, setTuuConfig] = useState({ percentage: "0.79", fixedCharge: "65", iva: "19", enabled: true });
-  const isAdmin = true; // configuracion page is only accessible to admins
   const [userModal, setUserModal] = useState(false);
   const [backups, setBackups] = useState<BackupMeta[]>([]);
   const [backupLoading, setBackupLoading] = useState(false);
@@ -276,6 +346,13 @@ export default function Configuracion() {
 
   const set = (k: string, v: string) => setCfg(c => ({ ...c, [k]: v }));
   const activeUsers = users.filter(u => u.active);
+
+  // Vista restringida para no-admins: solo contraseña y firma
+  if (isAdmin === false) {
+    const me = users.find(u => u.id === sessionUserId);
+    return <MiCuenta user={me} sessionUserId={sessionUserId} onReload={loadUsers} />;
+  }
+  if (isAdmin === undefined) return null;
 
   return (
     <div className="space-y-5 max-w-4xl">

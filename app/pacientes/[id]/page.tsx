@@ -362,8 +362,12 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     load();
   }
 
-  function openBudgetCreate() {
+  const [nextBudgetNum, setNextBudgetNum] = useState<number|null>(null);
+
+  async function openBudgetCreate() {
     setBudgetEditorEditId(null);
+    const r = await fetch("/api/budgets?nextNumber=true");
+    if (r.ok) { const d = await r.json(); setNextBudgetNum(d.nextNumber); }
     setBudgetEditorOpen(true);
     setTab(6);
   }
@@ -1964,7 +1968,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
               initValidUntil={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.validUntil ?? undefined : undefined}
               initStatus={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.status : "pending"}
               initDiscount={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.discount : 0}
-              initNotes={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.notes ?? "" : ""}
+              initNotes={budgetEditorEditId ? (patient.budgets.find(b=>b.id===budgetEditorEditId)?.notes ?? "") : (nextBudgetNum ? `Presupuesto #${String(nextBudgetNum).padStart(4,"0")}` : "")}
               initLines={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.items.map((i,idx)=>({_key:String(idx),toothNum:undefined,surfaces:[],description:i.description,quantity:i.quantity,unitPrice:i.unitPrice,discount:i.discount??0,discountAmt:(i as any).discountAmt??0,total:i.total,status:(i as any).status||"pending"})) : []}
               users={users}
               treatments={treatments}
@@ -2379,20 +2383,20 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                       </td>
                       <td className="px-4 py-3"><span className="text-[11px] font-semibold bg-[#F0F2F7] text-[#5A6072] px-[8px] py-[3px] rounded-full">{p.method}</span></td>
                       <td className="px-4 py-3 text-[12px] text-[#9AA0B4]">{p.notes||"—"}</td>
-                      {isAdmin && (
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1.5">
-                            <button onClick={()=>openPayEdit(p)}
-                              className="p-2 rounded-lg text-[#9AA0B4] hover:text-[#0057FF] hover:bg-[#EEF3FF] transition-colors border border-transparent hover:border-[#0057FF]/20">
-                              <Pencil size={14}/>
-                            </button>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5">
+                          <button onClick={()=>openPayEdit(p)}
+                            className="p-2 rounded-lg text-[#9AA0B4] hover:text-[#0057FF] hover:bg-[#EEF3FF] transition-colors border border-transparent hover:border-[#0057FF]/20">
+                            <Pencil size={14}/>
+                          </button>
+                          {isAdmin && (
                             <button onClick={()=>deletePayment(p.id)}
                               className="p-2 rounded-lg text-[#9AA0B4] hover:text-red-500 hover:bg-red-50 transition-colors border border-transparent hover:border-red-100">
                               <Trash2 size={14}/>
                             </button>
-                          </div>
-                        </td>
-                      )}
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   );})}
 

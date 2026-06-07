@@ -35,6 +35,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const { searchParams } = new URL(req.url);
   if (searchParams.get("hard") === "true") {
+    await prisma.prescriptionRecord.deleteMany({ where: { patientId: params.id } });
+    await prisma.reminder.deleteMany({ where: { patientId: params.id } });
     await prisma.payment.deleteMany({ where: { patientId: params.id } });
     await prisma.evolution.deleteMany({ where: { patientId: params.id } });
     await prisma.budget.deleteMany({ where: { patientId: params.id } });

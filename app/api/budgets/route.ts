@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
+  if (req.nextUrl.searchParams.get("nextNumber") === "true") {
+    const last = await prisma.budget.findFirst({ orderBy: { number: "desc" }, select: { number: true } });
+    return NextResponse.json({ nextNumber: (last?.number ?? 0) + 1 });
+  }
   const status = req.nextUrl.searchParams.get("status");
   const budgets = await prisma.budget.findMany({
     where: status ? { status } : {},

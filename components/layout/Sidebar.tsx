@@ -6,13 +6,13 @@ import { useSession, signOut } from "next-auth/react";
 import { LogOut, Menu, X, Upload, Trash2, PenLine } from "lucide-react";
 
 const NAV_ITEMS = [
-  { href: "/agenda",         label: "Agenda" },
-  { href: "/pacientes",      label: "Pacientes" },
-  { href: "/finanzas",       label: "Finanzas" },
-  { href: "/prestaciones",   label: "Prestaciones" },
-  { href: "/reportes",       label: "Reportes" },
-  { href: "/administracion", label: "Administración" },
-  { href: "/configuracion",  label: "Configuración" },
+  { href: "/agenda",         label: "Agenda",         adminOnly: false },
+  { href: "/pacientes",      label: "Pacientes",      adminOnly: false },
+  { href: "/finanzas",       label: "Finanzas",       adminOnly: true  },
+  { href: "/prestaciones",   label: "Prestaciones",   adminOnly: false },
+  { href: "/reportes",       label: "Reportes",       adminOnly: true  },
+  { href: "/administracion", label: "Administración", adminOnly: true  },
+  { href: "/configuracion",  label: "Configuración",  adminOnly: false },
 ];
 
 export default function Sidebar() {
@@ -93,7 +93,7 @@ export default function Sidebar() {
 
         {/* Links de navegación — desktop */}
         <nav className="hidden md:flex items-center gap-0.5 flex-1 overflow-x-auto">
-          {NAV_ITEMS.map(({ href, label }) => (
+          {NAV_ITEMS.filter(item => !item.adminOnly || role === "ADMIN").map(({ href, label }) => (
             <Link key={href} href={href}
               className={`px-3 py-1.5 rounded-lg text-[13px] font-medium whitespace-nowrap transition-all flex-shrink-0 ${
                 isActive(href)
@@ -140,7 +140,7 @@ export default function Sidebar() {
               </button>
             </div>
             <nav className="grid grid-cols-2 gap-1.5">
-              {NAV_ITEMS.map(({ href, label }) => (
+              {NAV_ITEMS.filter(item => !item.adminOnly || role === "ADMIN").map(({ href, label }) => (
                 <Link key={href} href={href} onClick={() => setMobile(false)}
                   className={`px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all text-center ${
                     isActive(href)
