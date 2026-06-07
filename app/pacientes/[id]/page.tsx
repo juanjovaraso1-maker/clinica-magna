@@ -225,7 +225,7 @@ const ITEM_STATUS: Record<string,{label:string;color:string}> = {
 
 const METHOD_ICON: Record<string,string> = { efectivo:"💵", transferencia:"🏦", debito:"💳", credito:"💳", cheque:"📄" };
 
-const initPayForm = () => ({ date: new Date().toISOString().split("T")[0], budgetId:"", notes:"" });
+const initPayForm = () => ({ date: new Date().toISOString().split("T")[0], budgetId:"", budgetItemId:"", notes:"" });
 const initPayItems = () => [{ method:"efectivo", amount:"", installments: 1, isTuuInstallment: false }];
 
 export default function PatientDetail() {
@@ -975,7 +975,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
       return fetch("/api/payments", { method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({ patientId:id, date:payForm.date, amount:parseFloat(p.amount),
           method:p.method, budgetId:payForm.budgetId||null, notes:payForm.notes||null,
-          reference: payEvolutionId || null,
+          reference: payEvolutionId || (payForm.budgetItemId ? `item:${payForm.budgetItemId}` : null),
           installments: p.method.toLowerCase() === "credito" ? (p.installments || 1) : 1,
           isTuuInstallment: p.isTuuInstallment,
           tuuCommission: tuuComm > 0 ? tuuComm : undefined,
@@ -984,6 +984,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     }));
     setPayModal(false); setPayForm(initPayForm()); setPayItems(initPayItems());
     setPayEvolutionId(""); load(); setPaySaving(false);
+
   }
 
   function buildCuidadosDocBody(): string {
@@ -2041,11 +2042,14 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                   </div>
                   {patient.budgets.filter(b=>b.status==="approved"||b.status==="pending").map(b=>{
                     const bPaid = b.payments.reduce((s,p)=>s+p.amount,0);
-                    const bBalance = b.total - bPaid;
-                    const prog = b.total > 0 ? Math.min(100,Math.round((bPaid/b.total)*100)) : 0;
+                    const activatedValue = b.items.filter(i=>(i as any).status && (i as any).status !== "pending").reduce((s,i)=>s+i.total,0);
+                    const completedValue  = b.items.filter(i=>(i as any).status === "completed").reduce((s,i)=>s+i.total,0);
+                    const effectiveDebt  = activatedValue > 0 ? activatedValue : b.total;
+                    const bBalance = effectiveDebt - bPaid;
+                    const prog = b.total > 0 ? Math.min(100,Math.round((completedValue/b.total)*100)) : 0;
                     const lastAppt = patient.appointments.find(a=>a.date >= b.date);
-                    const financialStatus = bBalance <= 0 ? "Al día" : bBalance < b.total ? "Abono parcial" : "Sin abono";
-                    const fColor = bBalance <= 0 ? "text-emerald-600" : bBalance < b.total ? "text-amber-600" : "text-[#9AA0B4]";
+                    const financialStatus = bBalance <= 0 ? "Al día" : bBalance < effectiveDebt ? "Abono parcial" : "Sin abono";
+                    const fColor = bBalance <= 0 ? "text-emerald-600" : bBalance < effectiveDebt ? "text-amber-600" : "text-[#9AA0B4]";
                     return (
                       <div key={b.id} className="bg-white border border-[#E3E8F0] rounded-2xl p-4 mb-3 shadow-sm hover:shadow-md transition-shadow">
                         {/* Header */}
@@ -2092,7 +2096,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                           <div>
                             <p className="text-[9px] font-bold text-[#9AA0B4] uppercase tracking-wide mb-0.5">Estado financiero</p>
                             <p className={`text-[12px] font-bold ${fColor}`}>{financialStatus}</p>
-                            <p className="text-[10px] text-[#9AA0B4]">{fmt(bBalance)} saldo</p>
+                            <p className="text-[10px] text-[#9AA0B4]">{fmt(Math.max(0,bBalance))} saldo</p>
                           </div>
                         </div>
 
@@ -3011,7 +3015,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
             <div><label className="label">Fecha</label><input className="input" type="date" value={payForm.date} onChange={e=>setPayForm(f=>({...f,date:e.target.value}))}/></div>
             <div>
               <label className="label">Presupuesto asociado</label>
-              <select className="select" value={payForm.budgetId} onChange={e=>{setPayForm(f=>({...f,budgetId:e.target.value}));if(e.target.value)setPayEvolutionId("");}}>
+              <select className="select" value={payForm.budgetId} onChange={e=>{setPayForm(f=>({...f,budgetId:e.target.value,budgetItemId:""}));if(e.target.value)setPayEvolutionId("");}}>
                 <option value="">Sin presupuesto</option>
                 {patient.budgets.filter(b=>b.status!=="rejected").map(b=>(
                   <option key={b.id} value={b.id}>#{b.number} — {fmt(b.total)}</option>
@@ -3019,6 +3023,26 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
               </select>
             </div>
           </div>
+
+          {/* Optional item association — shown when a budget is selected */}
+          {payForm.budgetId && (() => {
+            const selBudget = patient.budgets.find(b => b.id === payForm.budgetId);
+            if (!selBudget || !selBudget.items.length) return null;
+            return (
+              <div>
+                <label className="label">Prestación asociada <span className="text-slate-400 font-normal normal-case">(opcional)</span></label>
+                <select className="select" value={payForm.budgetItemId}
+                  onChange={e=>setPayForm(f=>({...f,budgetItemId:e.target.value}))}>
+                  <option value="">Sin prestación específica</option>
+                  {selBudget.items.map(item=>(
+                    <option key={item.id} value={item.id}>
+                      {item.description}{(item as any).tooth ? ` (D.${(item as any).tooth})` : ""} — {fmt(item.total)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            );
+          })()}
 
           {/* Evolution auto-link — shown when no budget selected */}
           {!payForm.budgetId && patient.evolutions.length > 0 && (
