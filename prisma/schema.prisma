@@ -27,6 +27,7 @@ model User {
   evolutions    Evolution[]
   budgets       Budget[]
   prescriptions PrescriptionRecord[]
+  payments      Payment[]
 }
 
 model Patient {
@@ -202,10 +203,12 @@ model Payment {
   installmentNumber  Int?
   installmentGroupId String?
   installmentStatus  String?
+  userId             String?
   createdAt          DateTime @default(now())
 
   patient Patient @relation(fields: [patientId], references: [id])
   budget  Budget? @relation(fields: [budgetId], references: [id])
+  user    User?   @relation(fields: [userId], references: [id])
 }
 
 model Expense {

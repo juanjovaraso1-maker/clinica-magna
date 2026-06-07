@@ -225,7 +225,7 @@ const ITEM_STATUS: Record<string,{label:string;color:string}> = {
 
 const METHOD_ICON: Record<string,string> = { efectivo:"💵", transferencia:"🏦", debito:"💳", credito:"💳", cheque:"📄" };
 
-const initPayForm = () => ({ date: new Date().toISOString().split("T")[0], budgetId:"", budgetItemId:"", notes:"" });
+const initPayForm = () => ({ date: new Date().toISOString().split("T")[0], budgetId:"", budgetItemId:"", notes:"", userId:"" });
 const initPayItems = () => [{ method:"efectivo", amount:"", installments: 1, isTuuInstallment: false }];
 
 export default function PatientDetail() {
@@ -977,6 +977,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
       return fetch("/api/payments", { method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({ patientId:id, date:payForm.date, amount:parseFloat(p.amount),
           method:p.method, budgetId:payForm.budgetId||null, notes:payForm.notes||null,
+          userId: payForm.userId || null,
           reference: payEvolutionId || (payForm.budgetItemId ? `item:${payForm.budgetItemId}` : null),
           installments: p.method.toLowerCase() === "credito" ? (p.installments || 1) : 1,
           isTuuInstallment: p.isTuuInstallment,
@@ -3016,14 +3017,28 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div><label className="label">Fecha</label><input className="input" type="date" value={payForm.date} onChange={e=>setPayForm(f=>({...f,date:e.target.value}))}/></div>
             <div>
-              <label className="label">Presupuesto asociado</label>
-              <select className="select" value={payForm.budgetId} onChange={e=>{setPayForm(f=>({...f,budgetId:e.target.value,budgetItemId:""}));if(e.target.value)setPayEvolutionId("");}}>
-                <option value="">Sin presupuesto</option>
-                {patient.budgets.filter(b=>b.status!=="rejected").map(b=>(
-                  <option key={b.id} value={b.id}>#{b.number} — {fmt(b.total)}</option>
+              <label className="label">Doctor responsable</label>
+              <select className="select" value={payForm.userId} onChange={e=>setPayForm(f=>({...f,userId:e.target.value}))}>
+                <option value="">Sin doctor asignado</option>
+                {users.filter(u=>(u as any).active!==false).map(u=>(
+                  <option key={u.id} value={u.id}>{u.name}</option>
                 ))}
               </select>
             </div>
+          </div>
+          <div>
+            <label className="label">Presupuesto asociado</label>
+            <select className="select" value={payForm.budgetId} onChange={e=>{
+              const bId = e.target.value;
+              const b = patient.budgets.find(x=>x.id===bId);
+              setPayForm(f=>({...f,budgetId:bId,budgetItemId:"",userId:b?.user?.id||f.userId}));
+              if(bId) setPayEvolutionId("");
+            }}>
+              <option value="">Sin presupuesto</option>
+              {patient.budgets.filter(b=>b.status!=="rejected").map(b=>(
+                <option key={b.id} value={b.id}>#{b.number} — {b.user.name} — {fmt(b.total)}</option>
+              ))}
+            </select>
           </div>
 
           {/* Optional item association — shown when a budget is selected */}
