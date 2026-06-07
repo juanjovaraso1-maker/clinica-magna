@@ -86,6 +86,9 @@ export default function Agenda() {
   const [blockForm, setBlockForm] = useState({ date: todayStr(), startTime: "09:00", endTime: "10:00", reason: "" });
   const [blockSaving, setBlockSaving] = useState(false);
 
+  // Finance tasks for alerts
+  const [pendingTasks, setPendingTasks] = useState<Array<{ id: string; description: string; dueDate?: string; priority: string }>>([]);
+
   // New state for expandable cards and mini calendar
   const [expandedId, setExpandedId] = useState<string|null>(null);
   const [patientCache, setPatientCache] = useState<Record<string,any>>({});
@@ -109,6 +112,18 @@ export default function Agenda() {
     if (r.ok)  setAppointments(await r.json());
     if (br.ok) setBlockedSlots(await br.json());
   }, [currentDate, view, ws]);
+
+  useEffect(() => {
+    fetch("/api/finance-tasks").then(r => r.ok ? r.json() : []).then((tasks: any[]) => {
+      const now = new Date();
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+      setPendingTasks(tasks.filter((t: any) => {
+        if (t.completed) return false;
+        if (!t.dueDate) return true; // sin fecha = siempre visible
+        return t.dueDate.startsWith(currentMonth) || t.dueDate <= todayStr();
+      }));
+    });
+  }, []);
 
   useEffect(() => {
     load();
@@ -733,8 +748,24 @@ export default function Agenda() {
                   <span className="text-[15px] font-bold text-orange-700">{urgencyCount}</span>
                 </div>
               )}
-              {(pendingCount + noShowCount + urgencyCount) === 0 && todayAppts.length > 0 && (
+              {(pendingCount + noShowCount + urgencyCount) === 0 && todayAppts.length > 0 && pendingTasks.length === 0 && (
                 <p className="text-[11px] text-[#9AA0B4] text-center py-1">Sin alertas activas</p>
+              )}
+              {pendingTasks.length > 0 && (
+                <div className="mt-1 pt-2 border-t border-slate-100">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Tareas pendientes</p>
+                  <div className="space-y-1.5">
+                    {pendingTasks.slice(0, 4).map(t => (
+                      <div key={t.id} className={`rounded-[8px] px-2.5 py-2 ${t.priority === "alta" ? "bg-red-50 border border-red-100" : t.priority === "media" ? "bg-amber-50 border border-amber-100" : "bg-slate-50 border border-slate-100"}`}>
+                        <p className={`text-[11px] font-medium leading-tight ${t.priority === "alta" ? "text-red-700" : t.priority === "media" ? "text-amber-700" : "text-slate-600"}`}>{t.description}</p>
+                        {t.dueDate && <p className="text-[10px] text-slate-400 mt-0.5">Vence: {t.dueDate}</p>}
+                      </div>
+                    ))}
+                    {pendingTasks.length > 4 && (
+                      <p className="text-[10px] text-slate-400 text-center">+{pendingTasks.length - 4} más en Finanzas → Tareas</p>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           </div>
