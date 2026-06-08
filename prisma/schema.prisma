@@ -170,19 +170,21 @@ model Budget {
 }
 
 model BudgetItem {
-  id          String  @id @default(cuid())
-  budgetId    String
-  description String
-  tooth       String?
-  area        String?
-  quantity    Int     @default(1)
-  unitPrice   Float
-  discount    Float   @default(0)
-  discountAmt Float   @default(0)
-  total       Float
-  status      String  @default("pending")
-  sessions    Int     @default(1)
-  directCost  Float   @default(0)
+  id                String  @id @default(cuid())
+  budgetId          String
+  description       String
+  tooth             String?
+  area              String?
+  quantity          Int     @default(1)
+  unitPrice         Float
+  discount          Float   @default(0)
+  discountAmt       Float   @default(0)
+  total             Float
+  status            String  @default("pending")
+  sessions          Int     @default(1)
+  directCost        Float   @default(0)
+  completedByUserId String?
+  completedAt       String?
 
   budget Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
 }
@@ -191,6 +193,7 @@ model Payment {
   id                 String   @id @default(cuid())
   patientId          String
   budgetId           String?
+  budgetItemId       String?
   date               String
   amount             Float
   method             String
@@ -200,6 +203,7 @@ model Payment {
   tuuCommission      Float?
   netAmount          Float?
   isTuuInstallment   Boolean  @default(false)
+  isAutoAssignment   Boolean  @default(false)
   installments       Int?
   installmentNumber  Int?
   installmentGroupId String?

@@ -80,7 +80,7 @@ async function generatePdfBase64(bodyHtml: string): Promise<string> {
   return (pdf.output("datauristring") as string).split(",")[1];
 }
 
-interface BudgetItem { id:string; description:string; tooth:string; area:string; quantity:number; unitPrice:number; discount:number; total:number; status:string; sessions:number }
+interface BudgetItem { id:string; description:string; tooth:string; area:string; quantity:number; unitPrice:number; discount:number; total:number; status:string; sessions:number; completedAt?:string; completedByUserId?:string }
 interface Patient {
   id: string; rut: string; firstName: string; lastName: string;
   email: string; phone: string; gender: string; address: string; city: string;
@@ -88,7 +88,7 @@ interface Patient {
   clinicalRecord?: { bloodType:string; allergies:string; currentMedications:string; medicalBackground:string; dentalBackground:string; habits:string; observations:string };
   evolutions: Array<{ id:string; date:string; diagnosis:string; treatment:string; tooth:string; observations:string; cost:number; user:{id:string;name:string} }>;
   budgets: Array<{ id:string; number:number; date:string; validUntil:string; status:string; subtotal:number; total:number; discount:number; notes:string; items:BudgetItem[]; payments:Array<{id:string;amount:number;date:string;method:string;notes:string}>; user:{id:string;name:string} }>;
-  payments: Array<{ id:string; date:string; amount:number; method:string; notes:string; reference?:string; budget?:{number:number}; installmentNumber?:number; installments?:number; installmentStatus?:string; isTuuInstallment?:boolean; tuuCommission?:number; netAmount?:number }>;
+  payments: Array<{ id:string; date:string; amount:number; method:string; notes:string; reference?:string; budget?:{number:number}; installmentNumber?:number; installments?:number; installmentStatus?:string; isTuuInstallment?:boolean; tuuCommission?:number; netAmount?:number; isAutoAssignment?:boolean; budgetItemId?:string }>;
   appointments: Array<{ id:string; date:string; startTime:string; type:string; status:string; user:{name:string} }>;
   documents: Array<{ id:string; name:string; type:string; fileName:string; mimeType:string; size:number; createdAt:string }>;
 }
@@ -226,7 +226,7 @@ const ITEM_STATUS: Record<string,{label:string;color:string}> = {
 
 const METHOD_ICON: Record<string,string> = { efectivo:"💵", transferencia:"🏦", debito:"💳", credito:"💳", cheque:"📄" };
 
-const initPayForm = () => ({ date: new Date().toISOString().split("T")[0], budgetId:"", budgetItemId:"", notes:"", userId:"" });
+const initPayForm = () => ({ date: new Date().toISOString().split("T")[0], notes:"" });
 const initPayItems = () => [{ method:"efectivo", amount:"", installments: 1, isTuuInstallment: false }];
 
 export default function PatientDetail() {
@@ -241,7 +241,6 @@ export default function PatientDetail() {
   const [users, setUsers] = useState<Array<{id:string;name:string;rut?:string;signatureUrl?:string}>>([]);
   const [evoModal, setEvoModal] = useState(false);
   const [evoForm, setEvoForm] = useState({ date:new Date().toISOString().split("T")[0], diagnosis:"", observations:"", userId:"", treatment:"", isPrivate:false });
-  const [evoBudgetSelections, setEvoBudgetSelections] = useState<Record<string,{selected:boolean;newStatus:string}>>({});
   const [evoReminder, setEvoReminder] = useState(0);
   const [rxDocModal, setRxDocModal] = useState(false);
   const [rxDocUserId, setRxDocUserId] = useState("");
@@ -272,7 +271,6 @@ export default function PatientDetail() {
   const [payModal, setPayModal] = useState(false);
   const [payForm, setPayForm] = useState(initPayForm());
   const [payItems, setPayItems] = useState(initPayItems());
-  const [payEvolutionId, setPayEvolutionId] = useState("");
   const [paySaving, setPaySaving] = useState(false);
   const [fichaEdit, setFichaEdit] = useState(false);
   const [fichaForm, setFichaForm] = useState({ bloodType:"", allergies:"", currentMedications:"", medicalBackground:"", dentalBackground:"", habits:"", observations:"" });
@@ -570,6 +568,16 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     return CARE_TEMPLATES;
   })();
 
+  const activeEvoTemplates: Record<string, string> = (() => {
+    try {
+      if (clinicCfg.evo_templates) {
+        const arr = JSON.parse(clinicCfg.evo_templates) as Array<{name:string;text:string}>;
+        if (arr.length > 0) return Object.fromEntries(arr.map(t => [t.name, t.text]));
+      }
+    } catch { /* ignore parse errors */ }
+    return {};
+  })();
+
   useEffect(() => { load(); }, [id]);
 
   useEffect(() => {
@@ -584,13 +592,6 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
 
   function openEvoModal() {
     if (!patient) return;
-    const selections: Record<string,{selected:boolean;newStatus:string}> = {};
-    patient.budgets.filter(b => b.status !== "rejected").forEach(b => {
-      (b.items ?? []).filter(i => i.status !== "completed").forEach(item => {
-        selections[item.id] = { selected:false, newStatus: item.status || "in_progress" };
-      });
-    });
-    setEvoBudgetSelections(selections);
     setEvoForm({ date:new Date().toISOString().split("T")[0], diagnosis:"", observations:"", userId:sessionUserId, treatment:"", isPrivate:false });
     setEvoReminder(0);
     setEvoModal(true);
@@ -599,32 +600,13 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
   async function saveEvo() {
     if (!evoForm.userId) return;
     setSaving(true);
-    const selectedEntries = Object.entries(evoBudgetSelections).filter(([,v]) => v.selected);
-    const allItems = patient!.budgets.flatMap(b => b.items);
-
-    if (selectedEntries.length > 0) {
-      await Promise.all(selectedEntries.map(([itemId]) => {
-        const item = allItems.find(i => i.id === itemId);
-        if (!item) return Promise.resolve();
-        return fetch("/api/evolutions", { method:"POST", headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({ patientId:id, date:evoForm.date, diagnosis:evoForm.diagnosis,
-            treatment:item.description, tooth:item.tooth||"", observations:evoForm.observations,
-            cost:item.total, userId:evoForm.userId }) });
-      }));
-      await Promise.all(selectedEntries.map(([itemId, sel]) =>
-        fetch(`/api/budget-items/${itemId}`, { method:"PUT", headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({ status: sel.newStatus }) })
-      ));
-    } else {
-      const treatmentText = evoForm.treatment.trim() || evoForm.diagnosis.trim() || "Consulta";
-      await fetch("/api/evolutions", { method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ patientId:id, date:evoForm.date, diagnosis:evoForm.diagnosis,
-          treatment:treatmentText, tooth:"", observations:evoForm.observations,
-          cost:0, userId:evoForm.userId }) });
-    }
+    const treatmentText = evoForm.treatment.trim() || evoForm.diagnosis.trim() || "Consulta";
+    await fetch("/api/evolutions", { method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ patientId:id, date:evoForm.date, diagnosis:evoForm.diagnosis,
+        treatment:treatmentText, tooth:"", observations:evoForm.observations,
+        cost:0, userId:evoForm.userId }) });
 
     setEvoModal(false);
-    setEvoBudgetSelections({});
     setEvoForm({ date:new Date().toISOString().split("T")[0], diagnosis:"", observations:"", userId:sessionUserId, treatment:"", isPrivate:false });
     if (evoReminder > 0) {
       fetch("/api/reminders", { method:"POST", headers:{"Content-Type":"application/json"},
@@ -650,7 +632,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     if (!evoEditId) return;
     setEvoEditSaving(true);
     await fetch("/api/evolutions", { method:"PUT", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({ id:evoEditId, date:evoEditForm.date, diagnosis:evoEditForm.diagnosis, treatment:evoEditForm.treatment, tooth:evoEditForm.tooth, observations:evoEditForm.observations, cost:parseFloat(evoEditForm.cost)||0, userId:evoEditForm.userId }) });
+      body:JSON.stringify({ id:evoEditId, date:evoEditForm.date, diagnosis:evoEditForm.diagnosis, treatment:evoEditForm.treatment, tooth:evoEditForm.tooth, observations:evoEditForm.observations, cost:0, userId:evoEditForm.userId }) });
     setEvoEditModal(false); setEvoEditId(null); setEvoEditSaving(false);
     load(); showToast("✅ Evolución actualizada");
   }
@@ -978,9 +960,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
       const netAmt = parseFloat(p.amount) - tuuComm;
       return fetch("/api/payments", { method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({ patientId:id, date:payForm.date, amount:parseFloat(p.amount),
-          method:p.method, budgetId:payForm.budgetId||null, notes:payForm.notes||null,
-          userId: payForm.userId || null,
-          reference: payEvolutionId || (payForm.budgetItemId ? `item:${payForm.budgetItemId}` : null),
+          method:p.method, notes:payForm.notes||null,
           installments: p.method.toLowerCase() === "credito" ? (p.installments || 1) : 1,
           isTuuInstallment: p.isTuuInstallment,
           tuuCommission: tuuComm > 0 ? tuuComm : undefined,
@@ -988,8 +968,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         }) });
     }));
     setPayModal(false); setPayForm(initPayForm()); setPayItems(initPayItems());
-    setPayEvolutionId(""); load(); setPaySaving(false);
-
+    load(); setPaySaving(false);
   }
 
   function buildCuidadosDocBody(): string {
@@ -1177,8 +1156,27 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     load(); showToast("✅ Ficha clínica eliminada");
   }
 
-  async function updateItemStatus(itemId: string, status: string) {
-    await fetch(`/api/budget-items/${itemId}`, { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ status }) });
+  async function updateItemStatus(item: BudgetItem, newStatus: string) {
+    // Block finalization if patient would go into debt
+    if (newStatus === "completed" && item.status !== "completed" && patient) {
+      const realPaid = patient.payments.filter(p => !p.isAutoAssignment).reduce((s,p) => s + p.amount, 0);
+      const completedTotal = patient.budgets.flatMap(b => b.items.filter(i => i.status === "completed")).reduce((s,i) => s + i.total, 0);
+      const wouldDebt = (completedTotal + item.total) - realPaid;
+      if (wouldDebt > 0) {
+        showToast(`❌ Saldo insuficiente: el paciente quedaría con deuda de ${fmt(wouldDebt)}`);
+        return;
+      }
+    }
+    const res = await fetch(`/api/budget-items/${item.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: newStatus, completedByUserId: sessionUserId || null }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      showToast(`❌ ${err.error ?? "Error al actualizar prestación"}`);
+      return;
+    }
     load();
   }
 
@@ -1419,18 +1417,19 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
   );
 
   const age = patient.birthDate ? Math.floor((Date.now()-new Date(patient.birthDate.split("T")[0]+"T12:00:00").getTime())/(1000*60*60*24*365.25)) : null;
-  const paidTotal = patient.payments.reduce((s,p)=>s+p.amount,0);
+  const realPayments = patient.payments.filter(p => !p.isAutoAssignment);
+  const autoPayments = patient.payments.filter(p => p.isAutoAssignment);
+  const paidTotal = realPayments.reduce((s,p)=>s+p.amount,0);
+  const completedItemsTotal = patient.budgets.flatMap(b=>b.items.filter(i=>i.status==="completed")).reduce((s,i)=>s+i.total,0);
+  const patientCredit = Math.max(0, paidTotal - completedItemsTotal);
+  const patientDebt = Math.max(0, completedItemsTotal - paidTotal);
   const budgetTotal = patient.budgets.filter(b=>b.status!=="rejected").reduce((s,b)=>s+b.total,0);
   const activeItemsTotal = patient.budgets.filter(b=>b.status!=="rejected").reduce((s,b)=>s+b.items.filter(i=>i.status!=="pending").reduce((is,i)=>is+i.total,0),0);
-  const saldo = activeItemsTotal - paidTotal;
   const docIcons: Record<string,string> = { radiografia:"🦷", examen:"🧪", consentimiento:"📄", foto:"📷", other:"📎" };
-  const allActiveBudgetItems = patient.budgets
-    .filter(b => b.status !== "rejected")
-    .flatMap(b => b.items.filter(i => i.status !== "completed").map(i => ({ ...i, budgetNumber: b.number, budgetId: b.id })));
-  const hasAlerts = patient.clinicalRecord?.allergies || patient.clinicalRecord?.currentMedications;
+const hasAlerts = patient.clinicalRecord?.allergies || patient.clinicalRecord?.currentMedications;
 
   // Build unified timeline
-  type TimelineItem = { date: string; time?: string; kind: "cita"|"evolucion"|"pago"|"presupuesto"; label: string; sub: string; badge?: string; amount?: number; color: string; icon: React.ReactNode };
+  type TimelineItem = { date: string; time?: string; kind: "cita"|"evolucion"|"pago"|"presupuesto"|"prestación"; label: string; sub: string; badge?: string; amount?: number; color: string; icon: React.ReactNode };
   const timeline: TimelineItem[] = [
     ...patient.appointments.map(a => ({
       date: a.date, time: a.startTime, kind:"cita" as const,
@@ -1441,10 +1440,10 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     ...patient.evolutions.map(e => ({
       date: e.date, kind:"evolucion" as const,
       label: e.treatment, sub: `${e.user.name}${e.tooth ? ` · D.${e.tooth}` : ""}`,
-      amount: e.cost, color:"bg-violet-100 text-violet-700",
+      amount: undefined, color:"bg-violet-100 text-violet-700",
       icon: <Activity size={14}/>,
     })),
-    ...patient.payments.map(p => ({
+    ...patient.payments.filter(p => !p.isAutoAssignment).map(p => ({
       date: p.date, kind:"pago" as const,
       label: `Pago — ${p.method}`, sub: p.notes || (p.budget ? `Presup. #${p.budget.number}` : "Sin presupuesto"),
       amount: p.amount, color:"bg-emerald-100 text-emerald-700",
@@ -1456,6 +1455,20 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
       badge: b.status, amount: b.total, color:"bg-amber-100 text-amber-700",
       icon: <FileText size={14}/>,
     })),
+    // Finalized treatment events — only items with completedAt (set since this feature was added)
+    ...patient.budgets.flatMap(b =>
+      b.items
+        .filter(i => i.completedAt && i.status === "completed")
+        .map(i => ({
+          date: i.completedAt!,
+          kind: "prestación" as const,
+          label: i.description,
+          sub: `Presup. #${b.number} · ${users.find(u => u.id === i.completedByUserId)?.name ?? ""}`,
+          amount: i.total,
+          color: "bg-teal-100 text-teal-700",
+          icon: <CheckCircle size={14}/>,
+        }))
+    ),
   ].sort((a,b) => b.date.localeCompare(a.date) || (("time" in b ? b.time : "")??"").localeCompare(("time" in a ? a.time : "")??""));
 
   return (
@@ -1551,11 +1564,41 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
           <span className="flex items-center gap-1.5 text-[12px] ml-auto text-[#4B5563]">
             <span className="font-semibold text-[#1A1D2E]">{patient.evolutions.length}</span> evoluciones ·{" "}
             <span className="font-semibold text-emerald-600">{fmtShort(paidTotal)}</span> pagado ·{" "}
-            <span className={`font-semibold ${saldo>0?"text-red-600":"text-emerald-600"}`}>{fmtShort(Math.abs(saldo))}</span> {saldo>0?"saldo":"al día"}
+            {patientCredit > 0
+              ? <><span className="font-semibold text-blue-600">{fmtShort(patientCredit)}</span> a favor</>
+              : patientDebt > 0
+                ? <><span className="font-semibold text-red-600">{fmtShort(patientDebt)}</span> debe</>
+                : <span className="font-semibold text-emerald-600">al día</span>
+            }
           </span>
         </div>
 
       </div>
+
+      {/* Alerta deuda / saldo a favor */}
+      {patientDebt > 0 && (
+        <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+            <AlertTriangle size={15} className="text-red-600"/>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-red-700">Paciente debe {fmt(patientDebt)}</p>
+            <p className="text-xs text-red-500">Tratamientos finalizados no cubiertos por pagos registrados</p>
+          </div>
+          <button onClick={()=>setTab(4)} className="text-xs font-semibold text-red-600 hover:text-red-800 whitespace-nowrap">Ver pagos →</button>
+        </div>
+      )}
+      {patientCredit > 0 && (
+        <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+          <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+            <span className="text-emerald-700 font-bold text-sm">$</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-emerald-700">Saldo a favor: {fmt(patientCredit)}</p>
+            <p className="text-xs text-emerald-500">Se asignará automáticamente al finalizar tratamientos</p>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="overflow-x-auto scrollbar-hide mb-4 -mx-4 px-4 sm:mx-0 sm:px-0">
@@ -1782,11 +1825,6 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                         )}
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        {e.cost > 0 && (
-                          <span className="text-[13px] font-bold text-[#00A86B] bg-[#E6F7F1] px-[10px] py-[3px] rounded-full">
-                            {fmt(e.cost)}
-                          </span>
-                        )}
                         <button onClick={()=>openEvoEdit(e)} className="w-10 h-10 flex items-center justify-center rounded-xl text-[#C8D0E0] hover:text-[#0057FF] hover:bg-[#EEF3FF] transition-colors">
                             <Pencil size={17}/>
                           </button>
@@ -2032,10 +2070,18 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                 <p className="text-xs text-slate-500">Pagado</p>
                 <p className="text-sm font-bold text-emerald-700">{fmt(paidTotal)}</p>
               </div>
-              <div className={`rounded-xl px-3 py-2 text-center min-w-[80px] ${saldo>0?"bg-red-50":"bg-emerald-50"}`}>
-                <p className="text-xs text-slate-500">Saldo</p>
-                <p className={`text-sm font-bold ${saldo>0?"text-red-600":"text-emerald-700"}`}>{fmt(saldo)}</p>
-              </div>
+              {patientDebt > 0 && (
+                <div className="bg-red-50 rounded-xl px-3 py-2 text-center min-w-[80px]">
+                  <p className="text-xs text-slate-500">Deuda</p>
+                  <p className="text-sm font-bold text-red-600">{fmt(patientDebt)}</p>
+                </div>
+              )}
+              {patientCredit > 0 && (
+                <div className="bg-blue-50 rounded-xl px-3 py-2 text-center min-w-[80px]">
+                  <p className="text-xs text-slate-500">A favor</p>
+                  <p className="text-sm font-bold text-blue-700">{fmt(patientCredit)}</p>
+                </div>
+              )}
             </div>
             <button onClick={openBudgetCreate} className="btn-primary text-sm">
               <Plus size={15}/> Nuevo Presupuesto
@@ -2102,10 +2148,13 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                             <p className="text-[9px] font-bold text-[#9AA0B4] uppercase tracking-wide mb-0.5">Progreso</p>
                             {/* Mini círculo de progreso */}
                             <div className="flex items-center gap-2">
-                              <svg width="32" height="32" viewBox="0 0 32 32">
+                              <svg width="32" height="32" viewBox="0 0 32 32" style={{transform:"rotate(-90deg)"}}>
                                 <circle cx="16" cy="16" r="13" fill="none" stroke="#E3E8F0" strokeWidth="4"/>
-                                <circle cx="16" cy="16" r="13" fill="none" stroke={prog===100?"#22C55E":prog>0?"#0057FF":"#E3E8F0"} strokeWidth="4"
-                                  strokeDasharray={`${prog*0.816} 81.6`} strokeDashoffset="20.4" strokeLinecap="round"/>
+                                <circle cx="16" cy="16" r="13" fill="none"
+                                  stroke={prog===100?"#22C55E":prog>0?"#0057FF":"transparent"}
+                                  strokeWidth="4"
+                                  strokeDasharray={`${(prog/100)*81.68} 81.68`}
+                                  strokeLinecap="butt"/>
                               </svg>
                               <span className="text-[12px] font-bold text-[#1A1D2E]">{prog}%</span>
                             </div>
@@ -2212,20 +2261,34 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         <div className="space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex gap-2 flex-wrap">
-              <div className="bg-emerald-50 rounded-xl px-3 py-2 text-center min-w-[80px]">
+              <div className="bg-emerald-50 rounded-xl px-3 py-2 text-center min-w-[90px]">
                 <p className="text-xs text-slate-500">Total pagado</p>
                 <p className="text-sm font-bold text-emerald-700">{fmt(paidTotal)}</p>
               </div>
-              <div className={`rounded-xl px-3 py-2 text-center min-w-[80px] ${saldo>0?"bg-red-50":"bg-emerald-50"}`}>
-                <p className="text-xs text-slate-500">Saldo deudor</p>
-                <p className={`text-sm font-bold ${saldo>0?"text-red-600":"text-emerald-700"}`}>{fmt(saldo)}</p>
-              </div>
+              {patientCredit > 0 && (
+                <div className="bg-blue-50 rounded-xl px-3 py-2 text-center min-w-[90px]">
+                  <p className="text-xs text-slate-500">Saldo a favor</p>
+                  <p className="text-sm font-bold text-blue-700">{fmt(patientCredit)}</p>
+                </div>
+              )}
+              {patientDebt > 0 && (
+                <div className="bg-red-50 rounded-xl px-3 py-2 text-center min-w-[90px]">
+                  <p className="text-xs text-slate-500">Deuda</p>
+                  <p className="text-sm font-bold text-red-600">{fmt(patientDebt)}</p>
+                </div>
+              )}
+              {completedItemsTotal > 0 && (
+                <div className="bg-slate-50 rounded-xl px-3 py-2 text-center min-w-[90px]">
+                  <p className="text-xs text-slate-500">Tratado</p>
+                  <p className="text-sm font-bold text-slate-700">{fmt(completedItemsTotal)}</p>
+                </div>
+              )}
             </div>
             <button onClick={()=>setPayModal(true)} className="btn-primary text-sm">
               <CreditCard size={15}/> Registrar Pago
             </button>
           </div>
-          {patient.payments.length===0 ? (
+          {realPayments.length===0 ? (
             <div className="card py-12 text-center text-muted">Sin pagos registrados</div>
           ) : (
             <div className="overflow-hidden border border-[#E3E8F0] rounded-[10px]">
@@ -2240,7 +2303,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                   </tr>
                 </thead>
                 <tbody>
-                  {patient.payments.map((p,i)=>{
+                  {realPayments.map((p,i)=>{
                     const isOverdue = p.installmentStatus === "OVERDUE";
                     const isPending = p.installmentStatus === "PENDING";
                     const rowBg = isOverdue ? "bg-red-50" : i%2===0 ? "bg-white" : "bg-[#F0F2F7]/50";
@@ -2274,6 +2337,26 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                     </tr>
                   );})}
 
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Detalle de asignaciones automáticas */}
+          {autoPayments.length > 0 && (
+            <div className="border border-[#E3E8F0] rounded-[10px] overflow-hidden">
+              <div className="bg-[#F0F2F7] px-4 py-2.5 flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#9AA0B4]">Asignaciones automáticas de saldo</span>
+              </div>
+              <table className="w-full border-collapse">
+                <tbody>
+                  {autoPayments.map((p,i)=>(
+                    <tr key={p.id} className={`border-t border-[#E3E8F0] ${i%2===0?"bg-white":"bg-[#F0F2F7]/40"}`}>
+                      <td className="px-4 py-2.5 text-[12px] text-[#9AA0B4]">{new Date(p.date+"T12:00:00").toLocaleDateString("es-CL")}</td>
+                      <td className="px-4 py-2.5 text-[13px] font-bold text-blue-700">{fmt(p.amount)}</td>
+                      <td className="px-4 py-2.5 text-[12px] text-[#9AA0B4]">{p.notes||"Tratamiento completado"}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -2525,41 +2608,16 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                 <select className="appearance-none text-[12px] font-semibold bg-[#EEF3FF] text-[#0057FF] border border-[#0057FF]/20 rounded-lg px-3 py-1.5 pr-7 cursor-pointer focus:outline-none"
                   value=""
                   onChange={e=>{
-                    const tmpl = CARE_TEMPLATES[e.target.value];
+                    const tmpl = activeEvoTemplates[e.target.value];
                     if (tmpl) setEvoForm(f=>({...f, observations:(f.observations?f.observations+"\n\n":"")+tmpl}));
                     (e.target as HTMLSelectElement).value="";
                   }}>
                   <option value="">+ Usar plantilla</option>
-                  {Object.keys(CARE_TEMPLATES).map(k=><option key={k} value={k}>{k}</option>)}
+                  {Object.keys(activeEvoTemplates).map(k=><option key={k} value={k}>{k}</option>)}
                 </select>
                 <ChevronRight size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#0057FF] pointer-events-none rotate-90"/>
               </div>
             </div>
-
-            {/* ── Vincular prestaciones de presupuesto ── */}
-            {allActiveBudgetItems.length > 0 && (
-              <div className="mb-3">
-                <p className="text-[11px] font-bold text-[#9AA0B4] uppercase tracking-wide mb-2">
-                  Vincular prestaciones <span className="normal-case font-medium text-[#0057FF]">({Object.values(evoBudgetSelections).filter(v=>v.selected).length} seleccionadas)</span>
-                </p>
-                <div className="border border-[#E3E8F0] rounded-xl divide-y divide-[#F0F2F7] max-h-44 overflow-y-auto">
-                  {allActiveBudgetItems.map(item => {
-                    const sel = evoBudgetSelections[item.id] ?? { selected:false, newStatus:item.status||"in_progress" };
-                    return (
-                      <label key={item.id} className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${sel.selected?"bg-[#EEF3FF]":"hover:bg-[#F8F9FC]"}`}>
-                        <input type="checkbox" checked={sel.selected}
-                          onChange={e=>setEvoBudgetSelections(s=>({...s,[item.id]:{...(s[item.id]??{selected:false,newStatus:item.status||"in_progress"}),selected:e.target.checked}}))}
-                          className="w-4 h-4 rounded border-[#E3E8F0] accent-[#0057FF] flex-shrink-0"/>
-                        <span className="text-[10px] text-[#9AA0B4] font-mono flex-shrink-0">#{item.budgetNumber}</span>
-                        <span className="flex-1 text-[12px] font-medium text-[#1A1D2E] truncate">{item.description}</span>
-                        {item.tooth&&<span className="text-[10px] text-[#9AA0B4] flex-shrink-0">D.{item.tooth}</span>}
-                        <span className="text-[11px] font-semibold text-[#0057FF] flex-shrink-0">{fmt(item.total)}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
 
             {/* Área de texto principal */}
             <div className="relative border border-[#E3E8F0] rounded-xl bg-white overflow-hidden">
@@ -2594,7 +2652,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
               Cerrar
             </button>
             <button className="text-[13px] font-semibold px-4 py-2 rounded-lg bg-[#0057FF] text-white hover:bg-[#0041CC] transition-colors disabled:opacity-60"
-              onClick={saveEvo} disabled={saving||!evoForm.userId||(!evoForm.observations.trim()&&!evoForm.treatment.trim()&&!Object.values(evoBudgetSelections).some(v=>v.selected))}>
+              onClick={saveEvo} disabled={saving||!evoForm.userId||(!evoForm.observations.trim()&&!evoForm.treatment.trim()&&!evoForm.diagnosis.trim())}>
               {saving ? "Guardando..." : "Crear nueva evolución"}
             </button>
           </div>
@@ -2622,7 +2680,6 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
             <input className="input text-[13px]" value={evoEditForm.treatment} onChange={e=>setEvoEditForm(f=>({...f,treatment:e.target.value}))} placeholder="Tratamiento *"/>
             <input className="input text-[13px]" value={evoEditForm.tooth} onChange={e=>setEvoEditForm(f=>({...f,tooth:e.target.value}))} placeholder="Diente (ej: 1.6)"/>
             <textarea className="input resize-none text-[13px]" rows={5} value={evoEditForm.observations} onChange={e=>setEvoEditForm(f=>({...f,observations:e.target.value}))} placeholder="Observaciones..."/>
-            <input type="number" className="input text-[13px]" value={evoEditForm.cost} onChange={e=>setEvoEditForm(f=>({...f,cost:e.target.value}))} placeholder="Costo ($)"/>
           </div>
           <div className="px-6 py-3 border-t border-[#E3E8F0] bg-[#F8F9FC] flex justify-end gap-2">
             <button className="text-[13px] font-medium px-4 py-2 rounded-lg border border-[#E3E8F0] bg-white text-[#4B5563] hover:bg-[#F0F2F7] transition-colors" onClick={()=>setEvoEditModal(false)}>Cancelar</button>
@@ -3003,81 +3060,10 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
       {/* ===== MODAL PAGO ===== */}
       <Modal open={payModal} onClose={()=>setPayModal(false)} title="Registrar Pago">
         <div className="p-6 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div><label className="label">Fecha</label><input className="input" type="date" value={payForm.date} onChange={e=>setPayForm(f=>({...f,date:e.target.value}))}/></div>
-            <div>
-              <label className="label">Doctor responsable</label>
-              <select className="select" value={payForm.userId} onChange={e=>setPayForm(f=>({...f,userId:e.target.value}))}>
-                <option value="">Sin doctor asignado</option>
-                {users.filter(u=>(u as any).active!==false).map(u=>(
-                  <option key={u.id} value={u.id}>{u.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
           <div>
-            <label className="label">Presupuesto asociado</label>
-            <select className="select" value={payForm.budgetId} onChange={e=>{
-              const bId = e.target.value;
-              const b = patient.budgets.find(x=>x.id===bId);
-              setPayForm(f=>({...f,budgetId:bId,budgetItemId:"",userId:b?.user?.id||f.userId}));
-              if(bId) setPayEvolutionId("");
-            }}>
-              <option value="">Sin presupuesto</option>
-              {patient.budgets.filter(b=>b.status!=="rejected").map(b=>(
-                <option key={b.id} value={b.id}>#{b.number} — {b.user.name} — {fmt(b.total)}</option>
-              ))}
-            </select>
+            <label className="label">Fecha</label>
+            <input className="input" type="date" value={payForm.date} onChange={e=>setPayForm(f=>({...f,date:e.target.value}))}/>
           </div>
-
-          {/* Optional item association — shown when a budget is selected */}
-          {payForm.budgetId && (() => {
-            const selBudget = patient.budgets.find(b => b.id === payForm.budgetId);
-            if (!selBudget || !selBudget.items.length) return null;
-            return (
-              <div>
-                <label className="label">Prestación asociada <span className="text-slate-400 font-normal normal-case">(opcional)</span></label>
-                <select className="select" value={payForm.budgetItemId}
-                  onChange={e=>setPayForm(f=>({...f,budgetItemId:e.target.value}))}>
-                  <option value="">Sin prestación específica</option>
-                  {selBudget.items.map(item=>(
-                    <option key={item.id} value={item.id}>
-                      {item.description}{(item as any).tooth ? ` (D.${(item as any).tooth})` : ""} — {fmt(item.total)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            );
-          })()}
-
-          {/* Evolution auto-link — shown when no budget selected */}
-          {!payForm.budgetId && patient.evolutions.length > 0 && (
-            <div>
-              <label className="label">Vincular a evolución (opcional)</label>
-              <select className="select" value={payEvolutionId} onChange={e=>setPayEvolutionId(e.target.value)}>
-                <option value="">Sin evolución específica</option>
-                {patient.evolutions
-                  .filter(e => !patient.payments.some(p => p.reference === e.id))
-                  .sort((a,b) => b.date.localeCompare(a.date))
-                  .map(e => (
-                    <option key={e.id} value={e.id}>
-                      {new Date(e.date+"T12:00:00").toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"})} — {e.treatment}{e.tooth?` D.${e.tooth}`:""} ({fmt(e.cost)})
-                    </option>
-                  ))}
-              </select>
-              {payEvolutionId && (() => {
-                const ev = patient.evolutions.find(e => e.id === payEvolutionId);
-                if (!ev) return null;
-                const remaining = ev.cost - patient.payments.filter(p=>p.reference===ev.id).reduce((s,p)=>s+p.amount,0);
-                return (
-                  <div className="mt-2 p-2.5 bg-violet-50 rounded-lg text-xs text-violet-700 flex items-center justify-between">
-                    <span><strong>{ev.treatment}</strong>{ev.tooth ? ` · D.${ev.tooth}` : ""}</span>
-                    <span className="font-semibold">Costo: {fmt(ev.cost)}</span>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
 
           {/* Payment methods — split support */}
           <div>
@@ -3179,9 +3165,15 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
             <div className="flex justify-between text-slate-500"><span>Total presupuestado</span><span>{fmt(budgetTotal)}</span></div>
             <div className="flex justify-between text-emerald-700"><span>Ya pagado</span><span>{fmt(paidTotal)}</span></div>
             <div className="flex justify-between font-semibold border-t border-slate-200 pt-1.5">
-              <span className="text-slate-700">Saldo actual</span>
-              <span className={saldo>0?"text-red-600":"text-emerald-700"}>{fmt(saldo)}</span>
+              <span className="text-slate-700">Saldo a favor</span>
+              <span className="text-blue-700">{fmt(patientCredit)}</span>
             </div>
+            {patientDebt > 0 && (
+              <div className="flex justify-between font-semibold text-red-600">
+                <span>Deuda pendiente</span>
+                <span>{fmt(patientDebt)}</span>
+              </div>
+            )}
           </div>
         </div>
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 flex justify-end gap-2 sm:gap-3">
@@ -3357,7 +3349,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
                       <td className="px-3 py-2.5 text-center">
                         <select
                           value={item.status||"pending"}
-                          onChange={e=>updateItemStatus(item.id, e.target.value)}
+                          onChange={e=>updateItemStatus(item, e.target.value)}
                           className={`text-xs font-semibold rounded-lg px-2.5 py-1.5 border focus:outline-none focus:ring-1 focus:ring-[#0057FF] cursor-pointer ${
                             item.status==="completed"?"bg-emerald-50 text-emerald-700 border-emerald-200":
                             item.status==="in_progress"?"bg-amber-50 text-amber-700 border-amber-200":

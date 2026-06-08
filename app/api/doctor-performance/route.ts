@@ -7,19 +7,33 @@ export async function GET(req: NextRequest) {
 
   if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 });
 
-  const budgets = await prisma.budget.findMany({
+  // Only items this user marked as completed
+  const items = await prisma.budgetItem.findMany({
     where: {
-      userId,
-      ...(month ? { date: { startsWith: month } } : {}),
+      completedByUserId: userId,
+      status: "completed",
     },
     include: {
-      patient: { select: { id: true, firstName: true, lastName: true } },
-      user:    { select: { name: true, commissionRate: true } },
-      items:   true,
-      payments: true,
+      budget: {
+        include: {
+          patient: { select: { id: true, firstName: true, lastName: true } },
+          items:    { select: { total: true } },
+          payments: { select: { amount: true, tuuCommission: true } },
+          user:     { select: { commissionRate: true } },
+        },
+      },
     },
-    orderBy: { date: "desc" },
+    orderBy: { completedAt: "desc" },
   });
 
-  return NextResponse.json(budgets);
+  // Filter by completedAt (when treatment was actually finalized).
+  // Fall back to budget.date for legacy items that predate the completedAt field.
+  const filtered = month
+    ? items.filter(item => {
+        const dateToFilter = item.completedAt ?? item.budget.date;
+        return dateToFilter.startsWith(month);
+      })
+    : items;
+
+  return NextResponse.json(filtered);
 }
