@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e ' *)",
+      "Bash(npx ts-node *)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\PC\\\\clinica-magna\\\\app\\\\api\" -Recurse -Filter \"route.ts\")",
+      "Bash(python3 -c ' *)",
+      "Bash(node -e \"const fs=require\\('fs'\\); const s=fs.readFileSync\\('c:/Users/PC/clinica-magna/public/teeth/molar-superior.png'\\); console.log\\('PNG bytes:', s.length, '| Has alpha:', s[25]===6||s[25]===4\\);\")",
+      "Bash(node -e \"const {PrismaClient}=require\\('@prisma/client'\\);const p=new PrismaClient\\(\\);console.log\\(Object.keys\\(p\\).filter\\(k=>!k.startsWith\\('_'\\)&&!k.startsWith\\('\\\\$'\\)\\)\\)\")"
+    ]
+  },
+  "model": "claude-sonnet-4-6"
+}

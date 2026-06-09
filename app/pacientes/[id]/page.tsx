@@ -86,7 +86,7 @@ interface Patient {
   email: string; phone: string; gender: string; address: string; city: string;
   healthInsurance: string; birthDate: string; notes: string; referralSource?: string;
   clinicalRecord?: { bloodType:string; allergies:string; currentMedications:string; medicalBackground:string; dentalBackground:string; habits:string; observations:string };
-  evolutions: Array<{ id:string; date:string; diagnosis:string; treatment:string; tooth:string; observations:string; cost:number; user:{id:string;name:string} }>;
+  evolutions: Array<{ id:string; date:string; diagnosis:string; treatment:string; tooth:string; observations:string; cost:number; isSystem?:boolean; user:{id:string;name:string} }>;
   budgets: Array<{ id:string; number:number; date:string; validUntil:string; status:string; subtotal:number; total:number; discount:number; notes:string; items:BudgetItem[]; payments:Array<{id:string;amount:number;date:string;method:string;notes:string}>; user:{id:string;name:string} }>;
   payments: Array<{ id:string; date:string; amount:number; method:string; notes:string; reference?:string; budget?:{number:number}; installmentNumber?:number; installments?:number; installmentStatus?:string; isTuuInstallment?:boolean; tuuCommission?:number; netAmount?:number; isAutoAssignment?:boolean; budgetItemId?:string }>;
   appointments: Array<{ id:string; date:string; startTime:string; type:string; status:string; user:{name:string} }>;
@@ -1157,14 +1157,14 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
   }
 
   async function updateItemStatus(item: BudgetItem, newStatus: string) {
-    // Block finalization if patient would go into debt
+    // Warn if finalizing would leave patient in debt (allow but confirm)
     if (newStatus === "completed" && item.status !== "completed" && patient) {
       const realPaid = patient.payments.filter(p => !p.isAutoAssignment).reduce((s,p) => s + p.amount, 0);
       const completedTotal = patient.budgets.flatMap(b => b.items.filter(i => i.status === "completed")).reduce((s,i) => s + i.total, 0);
       const wouldDebt = (completedTotal + item.total) - realPaid;
       if (wouldDebt > 0) {
-        showToast(`❌ Saldo insuficiente: el paciente quedaría con deuda de ${fmt(wouldDebt)}`);
-        return;
+        const ok = confirm(`⚠️ Saldo insuficiente\n\nEl paciente tiene saldo disponible de ${fmt(Math.max(0, realPaid - completedTotal))} pero el tratamiento vale ${fmt(item.total)}.\n\nQuedaría con una deuda pendiente de ${fmt(wouldDebt)}.\n\n¿Desea finalizar de todas formas?`);
+        if (!ok) return;
       }
     }
     const res = await fetch(`/api/budget-items/${item.id}`, {
@@ -1176,6 +1176,10 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
       const err = await res.json().catch(() => ({}));
       showToast(`❌ ${err.error ?? "Error al actualizar prestación"}`);
       return;
+    }
+    const data = await res.json();
+    if (data.insufficientBalance) {
+      showToast("⚠️ Prestación finalizada con saldo insuficiente — el paciente queda con deuda pendiente");
     }
     load();
   }
@@ -1429,7 +1433,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
 const hasAlerts = patient.clinicalRecord?.allergies || patient.clinicalRecord?.currentMedications;
 
   // Build unified timeline
-  type TimelineItem = { date: string; time?: string; kind: "cita"|"evolucion"|"pago"|"presupuesto"|"prestación"; label: string; sub: string; badge?: string; amount?: number; color: string; icon: React.ReactNode };
+  type TimelineItem = { date: string; time?: string; kind: "cita"|"evolucion"|"sistema"|"pago"|"presupuesto"; label: string; sub: string; badge?: string; amount?: number; color: string; icon: React.ReactNode };
   const timeline: TimelineItem[] = [
     ...patient.appointments.map(a => ({
       date: a.date, time: a.startTime, kind:"cita" as const,
@@ -1437,11 +1441,19 @@ const hasAlerts = patient.clinicalRecord?.allergies || patient.clinicalRecord?.c
       badge: a.status, color:"bg-primary-100 text-primary-700",
       icon: <Calendar size={14}/>,
     })),
-    ...patient.evolutions.map(e => ({
+    // Clinical evolutions (non-system)
+    ...patient.evolutions.filter(e => !e.isSystem).map(e => ({
       date: e.date, kind:"evolucion" as const,
       label: e.treatment, sub: `${e.user.name}${e.tooth ? ` · D.${e.tooth}` : ""}`,
       amount: undefined, color:"bg-violet-100 text-violet-700",
       icon: <Activity size={14}/>,
+    })),
+    // System evolutions: auto-generated on treatment status change
+    ...patient.evolutions.filter(e => e.isSystem).map(e => ({
+      date: e.date, kind:"sistema" as const,
+      label: e.treatment, sub: e.observations ?? e.user.name,
+      amount: undefined, color:"bg-slate-100 text-slate-600",
+      icon: <ClipboardList size={14}/>,
     })),
     ...patient.payments.filter(p => !p.isAutoAssignment).map(p => ({
       date: p.date, kind:"pago" as const,
@@ -1455,20 +1467,6 @@ const hasAlerts = patient.clinicalRecord?.allergies || patient.clinicalRecord?.c
       badge: b.status, amount: b.total, color:"bg-amber-100 text-amber-700",
       icon: <FileText size={14}/>,
     })),
-    // Finalized treatment events — only items with completedAt (set since this feature was added)
-    ...patient.budgets.flatMap(b =>
-      b.items
-        .filter(i => i.completedAt && i.status === "completed")
-        .map(i => ({
-          date: i.completedAt!,
-          kind: "prestación" as const,
-          label: i.description,
-          sub: `Presup. #${b.number} · ${users.find(u => u.id === i.completedByUserId)?.name ?? ""}`,
-          amount: i.total,
-          color: "bg-teal-100 text-teal-700",
-          icon: <CheckCircle size={14}/>,
-        }))
-    ),
   ].sort((a,b) => b.date.localeCompare(a.date) || (("time" in b ? b.time : "")??"").localeCompare(("time" in a ? a.time : "")??""));
 
   return (
@@ -1575,31 +1573,39 @@ const hasAlerts = patient.clinicalRecord?.allergies || patient.clinicalRecord?.c
 
       </div>
 
-      {/* Alerta deuda / saldo a favor */}
-      {patientDebt > 0 && (
-        <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-          <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-            <AlertTriangle size={15} className="text-red-600"/>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-red-700">Paciente debe {fmt(patientDebt)}</p>
-            <p className="text-xs text-red-500">Tratamientos finalizados no cubiertos por pagos registrados</p>
-          </div>
-          <button onClick={()=>setTab(4)} className="text-xs font-semibold text-red-600 hover:text-red-800 whitespace-nowrap">Ver pagos →</button>
+      {/* Resumen financiero del paciente — siempre visible */}
+      <div className="flex flex-wrap gap-2 items-center bg-white border border-[#E3E8F0] rounded-xl px-4 py-3 shadow-sm">
+        <div className="flex items-center gap-1.5 text-sm">
+          <span className="text-[#9AA0B4] text-xs font-medium">Total abonado</span>
+          <span className="font-bold text-emerald-700">{fmt(paidTotal)}</span>
         </div>
-      )}
-      {patientCredit > 0 && (
-        <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
-          <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
-            <span className="text-emerald-700 font-bold text-sm">$</span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-emerald-700">Saldo a favor: {fmt(patientCredit)}</p>
-            <p className="text-xs text-emerald-500">Se asignará automáticamente al finalizar tratamientos</p>
-          </div>
+        <span className="text-[#D1D5DB]">·</span>
+        <div className="flex items-center gap-1.5 text-sm">
+          <span className="text-[#9AA0B4] text-xs font-medium">Consumido</span>
+          <span className="font-bold text-slate-700">{fmt(completedItemsTotal)}</span>
         </div>
-      )}
-
+        <span className="text-[#D1D5DB]">·</span>
+        {patientCredit > 0 ? (
+          <div className="flex items-center gap-1.5 text-sm">
+            <span className="text-[#9AA0B4] text-xs font-medium">Saldo disponible</span>
+            <span className="font-bold text-blue-700">{fmt(patientCredit)}</span>
+          </div>
+        ) : patientDebt > 0 ? (
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 text-sm">
+              <AlertTriangle size={13} className="text-red-500"/>
+              <span className="text-[#9AA0B4] text-xs font-medium">Deuda pendiente</span>
+              <span className="font-bold text-red-600">{fmt(patientDebt)}</span>
+            </div>
+            <button onClick={()=>setTab(4)} className="text-xs font-semibold text-red-600 hover:underline">Ver pagos →</button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 text-sm">
+            <CheckCircle size={13} className="text-emerald-500"/>
+            <span className="font-semibold text-emerald-600 text-xs">Cuenta al día</span>
+          </div>
+        )}
+      </div>
       {/* Tabs */}
       <div className="overflow-x-auto scrollbar-hide mb-4 -mx-4 px-4 sm:mx-0 sm:px-0">
         <div className="flex gap-2 min-w-max">
@@ -1803,12 +1809,12 @@ const hasAlerts = patient.clinicalRecord?.allergies || patient.clinicalRecord?.c
             </div>
           ) : (
             <div className="space-y-2 relative pl-3">
-              {[...patient.evolutions].sort((a,b)=>b.date.localeCompare(a.date)).map((e,idx)=>(
+              {[...patient.evolutions.filter(e => !e.isSystem)].sort((a,b)=>b.date.localeCompare(a.date)).map((e,idx,arr)=>(
                 <div key={e.id} className="flex gap-4 pb-6 relative">
                   {/* Línea vertical timeline */}
                   <div className="flex flex-col items-center flex-shrink-0">
                     <div className="w-[10px] h-[10px] rounded-full bg-[#0057FF] mt-1 flex-shrink-0 border-2 border-white shadow-sm z-10" />
-                    {idx < patient.evolutions.length - 1 && (
+                    {idx < arr.length - 1 && (
                       <div className="w-px flex-1 bg-[#E3E8F0] mt-1" />
                     )}
                   </div>

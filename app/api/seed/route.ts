@@ -1,7 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
 
-export async function POST() {
+export async function POST(req: NextRequest) {
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  if (!token || (token as any).role !== "ADMIN") {
+    return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
+  }
   try {
     const count = await prisma.user.count();
     if (count > 0) return NextResponse.json({ message: "Ya existe data" });

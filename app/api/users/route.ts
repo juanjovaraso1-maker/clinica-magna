@@ -1,8 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
-export async function GET() {
+const ALLOWED_ROLES = ["ADMIN", "DENTIST"] as const;
+
+export async function GET(req: NextRequest) {
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  if (!token) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+
   const users = await prisma.user.findMany({
     where: { active: true },
     orderBy: { name: "asc" },
@@ -11,11 +17,21 @@ export async function GET() {
   return NextResponse.json(users);
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  if (!token || (token as any).role !== "ADMIN") {
+    return NextResponse.json({ error: "Acceso denegado — se requiere rol administrador" }, { status: 403 });
+  }
+
   const { name, title, username, password, role } = await req.json();
 
   if (!name || !username || !password) {
     return NextResponse.json({ error: "Nombre, username y contraseña son requeridos." }, { status: 400 });
+  }
+
+  const normalizedRole = (role ?? "DENTIST").toUpperCase();
+  if (!ALLOWED_ROLES.includes(normalizedRole as any)) {
+    return NextResponse.json({ error: "Rol inválido." }, { status: 400 });
   }
 
   const existing = await prisma.user.findFirst({ where: { username } });
@@ -25,7 +41,7 @@ export async function POST(req: Request) {
 
   const hashed = await bcrypt.hash(password, 12);
   const user = await prisma.user.create({
-    data: { name, title: title || "", username, password: hashed, role: role || "DENTIST", active: true },
+    data: { name, title: title || "", username, password: hashed, role: normalizedRole, active: true },
     select: { id: true, name: true, username: true, role: true, active: true, createdAt: true },
   });
   return NextResponse.json(user);

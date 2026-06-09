@@ -4,7 +4,7 @@ import {
   Save, Info, Plus, Pencil, X, Check, Users, Building2,
   Calendar, Mail, Trash2, Shield, Stethoscope, Clock,
   HardDrive, Download, Upload, RefreshCw, AlertTriangle, PenLine,
-  TrendingUp, Filter,
+  TrendingUp, Filter, DollarSign, Banknote, ChevronDown, ChevronRight,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import { useIsAdmin } from "@/hooks/useRole";
@@ -13,11 +13,12 @@ import { useSession } from "next-auth/react";
 type User = { id: string; name: string; title?: string; email: string; rut?: string; username?: string; role: string; specialty: string | null; commissionRate: number; active: boolean; signatureUrl?: string };
 
 const TABS = [
-  { key: "general",   label: "General",   icon: Building2 },
-  { key: "usuarios",  label: "Usuarios",  icon: Users },
-  { key: "agenda",    label: "Agenda",    icon: Calendar },
-  { key: "correo",    label: "Correo",    icon: Mail },
-  { key: "respaldos", label: "Respaldos", icon: HardDrive },
+  { key: "general",   label: "General",     icon: Building2   },
+  { key: "usuarios",  label: "Usuarios",    icon: Users       },
+  { key: "doctores",  label: "$ Doctores",  icon: DollarSign  },
+  { key: "agenda",    label: "Agenda",      icon: Calendar    },
+  { key: "correo",    label: "Correo",      icon: Mail        },
+  { key: "respaldos", label: "Respaldos",   icon: HardDrive   },
 ];
 
 type BackupMeta = { id: string; source: string; size: number; summary: string; createdAt: string };
@@ -63,13 +64,23 @@ function initials(name: string) {
   return name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
 }
 
-type PerfBudget = {
-  id: string; number: number; date: string; updatedAt: string; status: string; total: number;
-  patient: { id: string; firstName: string; lastName: string };
-  user: { name: string; commissionRate: number };
-  items: { id: string; description: string; total: number; status: string; directCost: number }[];
-  payments: { amount: number; date: string; method?: string; tuuCommission?: number }[];
+type PerfItem = {
+  id: string;
+  description: string;
+  total: number;
+  directCost: number;
+  status: string;
+  completedAt?: string | null;
+  budget: {
+    id: string; number: number; date: string;
+    patient: { id: string; firstName: string; lastName: string };
+    items: { total: number }[];
+    payments: { amount: number; tuuCommission?: number | null }[];
+    user: { commissionRate: number };
+  };
 };
+
+type DoctorPmt = { id: string; userId: string; month: string; amount: number; notes: string | null; createdAt: string };
 
 function MiCuenta({ user, sessionUserId, onReload }: { user: User | undefined; sessionUserId: string | undefined; onReload: () => void }) {
   const [tab, setTab] = useState<"cuenta"|"rendimiento">("cuenta");
@@ -85,12 +96,14 @@ function MiCuenta({ user, sessionUserId, onReload }: { user: User | undefined; s
   const defaultMonth = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}`;
   const [perfMonth, setPerfMonth] = useState(defaultMonth);
   const [perfSearch, setPerfSearch] = useState("");
-  const [perfData, setPerfData] = useState<PerfBudget[]>([]);
+  const [perfData, setPerfData] = useState<PerfItem[]>([]);
   const [perfLoading, setPerfLoading] = useState(false);
+  const [allPerfData, setAllPerfData] = useState<PerfItem[]>([]);
+  const [doctorPmts, setDoctorPmts] = useState<DoctorPmt[]>([]);
 
   useEffect(() => { setSigPreview(user?.signatureUrl ?? null); }, [user]);
   useEffect(() => {
-    if (tab === "rendimiento" && sessionUserId) loadPerf();
+    if (tab === "rendimiento" && sessionUserId) { loadPerf(); loadHistory(); }
   }, [tab, perfMonth, sessionUserId]);
 
   async function loadPerf() {
@@ -99,6 +112,16 @@ function MiCuenta({ user, sessionUserId, onReload }: { user: User | undefined; s
     const r = await fetch(`/api/doctor-performance?userId=${sessionUserId}&month=${perfMonth}`);
     if (r.ok) setPerfData(await r.json());
     setPerfLoading(false);
+  }
+
+  async function loadHistory() {
+    if (!sessionUserId) return;
+    const [r1, r2] = await Promise.all([
+      fetch(`/api/doctor-performance?userId=${sessionUserId}`),
+      fetch(`/api/doctor-payments?userId=${sessionUserId}`),
+    ]);
+    if (r1.ok) setAllPerfData(await r1.json());
+    if (r2.ok) setDoctorPmts(await r2.json());
   }
 
   async function changePassword() {
@@ -128,33 +151,28 @@ function MiCuenta({ user, sessionUserId, onReload }: { user: User | undefined; s
   const fmt = (n: number) => new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(n);
   const commissionRate = user?.commissionRate ?? 0;
 
-  // Rows = one per budget item, filtered by patient name search
-  const perfRows = perfData.flatMap(b => {
-    const budgetPaid    = b.payments.reduce((s,p)=>s+p.amount,0);
-    const budgetTuu     = b.payments.reduce((s,p)=>s+(p.tuuCommission??0),0);
-    const itemsTotal    = b.items.reduce((s,i)=>s+i.total,0);
-    return b.items.map(item => {
-      // Prorate TUU commission proportionally to item's share of budget
-      const itemShare  = itemsTotal > 0 ? item.total / itemsTotal : 0;
-      const itemTuu    = Math.round(budgetTuu * itemShare);
-      const netIncome  = item.total - itemTuu - (item.directCost??0);
-      const salary     = Math.round(item.total * commissionRate / 100);
-      const netClinic  = netIncome - salary;
-      return {
-        patientName:  `${b.patient.firstName} ${b.patient.lastName}`,
-        patientId:    b.patient.id,
-        treatment:    item.description,
-        budgetDate:   b.date,
-        itemStatus:   item.status,
-        itemValue:    item.total,
-        directCost:   item.directCost ?? 0,
-        itemTuu,
-        salary,
-        netClinic,
-        budgetNumber: b.number,
-        paidTotal:    budgetPaid,
-      };
-    });
+  // Rows = one per completed budget item attributed to this user
+  const perfRows = perfData.map(item => {
+    const b           = item.budget;
+    const budgetTuu   = b.payments.reduce((s,p) => s + (p.tuuCommission ?? 0), 0);
+    const itemsTotal  = b.items.reduce((s, i) => s + i.total, 0);
+    const itemShare   = itemsTotal > 0 ? item.total / itemsTotal : 0;
+    const itemTuu     = Math.round(budgetTuu * itemShare);
+    const netIncome   = item.total - itemTuu - (item.directCost ?? 0);
+    const salary      = Math.round(item.total * commissionRate / 100);
+    const netClinic   = netIncome - salary;
+    return {
+      patientName:  `${b.patient.firstName} ${b.patient.lastName}`,
+      patientId:    b.patient.id,
+      treatment:    item.description,
+      budgetDate:   b.date,
+      itemValue:    item.total,
+      directCost:   item.directCost ?? 0,
+      itemTuu,
+      salary,
+      netClinic,
+      budgetNumber: b.number,
+    };
   }).filter(r => !perfSearch.trim() || r.patientName.toLowerCase().includes(perfSearch.toLowerCase()));
 
   const totalValue      = perfRows.reduce((s,r)=>s+r.itemValue,0);
@@ -237,6 +255,61 @@ function MiCuenta({ user, sessionUserId, onReload }: { user: User | undefined; s
             </div>
           )}
 
+          {/* Historial mensual */}
+          {(() => {
+            const monthMap: Record<string, PerfItem[]> = {};
+            for (const item of allPerfData) {
+              const m = item.completedAt?.slice(0,7) ?? item.budget.date.slice(0,7);
+              if (!monthMap[m]) monthMap[m] = [];
+              monthMap[m].push(item);
+            }
+            const monthly = Object.entries(monthMap)
+              .map(([m, items]) => {
+                const tv = items.reduce((s,i)=>s+i.total,0);
+                const ts = Math.round(tv * commissionRate / 100);
+                const paid = doctorPmts.filter(p=>p.month===m).reduce((s,p)=>s+p.amount,0);
+                return { month:m, count:items.length, totalValue:tv, totalSalary:ts, paid, pending:Math.max(0,ts-paid) };
+              })
+              .sort((a,b)=>b.month.localeCompare(a.month));
+            if (monthly.length === 0) return null;
+            return (
+              <div className="card overflow-hidden">
+                <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
+                  <TrendingUp size={14} className="text-slate-400"/>
+                  <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Historial de meses</span>
+                </div>
+                <table className="w-full text-sm">
+                  <thead><tr className="text-left text-xs text-slate-400 border-b border-slate-100">
+                    <th className="px-4 py-2.5">Mes</th>
+                    <th className="px-4 py-2.5 text-right">Prest.</th>
+                    <th className="px-4 py-2.5 text-right hidden sm:table-cell">Producción</th>
+                    <th className="px-4 py-2.5 text-right">A cobrar</th>
+                    <th className="px-4 py-2.5 text-right hidden sm:table-cell">Pagado</th>
+                    <th className="px-4 py-2.5 text-right">Estado</th>
+                  </tr></thead>
+                  <tbody>
+                    {monthly.map(row => (
+                      <tr key={row.month} className={`border-b border-slate-50 hover:bg-slate-50 ${row.month===perfMonth?"bg-blue-50/40":""}`}>
+                        <td className="px-4 py-2.5 font-medium text-slate-700 cursor-pointer hover:text-primary-700" onClick={()=>setPerfMonth(row.month)}>
+                          {new Date(row.month+"-15").toLocaleDateString("es-CL",{month:"long",year:"numeric"})}
+                        </td>
+                        <td className="px-4 py-2.5 text-right text-slate-500">{row.count}</td>
+                        <td className="px-4 py-2.5 text-right text-slate-700 hidden sm:table-cell">{fmt(row.totalValue)}</td>
+                        <td className="px-4 py-2.5 text-right font-semibold text-primary-700">{fmt(row.totalSalary)}</td>
+                        <td className="px-4 py-2.5 text-right text-emerald-600 hidden sm:table-cell">{row.paid>0?fmt(row.paid):"—"}</td>
+                        <td className="px-4 py-2.5 text-right">
+                          {row.pending===0
+                            ? <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Pagado ✓</span>
+                            : <span className="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">Pendiente {fmt(row.pending)}</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
+
           {/* Tabla de prestaciones */}
           {perfLoading ? (
             <div className="card p-12 text-center text-slate-400">Cargando...</div>
@@ -293,6 +366,183 @@ function MiCuenta({ user, sessionUserId, onReload }: { user: User | undefined; s
 
         </div>
       )}
+    </div>
+  );
+}
+
+function DoctoresTab() {
+  const fmt = (n: number) => new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(n);
+  const hoy = new Date();
+  const defMonth = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,"0")}`;
+  const [month, setMonth] = useState(defMonth);
+  const [summary, setSummary] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState<string|null>(null);
+  const [payModal, setPayModal] = useState(false);
+  const [selUser, setSelUser] = useState<{id:string;name:string;pending:number}|null>(null);
+  const [payAmount, setPayAmount] = useState("");
+  const [payNotes, setPayNotes] = useState("");
+  const [paying, setPaying] = useState(false);
+
+  useEffect(() => { loadSummary(); }, [month]);
+
+  async function loadSummary() {
+    setLoading(true);
+    const r = await fetch(`/api/admin/doctor-summary?month=${month}`);
+    if (r.ok) setSummary(await r.json());
+    setLoading(false);
+  }
+
+  async function registerPayment() {
+    if (!selUser || !payAmount) return;
+    setPaying(true);
+    await fetch("/api/doctor-payments", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ userId:selUser.id, month, amount:parseFloat(payAmount), notes:payNotes||null }),
+    });
+    setPaying(false); setPayModal(false); setPayAmount(""); setPayNotes("");
+    loadSummary();
+  }
+
+  async function deletePmt(id: string) {
+    if (!confirm("¿Eliminar este pago?")) return;
+    await fetch(`/api/doctor-payments?id=${id}`, { method:"DELETE" });
+    loadSummary();
+  }
+
+  return (
+    <div className="space-y-4 max-w-4xl">
+      <div>
+        <h2 className="section-title flex items-center gap-2"><DollarSign size={15} className="text-blue-600"/> Cuentas de Doctores</h2>
+        <p className="text-xs text-slate-400 mt-0.5">Gestiona los pagos mensuales a cada profesional según sus prestaciones finalizadas.</p>
+      </div>
+      <div className="flex items-center gap-3">
+        <input type="month" value={month} onChange={e=>setMonth(e.target.value)} className="input text-sm py-1.5 px-3 w-auto"/>
+        <span className="text-xs text-slate-400">{summary.length} profesional{summary.length!==1?"es":""} con actividad</span>
+      </div>
+
+      {loading ? (
+        <div className="card p-12 text-center text-slate-400">Cargando...</div>
+      ) : summary.length === 0 ? (
+        <div className="card p-12 text-center">
+          <DollarSign size={32} className="mx-auto mb-3 text-slate-300"/>
+          <p className="text-slate-500 font-medium">Sin producción registrada para este mes</p>
+          <p className="text-xs text-slate-400 mt-1">Las prestaciones finalizadas aparecerán aquí automáticamente.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {summary.map((s: any) => (
+            <div key={s.user.id} className="card overflow-hidden">
+              <div className="px-5 py-4 flex items-center justify-between gap-4 flex-wrap cursor-pointer"
+                onClick={()=>setExpanded(expanded===s.user.id?null:s.user.id)}>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-[#0057FF] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                    {s.user.name.split(" ").slice(0,2).map((w:string)=>w[0]||"").join("")}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-900 text-sm">{s.user.title} {s.user.name}</p>
+                    <p className="text-xs text-slate-400">Comisión {s.user.commissionRate}% · {s.items.length} prestación{s.items.length!==1?"es":""}</p>
+                  </div>
+                  {expanded===s.user.id ? <ChevronDown size={15} className="text-slate-400"/> : <ChevronRight size={15} className="text-slate-400"/>}
+                </div>
+                <div className="flex items-center gap-4 flex-wrap">
+                  <div className="text-center min-w-[70px]">
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wide">Producción</p>
+                    <p className="font-bold text-slate-800 text-sm">{fmt(s.totalValue)}</p>
+                  </div>
+                  <div className="text-center min-w-[70px]">
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wide">A pagar</p>
+                    <p className="font-bold text-[#0057FF] text-sm">{fmt(s.totalSalary)}</p>
+                  </div>
+                  <div className="text-center min-w-[70px]">
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wide">Pagado</p>
+                    <p className={`font-bold text-sm ${s.totalPaid>=s.totalSalary?"text-emerald-600":"text-amber-600"}`}>{fmt(s.totalPaid)}</p>
+                  </div>
+                  <div className="text-center min-w-[70px]">
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wide">Pendiente</p>
+                    <p className={`font-bold text-sm ${s.pendingAmount>0?"text-red-600":"text-emerald-600"}`}>{s.pendingAmount>0?fmt(s.pendingAmount):"✓ Al día"}</p>
+                  </div>
+                  <button
+                    onClick={e=>{ e.stopPropagation(); setSelUser({id:s.user.id,name:`${s.user.title??""} ${s.user.name}`.trim(),pending:s.pendingAmount}); setPayAmount(String(s.pendingAmount)); setPayModal(true); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0057FF] text-white text-xs font-semibold rounded-xl hover:bg-[#0041CC] transition-colors whitespace-nowrap">
+                    <Banknote size={13}/> Registrar pago
+                  </button>
+                </div>
+              </div>
+
+              {expanded===s.user.id && (
+                <div className="border-t border-slate-100 bg-slate-50/50 px-5 py-4 space-y-4">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Prestaciones del mes</p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead><tr className="text-left text-xs text-slate-400 border-b border-slate-200">
+                          <th className="pb-2 pr-3">Fecha</th>
+                          <th className="pb-2 pr-3">Paciente</th>
+                          <th className="pb-2 pr-3">Prestación</th>
+                          <th className="pb-2 text-right">Valor</th>
+                          <th className="pb-2 text-right text-[#0057FF]">Comisión</th>
+                        </tr></thead>
+                        <tbody>
+                          {s.items.map((i:any)=>(
+                            <tr key={i.id} className="border-b border-slate-100">
+                              <td className="py-2 pr-3 text-slate-400 text-xs whitespace-nowrap">{i.completedAt??""}</td>
+                              <td className="py-2 pr-3 text-slate-700">{i.patient.firstName} {i.patient.lastName}</td>
+                              <td className="py-2 pr-3 text-slate-500 max-w-[200px] truncate">{i.description}</td>
+                              <td className="py-2 text-right text-slate-700 font-medium">{fmt(i.total)}</td>
+                              <td className="py-2 text-right font-bold text-[#0057FF]">{fmt(Math.round(i.total*s.user.commissionRate/100))}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  {s.payments.length>0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Pagos registrados</p>
+                      <div className="space-y-1.5">
+                        {s.payments.map((p:any)=>(
+                          <div key={p.id} className="flex items-center justify-between bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2">
+                            <span className="text-sm font-bold text-emerald-700">{fmt(p.amount)}</span>
+                            <span className="text-xs text-slate-400 flex-1 ml-3">{p.notes ?? ""}</span>
+                            <span className="text-xs text-slate-400 mr-3">{new Date(p.createdAt).toLocaleDateString("es-CL")}</span>
+                            <button onClick={()=>deletePmt(p.id)} className="text-red-400 hover:text-red-600 transition-colors"><Trash2 size={13}/></button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Modal open={payModal} onClose={()=>setPayModal(false)} title={`Registrar pago — ${selUser?.name??""}`}>
+        <div className="space-y-4 p-6">
+          <p className="text-sm text-slate-500">Mes: <span className="font-semibold text-slate-800">{new Date(month+"-15").toLocaleDateString("es-CL",{month:"long",year:"numeric"})}</span></p>
+          {selUser && selUser.pending>0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-sm text-amber-700">
+              Saldo pendiente: <span className="font-bold">{fmt(selUser.pending)}</span>
+            </div>
+          )}
+          <div>
+            <label className="label">Monto pagado</label>
+            <input className="input" type="number" value={payAmount} onChange={e=>setPayAmount(e.target.value)} placeholder="0"/>
+          </div>
+          <div>
+            <label className="label">Notas (opcional)</label>
+            <input className="input" value={payNotes} onChange={e=>setPayNotes(e.target.value)} placeholder="Transferencia, efectivo, cheque..."/>
+          </div>
+          <div className="flex justify-end gap-3">
+            <button className="btn-secondary" onClick={()=>setPayModal(false)}>Cancelar</button>
+            <button className="btn-primary" onClick={registerPayment} disabled={paying||!payAmount}>
+              {paying?"Guardando...":"Confirmar pago"}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -543,6 +793,9 @@ export default function Configuracion() {
           </button>
         ))}
       </div>
+
+      {/* ===== TAB DOCTORES ===== */}
+      {tab === "doctores" && <DoctoresTab />}
 
       {/* ===== TAB GENERAL ===== */}
       {tab === "general" && (

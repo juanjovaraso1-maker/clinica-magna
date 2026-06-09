@@ -7,7 +7,7 @@ async function createBackupData() {
     users, patients, appointments, evolutions, budgets, budgetItems, payments,
     expenses, treatments, clinicalRecords, odontogramRecords, facialRecords,
     prescriptions, reminders, patientDocuments, blockedSlots, emailTemplates,
-    emailCampaigns, convenios, clinicConfig,
+    emailCampaigns, convenios, clinicConfig, labWorks, financeTasks, debts,
   ] = await Promise.all([
     prisma.user.findMany(),
     prisma.patient.findMany(),
@@ -29,6 +29,9 @@ async function createBackupData() {
     prisma.emailCampaign.findMany(),
     prisma.convenio.findMany(),
     prisma.clinicConfig.findMany(),
+    prisma.labWork.findMany(),
+    prisma.financeTask.findMany(),
+    prisma.debt.findMany(),
   ]);
 
   const summary = {
@@ -50,7 +53,7 @@ async function createBackupData() {
         users, patients, appointments, evolutions, budgets, budgetItems, payments,
         expenses, treatments, clinicalRecords, odontogramRecords, facialRecords,
         prescriptions, reminders, patientDocuments, blockedSlots, emailTemplates,
-        emailCampaigns, convenios, clinicConfig,
+        emailCampaigns, convenios, clinicConfig, labWorks, financeTasks, debts,
       },
     },
     summary,

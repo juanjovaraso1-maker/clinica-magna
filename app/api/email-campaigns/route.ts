@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 
@@ -22,7 +23,11 @@ function buildHtml(cfg: Record<string,string>, subject: string, body: string, pa
 </div></body></html>`;
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  if (!token || (token as any).role !== "ADMIN") {
+    return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
+  }
   const campaigns = await prisma.emailCampaign.findMany({
     orderBy: { sentAt: "desc" },
     take: 50,
@@ -30,7 +35,11 @@ export async function GET() {
   return NextResponse.json(campaigns);
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  if (!token || (token as any).role !== "ADMIN") {
+    return NextResponse.json({ error: "Acceso denegado — se requiere rol administrador" }, { status: 403 });
+  }
   const { subject, body, recipientFilter } = await req.json();
   if (!subject || !body) {
     return NextResponse.json({ error: "Asunto y mensaje son requeridos." }, { status: 400 });

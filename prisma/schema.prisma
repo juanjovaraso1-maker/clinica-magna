@@ -24,11 +24,12 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  appointments  Appointment[]
-  evolutions    Evolution[]
-  budgets       Budget[]
-  prescriptions PrescriptionRecord[]
-  payments      Payment[]
+  appointments   Appointment[]
+  evolutions     Evolution[]
+  budgets        Budget[]
+  prescriptions  PrescriptionRecord[]
+  payments       Payment[]
+  doctorPayments DoctorPayment[]
 }
 
 model Patient {
@@ -109,6 +110,7 @@ model Evolution {
   tooth        String?
   observations String?
   cost         Float    @default(0)
+  isSystem     Boolean  @default(false)
   createdAt    DateTime @default(now())
 
   patient Patient @relation(fields: [patientId], references: [id])
@@ -352,6 +354,17 @@ model Reminder {
   createdAt   DateTime  @default(now())
 
   patient Patient @relation(fields: [patientId], references: [id])
+}
+
+model DoctorPayment {
+  id        String   @id @default(cuid())
+  userId    String
+  month     String
+  amount    Float
+  notes     String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
 }
 
 model BackupRecord {

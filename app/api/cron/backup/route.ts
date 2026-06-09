@@ -12,7 +12,7 @@ export async function GET() {
       users, patients, appointments, evolutions, budgets, budgetItems, payments,
       expenses, treatments, clinicalRecords, odontogramRecords, facialRecords,
       prescriptions, reminders, patientDocuments, blockedSlots, emailTemplates,
-      emailCampaigns, convenios, clinicConfig,
+      emailCampaigns, convenios, clinicConfig, labWorks, financeTasks, debts,
     ] = await Promise.all([
       prisma.user.findMany(),
       prisma.patient.findMany(),
@@ -34,6 +34,9 @@ export async function GET() {
       prisma.emailCampaign.findMany(),
       prisma.convenio.findMany(),
       prisma.clinicConfig.findMany(),
+      prisma.labWork.findMany(),
+      prisma.financeTask.findMany(),
+      prisma.debt.findMany(),
     ]);
 
     const summary = {
@@ -54,7 +57,7 @@ export async function GET() {
         users, patients, appointments, evolutions, budgets, budgetItems, payments,
         expenses, treatments, clinicalRecords, odontogramRecords, facialRecords,
         prescriptions, reminders, patientDocuments, blockedSlots, emailTemplates,
-        emailCampaigns, convenios, clinicConfig,
+        emailCampaigns, convenios, clinicConfig, labWorks, financeTasks, debts,
       },
     };
 

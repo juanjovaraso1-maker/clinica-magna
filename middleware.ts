@@ -24,8 +24,6 @@ export async function middleware(request: NextRequest) {
     const auth = request.headers.get("authorization");
     const secret = process.env.CRON_SECRET;
     if (secret && auth === `Bearer ${secret}`) return NextResponse.next();
-    // En desarrollo local (sin secret configurado) permitir paso libre
-    if (!secret) return NextResponse.next();
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

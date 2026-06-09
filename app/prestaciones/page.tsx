@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState, useRef } from "react";
-import { Plus, Upload, Pencil, Trash2, Search, X, Package, Pill, BookOpen, GripVertical } from "lucide-react";
+import { Plus, Upload, Pencil, Trash2, Search, X, Package, Pill, BookOpen, GripVertical, FileText } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useRole";
 import Modal from "@/components/ui/Modal";
 
@@ -20,6 +20,9 @@ interface RxTemplate {
 interface CareTemplate {
   id: string; name: string; text: string;
 }
+interface EvoTemplate {
+  id: string; name: string; text: string;
+}
 
 function fmt(n: number) {
   return new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(n);
@@ -34,13 +37,14 @@ const initBundle = (): Bundle => ({ id: uid(), name: "", category: "General", tr
 const initMed = (): Medication => ({ drug: "", dose: "", freq: "", duration: "", route: "oral", instructions: "" });
 const initRx = (): RxTemplate => ({ id: uid(), name: "", medications: [initMed()], notes: "" });
 const initCare = (): CareTemplate => ({ id: uid(), name: "", text: "" });
+const initEvo = (): EvoTemplate => ({ id: uid(), name: "", text: "" });
 
 export default function Prestaciones() {
   const isAdmin = useIsAdmin();
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("Todos");
-  const [pageTab, setPageTab] = useState<"tratamientos"|"paquetes"|"recetas"|"indicaciones">("tratamientos");
+  const [pageTab, setPageTab] = useState<"tratamientos"|"paquetes"|"recetas"|"indicaciones"|"plantillas">("tratamientos");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Treatment | null>(null);
   const [form, setForm] = useState(initForm);
@@ -70,6 +74,13 @@ export default function Prestaciones() {
   const [careForm, setCareForm] = useState<CareTemplate>(initCare());
   const [careSaving, setCareSaving] = useState(false);
 
+  // Evo Templates
+  const [evoTemplates, setEvoTemplates] = useState<EvoTemplate[]>([]);
+  const [evoOpen, setEvoOpen] = useState(false);
+  const [evoEditing, setEvoEditing] = useState<EvoTemplate | null>(null);
+  const [evoForm, setEvoForm] = useState<EvoTemplate>(initEvo());
+  const [evoSaving, setEvoSaving] = useState(false);
+
   async function load() {
     const [tr, cr] = await Promise.all([fetch("/api/treatments"), fetch("/api/clinic-config")]);
     if (tr.ok) setTreatments(await tr.json());
@@ -78,6 +89,7 @@ export default function Prestaciones() {
       try { setBundles(JSON.parse(cfg.treatment_bundles ?? "[]")); } catch { setBundles([]); }
       try { setRxTemplates(JSON.parse(cfg.rx_templates ?? "[]")); } catch { setRxTemplates([]); }
       try { setCareTemplates(JSON.parse(cfg.care_templates ?? "[]")); } catch { setCareTemplates([]); }
+      try { setEvoTemplates(JSON.parse(cfg.evo_templates ?? "[]")); } catch { setEvoTemplates([]); }
     }
   }
 
@@ -152,6 +164,24 @@ export default function Prestaciones() {
     setCareOpen(false); setCareSaving(false);
   }
 
+  // ---- Evo Templates ----
+  async function saveEvoList(updated: EvoTemplate[]) {
+    await saveCfgKey("evo_templates", JSON.stringify(updated));
+    setEvoTemplates(updated);
+  }
+  function openNewEvo() { setEvoForm(initEvo()); setEvoEditing(null); setEvoOpen(true); }
+  function openEditEvo(t: EvoTemplate) { setEvoForm({ ...t }); setEvoEditing(t); setEvoOpen(true); }
+  async function deleteEvo(id: string) {
+    if (!confirm("¿Eliminar esta plantilla de evolución?")) return;
+    await saveEvoList(evoTemplates.filter(t => t.id !== id));
+  }
+  async function saveEvoTemplate() {
+    setEvoSaving(true);
+    const updated = evoEditing ? evoTemplates.map(t => t.id === evoEditing.id ? evoForm : t) : [...evoTemplates, evoForm];
+    await saveEvoList(updated);
+    setEvoOpen(false); setEvoSaving(false);
+  }
+
   // ---- Treatments CRUD ----
   function openNew() { setForm(initForm); setEditing(null); setOpen(true); }
   function openEdit(t: Treatment) {
@@ -198,11 +228,12 @@ export default function Prestaciones() {
   const filteredBundles = bundles.filter(b => !bundleSearch || b.name.toLowerCase().includes(bundleSearch.toLowerCase()) || b.category.toLowerCase().includes(bundleSearch.toLowerCase()));
   const bundleByCat = filteredBundles.reduce<Record<string, Bundle[]>>((acc, b) => { (acc[b.category] ??= []).push(b); return acc; }, {});
 
-  const TABS: { key: "tratamientos"|"paquetes"|"recetas"|"indicaciones"; label: string; count: number; icon?: React.ElementType }[] = [
+  const TABS: { key: "tratamientos"|"paquetes"|"recetas"|"indicaciones"|"plantillas"; label: string; count: number; icon?: React.ElementType }[] = [
     { key: "tratamientos", label: "Tratamientos", count: treatments.length },
     { key: "paquetes", label: "Paquetes", count: bundles.length, icon: Package },
     { key: "recetas", label: "Recetas", count: rxTemplates.length, icon: Pill },
     { key: "indicaciones", label: "Indicaciones", count: careTemplates.length, icon: BookOpen },
+    { key: "plantillas", label: "Plantillas Evolución", count: evoTemplates.length, icon: FileText },
   ];
 
   return (
@@ -226,6 +257,7 @@ export default function Prestaciones() {
           {pageTab === "paquetes" && <button onClick={openNewBundle} className="btn-primary"><Plus size={16} /> Nuevo Paquete</button>}
           {pageTab === "recetas" && <button onClick={openNewRx} className="btn-primary"><Plus size={16} /> Nueva Plantilla</button>}
           {pageTab === "indicaciones" && <button onClick={openNewCare} className="btn-primary"><Plus size={16} /> Nueva Plantilla</button>}
+          {pageTab === "plantillas" && <button onClick={openNewEvo} className="btn-primary"><Plus size={16} /> Nueva Plantilla</button>}
         </div>
       </div>
 
@@ -442,6 +474,41 @@ export default function Prestaciones() {
         </>
       )}
 
+      {/* ===== PLANTILLAS EVOLUCIÓN ===== */}
+      {pageTab === "plantillas" && (
+        <>
+          <div className="card p-4 bg-indigo-50 border-indigo-200">
+            <p className="text-sm text-indigo-800 font-medium"><FileText size={14} className="inline mr-1" />Plantillas de evolución clínica</p>
+            <p className="text-xs text-indigo-700 mt-1">Crea textos predefinidos que aparecerán como opciones rápidas al registrar una evolución desde el perfil del paciente.</p>
+          </div>
+          {evoTemplates.length === 0 ? (
+            <div className="card py-16 text-center">
+              <FileText className="w-10 h-10 text-slate-200 mx-auto mb-3" />
+              <p className="text-slate-500 text-sm mb-4">No hay plantillas de evolución creadas</p>
+              <button onClick={openNewEvo} className="btn-primary text-sm"><Plus size={14} /> Crear primera plantilla</button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {evoTemplates.map(t => (
+                <div key={t.id} className="card p-5 flex flex-col gap-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <FileText size={15} className="text-indigo-600 flex-shrink-0" />
+                      <p className="font-semibold text-slate-900">{t.name}</p>
+                    </div>
+                    <div className="flex gap-1 flex-shrink-0">
+                      <button onClick={() => openEditEvo(t)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"><Pencil size={13} /></button>
+                      {isAdmin && <button onClick={() => deleteEvo(t.id)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={13} /></button>}
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed line-clamp-4 whitespace-pre-line">{t.text}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
       {/* ===== MODAL: Tratamiento ===== */}
       <Modal open={open} onClose={() => setOpen(false)} title={editing ? "Editar Prestación" : "Nueva Prestación"}>
         <div className="p-6 space-y-4">
@@ -503,7 +570,7 @@ export default function Prestaciones() {
             <label className="label">Tratamientos incluidos</label>
             <p className="text-xs text-slate-400 mb-2">Selecciona los tratamientos que componen este paquete.</p>
             <div className="border border-slate-200 rounded-xl overflow-hidden max-h-72 overflow-y-auto">
-              {CATEGORIES.map(cat => {
+              {Array.from(new Set(treatments.map(t => t.category))).sort().map(cat => {
                 const catItems = treatments.filter(t => t.category === cat);
                 if (!catItems.length) return null;
                 return (
@@ -635,6 +702,36 @@ export default function Prestaciones() {
           <button className="btn-secondary" onClick={() => setCareOpen(false)}>Cancelar</button>
           <button className="btn-primary" onClick={saveCare} disabled={careSaving || !careForm.name || !careForm.text.trim()}>
             {careSaving ? "Guardando..." : careEditing ? "Actualizar" : "Crear plantilla"}
+          </button>
+        </div>
+      </Modal>
+
+      {/* ===== MODAL: Plantillas Evolución ===== */}
+      <Modal open={evoOpen} onClose={() => setEvoOpen(false)} title={evoEditing ? "Editar Plantilla de Evolución" : "Nueva Plantilla de Evolución"} size="lg">
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="label">Nombre de la plantilla *</label>
+            <input className="input" value={evoForm.name} onChange={e => setEvoForm(f => ({ ...f, name: e.target.value }))} placeholder="Ej: Control postoperatorio, Primera consulta..." />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="label mb-0">Texto de evolución *</label>
+              <span className="text-xs text-slate-400">Ctrl+Enter para nueva línea</span>
+            </div>
+            <textarea
+              className="input resize-none font-mono text-sm leading-relaxed"
+              rows={12}
+              value={evoForm.text}
+              onChange={e => setEvoForm(f => ({ ...f, text: e.target.value }))}
+              placeholder={"Paciente evoluciona favorablemente...\nSin signos de complicaciones...\nSe indica..."}
+            />
+            <p className="text-xs text-slate-400 mt-1">{evoForm.text.split("\n").filter(l => l.trim()).length} líneas · {evoForm.text.length} caracteres</p>
+          </div>
+        </div>
+        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
+          <button className="btn-secondary" onClick={() => setEvoOpen(false)}>Cancelar</button>
+          <button className="btn-primary" onClick={saveEvoTemplate} disabled={evoSaving || !evoForm.name || !evoForm.text.trim()}>
+            {evoSaving ? "Guardando..." : evoEditing ? "Actualizar" : "Crear plantilla"}
           </button>
         </div>
       </Modal>

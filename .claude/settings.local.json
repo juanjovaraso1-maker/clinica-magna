@@ -52,7 +52,13 @@
       "Bash(powershell.exe -Command \"\\(Get-Process -Id 17304\\).MainModule.FileName; \\(Get-Process -Id 17304 | Get-Item\\).Directory\")",
       "Bash(powershell.exe -Command \"\\(Get-WmiObject Win32_Process -Filter 'ProcessId=17304'\\).CommandLine\")",
       "Bash(grep -v \"^$\\\\|npm notice\\\\|┌\\\\|│\\\\|└\\\\|Run the\\\\|npm i \")",
-      "Bash(mkdir -p \"c:/Users/PC/clinica-magna/app/api/prescriptions/[id]\")"
+      "Bash(mkdir -p \"c:/Users/PC/clinica-magna/app/api/prescriptions/[id]\")",
+      "Bash(node -e ' *)",
+      "Bash(claude config *)",
+      "Bash(ls -la prisma/dev.db)",
+      "Bash(file prisma/dev.db)",
+      "Bash(python3 -c ' *)",
+      "Bash(grep -n \"getServerSession\\\\|authOptions\\\\|getToken\\\\|role\" app/api/admin/restore/route.ts app/api/admin/backup/route.ts app/api/admin/backup/\\\\\\\\[id\\\\\\\\]/route.ts)"
     ],
     "additionalDirectories": [
       "c:\\Users\\PC\\clinica-magna\\app\\api\\auth",
