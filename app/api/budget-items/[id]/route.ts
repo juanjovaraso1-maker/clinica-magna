@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -8,7 +10,12 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  const actorId = (session?.user as any)?.id as string | undefined;
+
   const { status, sessions, directCost, completedByUserId } = await req.json();
+  // Use server-side session user; fall back to client-sent value
+  const effectiveActorId = actorId ?? completedByUserId ?? null;
 
   const current = await prisma.budgetItem.findUnique({
     where: { id: params.id },
@@ -46,7 +53,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       status,
       sessions:          sessions   ?? undefined,
       directCost:        directCost ?? undefined,
-      completedByUserId: nowCompleted ? (completedByUserId ?? null) : null,
+      completedByUserId: nowCompleted ? (effectiveActorId ?? null) : null,
       completedAt:       nowCompleted ? new Date().toISOString().slice(0, 10) : null,
     },
   });
@@ -58,7 +65,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         patientId,
         budgetId:        current.budgetId,
         budgetItemId:    current.id,
-        userId:          completedByUserId ?? null,
+        userId:          effectiveActorId ?? null,
         date:            new Date().toISOString().slice(0, 10),
         amount:          autoAmount,
         method:          "saldo_a_favor",
@@ -79,31 +86,34 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   }
 
   // Auto-evolution: record every status change in patient history
+  const prevLabel = STATUS_LABELS[current.status] ?? current.status;
+  const newLabel  = STATUS_LABELS[status]          ?? status;
   try {
-    const changedBy = completedByUserId
+    const changedBy = effectiveActorId
       ? await prisma.user.findUnique({
-          where: { id: completedByUserId },
+          where: { id: effectiveActorId },
           select: { name: true, title: true },
         })
       : null;
 
     const profName    = changedBy ? `${changedBy.title ?? ""} ${changedBy.name}`.trim() : "Sistema";
-    const creatorName = current.budget.user?.name ?? "Desconocido";
-    const prevLabel   = STATUS_LABELS[current.status] ?? current.status;
-    const newLabel    = STATUS_LABELS[status]          ?? status;
+    const creatorName = current.budget.user
+      ? `${current.budget.user.title ?? ""} ${current.budget.user.name}`.trim()
+      : "Desconocido";
 
     await prisma.evolution.create({
       data: {
         patientId,
-        userId:       completedByUserId ?? current.budget.userId,
+        userId:       effectiveActorId ?? current.budget.userId,
         date:         new Date().toISOString().slice(0, 10),
         treatment:    `Presup. #${current.budget.number}: ${current.description} — ${prevLabel} → ${newLabel}`,
         observations: `En el presupuesto #${current.budget.number} (creado por ${creatorName}) se modificó el estado de "${prevLabel}" a "${newLabel}" en el tratamiento "${current.description}" por ${profName}.`,
         isSystem:     true,
       },
     });
-  } catch {
-    // Don't fail the whole request if evolution creation fails
+  } catch (err) {
+    // Log but don't fail the main status update
+    console.error("[budget-items] Error creando evolución automática:", err);
   }
 
   return NextResponse.json({ ...item, insufficientBalance });

@@ -13,12 +13,13 @@ import { useSession } from "next-auth/react";
 type User = { id: string; name: string; title?: string; email: string; rut?: string; username?: string; role: string; specialty: string | null; commissionRate: number; active: boolean; signatureUrl?: string };
 
 const TABS = [
-  { key: "general",   label: "General",     icon: Building2   },
-  { key: "usuarios",  label: "Usuarios",    icon: Users       },
-  { key: "doctores",  label: "$ Doctores",  icon: DollarSign  },
-  { key: "agenda",    label: "Agenda",      icon: Calendar    },
-  { key: "correo",    label: "Correo",      icon: Mail        },
-  { key: "respaldos", label: "Respaldos",   icon: HardDrive   },
+  { key: "general",      label: "General",        icon: Building2   },
+  { key: "usuarios",     label: "Usuarios",       icon: Users       },
+  { key: "doctores",     label: "$ Doctores",     icon: DollarSign  },
+  { key: "mirendimiento",label: "Mi Rendimiento", icon: TrendingUp  },
+  { key: "agenda",       label: "Agenda",         icon: Calendar    },
+  { key: "correo",       label: "Correo",         icon: Mail        },
+  { key: "respaldos",    label: "Respaldos",      icon: HardDrive   },
 ];
 
 type BackupMeta = { id: string; source: string; size: number; summary: string; createdAt: string };
@@ -82,8 +83,8 @@ type PerfItem = {
 
 type DoctorPmt = { id: string; userId: string; month: string; amount: number; notes: string | null; createdAt: string };
 
-function MiCuenta({ user, sessionUserId, onReload }: { user: User | undefined; sessionUserId: string | undefined; onReload: () => void }) {
-  const [tab, setTab] = useState<"cuenta"|"rendimiento">("cuenta");
+function MiCuenta({ user, sessionUserId, onReload, initialTab }: { user: User | undefined; sessionUserId: string | undefined; onReload: () => void; initialTab?: "cuenta"|"rendimiento" }) {
+  const [tab, setTab] = useState<"cuenta"|"rendimiento">(initialTab ?? "cuenta");
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
   const [pwSaving, setPwSaving] = useState(false);
   const [pwMsg, setPwMsg] = useState("");
@@ -796,6 +797,12 @@ export default function Configuracion() {
 
       {/* ===== TAB DOCTORES ===== */}
       {tab === "doctores" && <DoctoresTab />}
+
+      {/* ===== TAB MI RENDIMIENTO (admin) ===== */}
+      {tab === "mirendimiento" && (() => {
+        const me = users.find(u => u.id === sessionUserId);
+        return <MiCuenta user={me} sessionUserId={sessionUserId} onReload={loadUsers} initialTab="rendimiento" />;
+      })()}
 
       {/* ===== TAB GENERAL ===== */}
       {tab === "general" && (
