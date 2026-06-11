@@ -10,18 +10,29 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  const actorId = (session?.user as any)?.id as string | undefined;
+  // Get actor from server session first; fall back to client-provided value
+  let actorId: string | null = null;
+  try {
+    const session = await getServerSession(authOptions);
+    actorId = (session?.user as any)?.id ?? null;
+  } catch {
+    // getServerSession failed — will use client-provided userId
+  }
 
-  const { status, sessions, directCost, completedByUserId } = await req.json();
-  // Use server-side session user; fall back to client-sent value
-  const effectiveActorId = actorId ?? completedByUserId ?? null;
+  const body = await req.json();
+  const { status, sessions, directCost } = body;
+  const completedByUserId: string | null = body.completedByUserId ?? null;
+
+  // Prefer server session; fall back to client-sent value
+  const effectiveActorId: string | null = actorId ?? completedByUserId;
 
   const current = await prisma.budgetItem.findUnique({
     where: { id: params.id },
     include: {
       budget: {
-        include: { user: { select: { name: true, title: true } } },
+        include: {
+          user: { select: { id: true, name: true, title: true } },
+        },
       },
     },
   });
@@ -39,9 +50,9 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       prisma.payment.aggregate({ where: { patientId, isAutoAssignment: false }, _sum: { amount: true } }),
       prisma.payment.aggregate({ where: { patientId, isAutoAssignment: true }, _sum: { amount: true } }),
     ]);
-    const paidTotal          = realAgg._sum.amount ?? 0;
+    const paidTotal           = realAgg._sum.amount ?? 0;
     const alreadyAutoAssigned = autoAgg._sum.amount ?? 0;
-    const availableCredit    = Math.max(0, paidTotal - alreadyAutoAssigned);
+    const availableCredit     = Math.max(0, paidTotal - alreadyAutoAssigned);
     autoAmount = Math.min(availableCredit, current.total);
     insufficientBalance = availableCredit < current.total;
   }
@@ -53,27 +64,27 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       status,
       sessions:          sessions   ?? undefined,
       directCost:        directCost ?? undefined,
-      completedByUserId: nowCompleted ? (effectiveActorId ?? null) : null,
+      completedByUserId: nowCompleted ? effectiveActorId : null,
       completedAt:       nowCompleted ? new Date().toISOString().slice(0, 10) : null,
     },
   });
 
-  // Create auto-assignment payment when finalizing (even partial)
+  // Create auto-assignment payment when finalizing
   if (!wasCompleted && nowCompleted && autoAmount > 0) {
     await prisma.payment.create({
       data: {
         patientId,
-        budgetId:        current.budgetId,
-        budgetItemId:    current.id,
-        userId:          effectiveActorId ?? null,
-        date:            new Date().toISOString().slice(0, 10),
-        amount:          autoAmount,
-        method:          "saldo_a_favor",
-        notes:           `Completado: ${current.description}`,
+        budgetId:         current.budgetId,
+        budgetItemId:     current.id,
+        userId:           effectiveActorId,
+        date:             new Date().toISOString().slice(0, 10),
+        amount:           autoAmount,
+        method:           "saldo_a_favor",
+        notes:            `Completado: ${current.description}`,
         isAutoAssignment: true,
-        status:          "completed",
-        tuuCommission:   0,
-        netAmount:       autoAmount,
+        status:           "completed",
+        tuuCommission:    0,
+        netAmount:        autoAmount,
       },
     });
   }
@@ -86,9 +97,13 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   }
 
   // Auto-evolution: record every status change in patient history
-  const prevLabel = STATUS_LABELS[current.status] ?? current.status;
-  const newLabel  = STATUS_LABELS[status]          ?? status;
+  const prevLabel   = STATUS_LABELS[current.status] ?? current.status;
+  const newLabel    = STATUS_LABELS[status]          ?? status;
+  const evolutionUserId = effectiveActorId ?? current.budget.userId;
+
+  let evolutionCreated = false;
   try {
+    // Resolve display name for who changed the status
     const changedBy = effectiveActorId
       ? await prisma.user.findUnique({
           where: { id: effectiveActorId },
@@ -96,7 +111,12 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         })
       : null;
 
-    const profName    = changedBy ? `${changedBy.title ?? ""} ${changedBy.name}`.trim() : "Sistema";
+    const profName    = changedBy
+      ? `${changedBy.title ?? ""} ${changedBy.name}`.trim()
+      : (current.budget.user
+          ? `${current.budget.user.title ?? ""} ${current.budget.user.name}`.trim()
+          : "Sistema");
+
     const creatorName = current.budget.user
       ? `${current.budget.user.title ?? ""} ${current.budget.user.name}`.trim()
       : "Desconocido";
@@ -104,17 +124,17 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     await prisma.evolution.create({
       data: {
         patientId,
-        userId:       effectiveActorId ?? current.budget.userId,
+        userId:       evolutionUserId,
         date:         new Date().toISOString().slice(0, 10),
         treatment:    `Presup. #${current.budget.number}: ${current.description} — ${prevLabel} → ${newLabel}`,
         observations: `En el presupuesto #${current.budget.number} (creado por ${creatorName}) se modificó el estado de "${prevLabel}" a "${newLabel}" en el tratamiento "${current.description}" por ${profName}.`,
         isSystem:     true,
       },
     });
+    evolutionCreated = true;
   } catch (err) {
-    // Log but don't fail the main status update
-    console.error("[budget-items] Error creando evolución automática:", err);
+    console.error("[budget-items] evolutionUserId:", evolutionUserId, "error:", String(err));
   }
 
-  return NextResponse.json({ ...item, insufficientBalance });
+  return NextResponse.json({ ...item, insufficientBalance, evolutionCreated });
 }
