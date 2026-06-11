@@ -10,6 +10,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
+  console.log("[budget-items v2] PUT", params.id);
   // Get actor from server session first; fall back to client-provided value
   let actorId: string | null = null;
   try {

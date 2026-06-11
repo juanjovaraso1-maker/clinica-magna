@@ -6,7 +6,7 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
     where: { id: params.id },
     include: {
       clinicalRecord: true,
-      evolutions: { include: { user: true }, orderBy: { date: "desc" } },
+      evolutions: { include: { user: true }, orderBy: [{ date: "desc" }, { createdAt: "desc" }] },
       budgets: { include: { items: true, user: true, payments: true }, orderBy: { createdAt: "desc" } },
       payments: { include: { budget: true }, orderBy: { date: "desc" } },
       appointments: { include: { user: true }, orderBy: { date: "desc" } },
