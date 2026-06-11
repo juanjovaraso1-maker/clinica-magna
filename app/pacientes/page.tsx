@@ -223,7 +223,7 @@ export default function Pacientes() {
             {/* Info */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <p className="font-semibold text-slate-900 text-sm">{p.firstName} {p.lastName}</p>
+                <Link href={`/pacientes/${p.id}`} className="font-semibold text-slate-900 text-sm hover:text-primary-600 transition-colors">{p.firstName} {p.lastName}</Link>
                 {!p.active && <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full font-medium">Inactivo</span>}
               </div>
               <p className="text-xs text-slate-500 font-mono mt-0.5">{p.rut}</p>
@@ -302,7 +302,7 @@ export default function Pacientes() {
                       {avatarInitials(p)}
                     </div>
                     <div>
-                      <p className="font-medium text-slate-900">{p.firstName} {p.lastName}</p>
+                      <Link href={`/pacientes/${p.id}`} className="font-medium text-slate-900 hover:text-primary-600 transition-colors">{p.firstName} {p.lastName}</Link>
                       <p className="text-xs text-slate-400">{p.gender} · {p.city}</p>
                     </div>
                     {!p.active && <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full font-medium ml-1">Inactivo</span>}

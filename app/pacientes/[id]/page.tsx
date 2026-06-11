@@ -86,10 +86,10 @@ interface Patient {
   email: string; phone: string; gender: string; address: string; city: string;
   healthInsurance: string; birthDate: string; notes: string; referralSource?: string;
   clinicalRecord?: { bloodType:string; allergies:string; currentMedications:string; medicalBackground:string; dentalBackground:string; habits:string; observations:string };
-  evolutions: Array<{ id:string; date:string; diagnosis:string; treatment:string; tooth:string; observations:string; cost:number; isSystem?:boolean; user:{id:string;name:string} }>;
-  budgets: Array<{ id:string; number:number; date:string; validUntil:string; status:string; subtotal:number; total:number; discount:number; notes:string; items:BudgetItem[]; payments:Array<{id:string;amount:number;date:string;method:string;notes:string}>; user:{id:string;name:string} }>;
-  payments: Array<{ id:string; date:string; amount:number; method:string; notes:string; reference?:string; budget?:{number:number}; installmentNumber?:number; installments?:number; installmentStatus?:string; isTuuInstallment?:boolean; tuuCommission?:number; netAmount?:number; isAutoAssignment?:boolean; budgetItemId?:string }>;
-  appointments: Array<{ id:string; date:string; startTime:string; type:string; status:string; user:{name:string} }>;
+  evolutions: Array<{ id:string; date:string; createdAt:string; diagnosis:string; treatment:string; tooth:string; observations:string; cost:number; isSystem?:boolean; user:{id:string;name:string} }>;
+  budgets: Array<{ id:string; number:number; date:string; createdAt:string; validUntil:string; status:string; subtotal:number; total:number; discount:number; notes:string; items:BudgetItem[]; payments:Array<{id:string;amount:number;date:string;method:string;notes:string}>; user:{id:string;name:string} }>;
+  payments: Array<{ id:string; date:string; createdAt:string; amount:number; method:string; notes:string; reference?:string; budget?:{number:number}; installmentNumber?:number; installments?:number; installmentStatus?:string; isTuuInstallment?:boolean; tuuCommission?:number; netAmount?:number; isAutoAssignment?:boolean; budgetItemId?:string }>;
+  appointments: Array<{ id:string; date:string; createdAt:string; startTime:string; type:string; status:string; user:{name:string} }>;
   documents: Array<{ id:string; name:string; type:string; fileName:string; mimeType:string; size:number; createdAt:string }>;
 }
 
@@ -1433,41 +1433,41 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
 const hasAlerts = patient.clinicalRecord?.allergies || patient.clinicalRecord?.currentMedications;
 
   // Build unified timeline
-  type TimelineItem = { date: string; time?: string; kind: "cita"|"evolucion"|"sistema"|"pago"|"presupuesto"; label: string; sub: string; badge?: string; amount?: number; color: string; icon: React.ReactNode };
+  type TimelineItem = { date: string; createdAt?: string; time?: string; kind: "cita"|"evolucion"|"sistema"|"pago"|"presupuesto"; label: string; sub: string; badge?: string; amount?: number; color: string; icon: React.ReactNode };
   const timeline: TimelineItem[] = [
     ...patient.appointments.map(a => ({
-      date: a.date, time: a.startTime, kind:"cita" as const,
+      date: a.date, createdAt: a.createdAt, time: a.startTime, kind:"cita" as const,
       label: a.type, sub: `${a.startTime} · ${a.user.name}`,
       badge: a.status, color:"bg-primary-100 text-primary-700",
       icon: <Calendar size={14}/>,
     })),
     // Clinical evolutions (non-system)
     ...patient.evolutions.filter(e => !e.isSystem).map(e => ({
-      date: e.date, kind:"evolucion" as const,
+      date: e.date, createdAt: e.createdAt, kind:"evolucion" as const,
       label: e.treatment, sub: `${e.user.name}${e.tooth ? ` · D.${e.tooth}` : ""}`,
       amount: undefined, color:"bg-violet-100 text-violet-700",
       icon: <Activity size={14}/>,
     })),
     // System evolutions: auto-generated on treatment status change
     ...patient.evolutions.filter(e => e.isSystem).map(e => ({
-      date: e.date, kind:"sistema" as const,
+      date: e.date, createdAt: e.createdAt, kind:"sistema" as const,
       label: e.treatment, sub: e.observations ?? e.user.name,
       amount: undefined, color:"bg-slate-100 text-slate-600",
       icon: <ClipboardList size={14}/>,
     })),
     ...patient.payments.filter(p => !p.isAutoAssignment).map(p => ({
-      date: p.date, kind:"pago" as const,
+      date: p.date, createdAt: p.createdAt, kind:"pago" as const,
       label: `Pago — ${p.method}`, sub: p.notes || (p.budget ? `Presup. #${p.budget.number}` : "Sin presupuesto"),
       amount: p.amount, color:"bg-emerald-100 text-emerald-700",
       icon: <TrendingUp size={14}/>,
     })),
     ...patient.budgets.map(b => ({
-      date: b.date, kind:"presupuesto" as const,
+      date: b.date, createdAt: b.createdAt, kind:"presupuesto" as const,
       label: `Presupuesto #${b.number}`, sub: b.user.name,
       badge: b.status, amount: b.total, color:"bg-amber-100 text-amber-700",
       icon: <FileText size={14}/>,
     })),
-  ].sort((a,b) => b.date.localeCompare(a.date) || (("time" in b ? b.time : "")??"").localeCompare(("time" in a ? a.time : "")??""));
+  ].sort((a,b) => b.date.localeCompare(a.date) || (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
 
   return (
     <div className="space-y-4 w-full">
