@@ -42,6 +42,9 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   const nowCompleted = status === "completed";
   const patientId    = current.budget.patientId;
 
+  // Use budget creator as last-resort fallback so completedByUserId is never null
+  const resolvedActorId: string = effectiveActorId ?? current.budget.userId;
+
   // Compute auto-assignment amount when finalizing
   let autoAmount = 0;
   let insufficientBalance = false;
@@ -64,7 +67,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       status,
       sessions:          sessions   ?? undefined,
       directCost:        directCost ?? undefined,
-      completedByUserId: nowCompleted ? effectiveActorId : null,
+      completedByUserId: nowCompleted ? resolvedActorId : null,
       completedAt:       nowCompleted ? new Date().toISOString().slice(0, 10) : null,
     },
   });
@@ -76,7 +79,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         patientId,
         budgetId:         current.budgetId,
         budgetItemId:     current.id,
-        userId:           effectiveActorId,
+        userId:           resolvedActorId,
         date:             new Date().toISOString().slice(0, 10),
         amount:           autoAmount,
         method:           "saldo_a_favor",
@@ -97,44 +100,32 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   }
 
   // Auto-evolution: record every status change in patient history
-  const prevLabel   = STATUS_LABELS[current.status] ?? current.status;
-  const newLabel    = STATUS_LABELS[status]          ?? status;
-  const evolutionUserId = effectiveActorId ?? current.budget.userId;
+  const prevLabel = STATUS_LABELS[current.status] ?? current.status;
+  const newLabel  = STATUS_LABELS[status]          ?? status;
 
-  let evolutionCreated = false;
-  try {
-    // Resolve display name for who changed the status
-    const changedBy = effectiveActorId
-      ? await prisma.user.findUnique({
-          where: { id: effectiveActorId },
-          select: { name: true, title: true },
-        })
-      : null;
+  const changedBy = await prisma.user.findUnique({
+    where:  { id: resolvedActorId },
+    select: { name: true, title: true },
+  });
 
-    const profName    = changedBy
-      ? `${changedBy.title ?? ""} ${changedBy.name}`.trim()
-      : (current.budget.user
-          ? `${current.budget.user.title ?? ""} ${current.budget.user.name}`.trim()
-          : "Sistema");
+  const profName = changedBy
+    ? `${changedBy.title ?? ""} ${changedBy.name}`.trim()
+    : "Sistema";
 
-    const creatorName = current.budget.user
-      ? `${current.budget.user.title ?? ""} ${current.budget.user.name}`.trim()
-      : "Desconocido";
+  const creatorName = current.budget.user
+    ? `${current.budget.user.title ?? ""} ${current.budget.user.name}`.trim()
+    : "Desconocido";
 
-    await prisma.evolution.create({
-      data: {
-        patientId,
-        userId:       evolutionUserId,
-        date:         new Date().toISOString().slice(0, 10),
-        treatment:    `Presup. #${current.budget.number}: ${current.description} — ${prevLabel} → ${newLabel}`,
-        observations: `En el presupuesto #${current.budget.number} (creado por ${creatorName}) se modificó el estado de "${prevLabel}" a "${newLabel}" en el tratamiento "${current.description}" por ${profName}.`,
-        isSystem:     true,
-      },
-    });
-    evolutionCreated = true;
-  } catch (err) {
-    console.error("[budget-items] evolutionUserId:", evolutionUserId, "error:", String(err));
-  }
+  await prisma.evolution.create({
+    data: {
+      patientId,
+      userId:       resolvedActorId,
+      date:         new Date().toISOString().slice(0, 10),
+      treatment:    `Presup. #${current.budget.number}: ${current.description} — ${prevLabel} → ${newLabel}`,
+      observations: `En el presupuesto #${current.budget.number} (creado por ${creatorName}) se modificó el estado de "${prevLabel}" a "${newLabel}" en el tratamiento "${current.description}" por ${profName}.`,
+      isSystem:     true,
+    },
+  });
 
-  return NextResponse.json({ ...item, insufficientBalance, evolutionCreated });
+  return NextResponse.json({ ...item, insufficientBalance });
 }
