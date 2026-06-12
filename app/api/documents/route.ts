@@ -12,6 +12,14 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(docs);
 }
 
+const ALLOWED_MIME = new Set([
+  "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml",
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+]);
+const MAX_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
+
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
   const file     = formData.get("file") as File;
@@ -19,7 +27,28 @@ export async function POST(req: NextRequest) {
   const type     = (formData.get("type") as string) ?? "other";
   const name     = (formData.get("name") as string) || file.name;
 
-  const ext      = file.name.split(".").pop();
+  // Validate presence
+  if (!file || !patientId) {
+    return NextResponse.json({ error: "Archivo y paciente son requeridos" }, { status: 400 });
+  }
+
+  // Validate MIME type
+  if (!ALLOWED_MIME.has(file.type)) {
+    return NextResponse.json(
+      { error: `Tipo de archivo no permitido: ${file.type}. Solo se aceptan PDF, imágenes y documentos Word.` },
+      { status: 400 }
+    );
+  }
+
+  // Validate size
+  if (file.size > MAX_SIZE_BYTES) {
+    return NextResponse.json(
+      { error: `El archivo supera el límite de 20 MB (${(file.size / 1024 / 1024).toFixed(1)} MB).` },
+      { status: 400 }
+    );
+  }
+
+  const ext      = file.name.split(".").pop()?.toLowerCase() ?? "bin";
   const storagePath = `${patientId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
   const { error } = await getSupabaseAdmin().storage

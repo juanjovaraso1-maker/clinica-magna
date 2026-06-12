@@ -20,6 +20,8 @@ export default function LoginPage() {
     setLoading(false);
     if (res?.ok) {
       router.replace("/agenda");
+    } else if (res?.error === "RATE_LIMITED") {
+      setError("Demasiados intentos fallidos. Espera 5 minutos antes de intentar nuevamente.");
     } else {
       setError("Usuario o contraseña incorrectos.");
     }

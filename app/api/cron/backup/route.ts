@@ -69,10 +69,17 @@ export async function GET() {
     zip.file(`respaldo-clinica-magna-${dateStr}.json`, json);
     const zipBuffer = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE", compressionOptions: { level: 6 } });
 
+    // ── Integrity check: verify JSON is parseable and has key tables ─────────
+    const integrityErrors: string[] = [];
+    try { JSON.parse(json); } catch (e) { integrityErrors.push(`JSON inválido: ${e}`); }
+    if (!patients.length) integrityErrors.push("Tabla patients está vacía");
+    if (!users.length)    integrityErrors.push("Tabla users está vacía");
+    const integrityOk = integrityErrors.length === 0;
+
     // Store in DB (keep last 7)
     const size = Buffer.byteLength(json, "utf8");
     await prisma.backupRecord.create({
-      data: { source: "cron", size, summary: JSON.stringify(summary), data: json },
+      data: { source: "cron", size, summary: JSON.stringify({ ...summary, integrityOk }), data: json },
     });
     const all = await prisma.backupRecord.findMany({ orderBy: { createdAt: "desc" }, select: { id: true } });
     if (all.length > 7) {

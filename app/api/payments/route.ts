@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 export async function GET(req: NextRequest) {
   const month = req.nextUrl.searchParams.get("month");
   const patientId = req.nextUrl.searchParams.get("patientId");
-  const where: any = { patient: { isTest: false } };
+  const where: any = { patient: { isTest: false }, deletedAt: null };
   if (month) where.date = { startsWith: month };
   if (patientId) where.patientId = patientId;
   const payments = await prisma.payment.findMany({
@@ -109,6 +109,7 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const { id } = await req.json();
-  await prisma.payment.delete({ where: { id } });
+  // Soft delete group or single payment
+  await prisma.payment.updateMany({ where: { id }, data: { deletedAt: new Date() } });
   return NextResponse.json({ ok: true });
 }

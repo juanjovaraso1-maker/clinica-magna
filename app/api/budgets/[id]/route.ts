@@ -56,136 +56,100 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
     const oldItemMap  = new Map(oldItems.map(i => [i.id, i]));
     const keepIds     = new Set(incomingItems.filter(i => i.id).map((i: any) => i.id as string));
+    const today       = new Date().toISOString().slice(0, 10);
 
-    // ── 1. Delete items that were removed from the list ──────────────────────
-    for (const old of oldItems) {
-      if (keepIds.has(old.id)) continue;
+    // Wrap all mutations in a transaction — if anything fails, nothing is committed
+    await prisma.$transaction(async (tx) => {
+      // ── 1. Delete items that were removed from the list ────────────────
+      for (const old of oldItems) {
+        if (keepIds.has(old.id)) continue;
 
-      // If it was completed, undo its auto-assignment payment and write a revert evolution
-      if (old.status === "completed") {
-        await prisma.payment.deleteMany({ where: { budgetItemId: old.id, isAutoAssignment: true } });
-        await prisma.evolution.create({
-          data: {
-            patientId,
-            userId:       resolvedActorId,
-            date:         new Date().toISOString().slice(0, 10),
-            treatment:    `Presup. #${currentBudget.number}: ${old.description} — Finalizado → eliminado`,
-            observations: `En el presupuesto #${currentBudget.number} (creado por ${creatorName}) se eliminó el tratamiento "${old.description}" que estaba Finalizado — por ${profName}.`,
-            isSystem:     true,
-          },
-        });
-      }
-      await prisma.budgetItem.delete({ where: { id: old.id } });
-    }
-
-    // ── 2. Upsert each incoming item ─────────────────────────────────────────
-    for (const inc of incomingItems) {
-      const old = inc.id ? oldItemMap.get(inc.id) : null;
-
-      if (old) {
-        // ── Existing item ──────────────────────────────────────────────────
-        const wasCompleted  = old.status === "completed";
-        const nowCompleted  = inc.status === "completed";
-        const statusChanged = old.status !== inc.status;
-
-        // Preserve original completedBy when status stays completed
-        const newCompletedBy = wasCompleted && nowCompleted
-          ? old.completedByUserId          // keep original — don't re-attribute
-          : (nowCompleted ? resolvedActorId : null);
-        const newCompletedAt = wasCompleted && nowCompleted
-          ? old.completedAt
-          : (nowCompleted ? new Date().toISOString().slice(0, 10) : null);
-
-        await prisma.budgetItem.update({
-          where: { id: old.id },
-          data: {
-            description:       inc.description,
-            tooth:             inc.tooth  || null,
-            area:              inc.area   || null,
-            quantity:          inc.quantity,
-            unitPrice:         inc.unitPrice,
-            discount:          inc.discount,
-            discountAmt:       inc.discountAmt  ?? 0,
-            total:             inc.total,
-            status:            inc.status || "pending",
-            directCost:        inc.directCost ?? 0,
-            completedByUserId: newCompletedBy,
-            completedAt:       newCompletedAt,
-          },
-        });
-
-        // ── Finalization side-effects ──────────────────────────────────────
-        if (!wasCompleted && nowCompleted) {
-          // Deduct from patient's available balance via auto-assignment payment
-          const [realAgg, autoAgg] = await Promise.all([
-            prisma.payment.aggregate({ where: { patientId, isAutoAssignment: false }, _sum: { amount: true } }),
-            prisma.payment.aggregate({ where: { patientId, isAutoAssignment: true  }, _sum: { amount: true } }),
-          ]);
-          const available  = Math.max(0, (realAgg._sum.amount ?? 0) - (autoAgg._sum.amount ?? 0));
-          const autoAmount = Math.min(available, inc.total);
-          if (autoAmount > 0) {
-            await prisma.payment.create({
-              data: {
-                patientId,
-                budgetId,
-                budgetItemId:     old.id,
-                userId:           resolvedActorId,
-                date:             new Date().toISOString().slice(0, 10),
-                amount:           autoAmount,
-                method:           "saldo_a_favor",
-                notes:            `Completado: ${inc.description}`,
-                isAutoAssignment: true,
-                status:           "completed",
-                tuuCommission:    0,
-                netAmount:        autoAmount,
-              },
-            });
-          }
-        } else if (wasCompleted && !nowCompleted) {
-          // Revert: restore patient balance by deleting auto-assignment payment
-          await prisma.payment.deleteMany({ where: { budgetItemId: old.id, isAutoAssignment: true } });
-        }
-
-        // ── Auto-evolution for any status change ───────────────────────────
-        if (statusChanged) {
-          const prevLabel = STATUS_LABELS[old.status] ?? old.status;
-          const newLabel  = STATUS_LABELS[inc.status]  ?? inc.status;
-          await prisma.evolution.create({
+        if (old.status === "completed") {
+          await tx.payment.updateMany({ where: { budgetItemId: old.id, isAutoAssignment: true }, data: { deletedAt: new Date() } });
+          await tx.evolution.create({
             data: {
-              patientId,
-              userId:       resolvedActorId,
-              date:         new Date().toISOString().slice(0, 10),
-              treatment:    `Presup. #${currentBudget.number}: ${inc.description} — ${prevLabel} → ${newLabel}`,
-              observations: `En el presupuesto #${currentBudget.number} (creado por ${creatorName}) se modificó el estado de "${prevLabel}" a "${newLabel}" en el tratamiento "${inc.description}" por ${profName}.`,
-              isSystem:     true,
+              patientId, userId: resolvedActorId, date: today, isSystem: true,
+              treatment:    `Presup. #${currentBudget.number}: ${old.description} — Finalizado → eliminado`,
+              observations: `En el presupuesto #${currentBudget.number} (creado por ${creatorName}) se eliminó "${old.description}" que estaba Finalizado — por ${profName}.`,
             },
           });
         }
-      } else {
-        // ── New item — create without auto-actions (starts as pending) ─────
-        await prisma.budgetItem.create({
-          data: {
-            budgetId,
-            description: inc.description,
-            tooth:       inc.tooth  || null,
-            area:        inc.area   || null,
-            quantity:    inc.quantity,
-            unitPrice:   inc.unitPrice,
-            discount:    inc.discount,
-            discountAmt: inc.discountAmt ?? 0,
-            total:       inc.total,
-            status:      inc.status || "pending",
-            directCost:  inc.directCost ?? 0,
-          },
-        });
+        await tx.budgetItem.delete({ where: { id: old.id } });
       }
-    }
+
+      // ── 2. Upsert each incoming item ──────────────────────────────────
+      for (const inc of incomingItems) {
+        const old = inc.id ? oldItemMap.get(inc.id) : null;
+
+        if (old) {
+          const wasCompleted  = old.status === "completed";
+          const nowCompleted  = inc.status === "completed";
+          const statusChanged = old.status !== inc.status;
+
+          const newCompletedBy = wasCompleted && nowCompleted ? old.completedByUserId : (nowCompleted ? resolvedActorId : null);
+          const newCompletedAt = wasCompleted && nowCompleted ? old.completedAt        : (nowCompleted ? today          : null);
+
+          await tx.budgetItem.update({
+            where: { id: old.id },
+            data: {
+              description: inc.description, tooth: inc.tooth || null, area: inc.area || null,
+              quantity: inc.quantity, unitPrice: inc.unitPrice, discount: inc.discount,
+              discountAmt: inc.discountAmt ?? 0, total: inc.total,
+              status: inc.status || "pending", directCost: inc.directCost ?? 0,
+              completedByUserId: newCompletedBy, completedAt: newCompletedAt,
+            },
+          });
+
+          if (!wasCompleted && nowCompleted) {
+            const [realAgg, autoAgg] = await Promise.all([
+              tx.payment.aggregate({ where: { patientId, isAutoAssignment: false, deletedAt: null }, _sum: { amount: true } }),
+              tx.payment.aggregate({ where: { patientId, isAutoAssignment: true,  deletedAt: null }, _sum: { amount: true } }),
+            ]);
+            const available  = Math.max(0, (realAgg._sum.amount ?? 0) - (autoAgg._sum.amount ?? 0));
+            const autoAmount = Math.min(available, inc.total);
+            if (autoAmount > 0) {
+              await tx.payment.create({
+                data: {
+                  patientId, budgetId, budgetItemId: old.id, userId: resolvedActorId,
+                  date: today, amount: autoAmount, method: "saldo_a_favor",
+                  notes: `Completado: ${inc.description}`, isAutoAssignment: true,
+                  status: "completed", tuuCommission: 0, netAmount: autoAmount,
+                },
+              });
+            }
+          } else if (wasCompleted && !nowCompleted) {
+            await tx.payment.updateMany({ where: { budgetItemId: old.id, isAutoAssignment: true }, data: { deletedAt: new Date() } });
+          }
+
+          if (statusChanged) {
+            const prevLabel = STATUS_LABELS[old.status] ?? old.status;
+            const newLabel  = STATUS_LABELS[inc.status]  ?? inc.status;
+            await tx.evolution.create({
+              data: {
+                patientId, userId: resolvedActorId, date: today, isSystem: true,
+                treatment:    `Presup. #${currentBudget.number}: ${inc.description} — ${prevLabel} → ${newLabel}`,
+                observations: `En el presupuesto #${currentBudget.number} (creado por ${creatorName}) se modificó "${prevLabel}" → "${newLabel}" en "${inc.description}" por ${profName}.`,
+              },
+            });
+          }
+        } else {
+          await tx.budgetItem.create({
+            data: {
+              budgetId, description: inc.description, tooth: inc.tooth || null,
+              area: inc.area || null, quantity: inc.quantity, unitPrice: inc.unitPrice,
+              discount: inc.discount, discountAmt: inc.discountAmt ?? 0,
+              total: inc.total, status: inc.status || "pending", directCost: inc.directCost ?? 0,
+            },
+          });
+        }
+      }
+    }, { timeout: 30000 });
   }
 
   const budget = await prisma.budget.update({
     where:   { id: budgetId },
     data,
-    include: { patient: true, user: true, items: true, payments: true },
+    include: { patient: true, user: true, items: true, payments: { where: { deletedAt: null } } },
   });
   return NextResponse.json(budget);
 }

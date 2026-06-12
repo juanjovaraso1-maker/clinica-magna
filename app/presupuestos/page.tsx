@@ -10,6 +10,8 @@ import { useIsAdmin } from "@/hooks/useRole";
 import { useSession } from "next-auth/react";
 import Modal from "@/components/ui/Modal";
 import Badge from "@/components/ui/Badge";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
+import { useAutosave } from "@/hooks/useAutosave";
 
 interface Treatment { id: string; name: string; category: string; price: number }
 interface Convenio { id: string; name: string; discount: number; discountType: string; }
@@ -84,6 +86,26 @@ function PresupuestosContent() {
   const [emailSending, setEmailSending] = useState(false);
   const [toast, setToast] = useState<string|null>(null);
   const [editId, setEditId] = useState<string | null>(null);
+  const [draftBanner, setDraftBanner] = useState(false);
+
+  // Warn before leaving with unsaved budget data
+  const isDirty = open && (items.some(i => i.description.trim()) || !!form.notes.trim() || (!!form.patientId && form.patientId !== (fromPatientId ?? "")));
+  useUnsavedChanges(isDirty);
+
+  // Autosave budget draft to localStorage every 30 s
+  const autosaveBudget = useAutosave("presupuesto-borrador", { form, items }, open && !editId);
+
+  // On new-form open: check for saved draft
+  useEffect(() => {
+    if (open && !editId) {
+      try {
+        const raw = localStorage.getItem("presupuesto-borrador");
+        if (raw) setDraftBanner(true);
+      } catch { /* ignore */ }
+    } else {
+      setDraftBanner(false);
+    }
+  }, [open, editId]);
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 3500); }
 
@@ -218,6 +240,8 @@ function PresupuestosContent() {
       });
     }
     setSaving(false);
+    autosaveBudget.clear();
+    setDraftBanner(false);
     setEditId(null);
     if (fromPatientId && !editId) { router.back(); return; }
     setOpen(false); load();
@@ -743,6 +767,25 @@ function PresupuestosContent() {
       {/* New/Edit budget modal */}
       <Modal open={open} onClose={() => { setOpen(false); setEditId(null); }} title={editId ? "Editar Presupuesto" : "Nuevo Presupuesto"} size="xl">
         <div className="p-4 sm:p-6 space-y-5 overflow-y-auto max-h-[75vh]">
+
+          {/* Draft restore banner */}
+          {draftBanner && (
+            <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm">
+              <span className="text-amber-700 flex-1">Hay un borrador guardado automáticamente. ¿Deseas restaurarlo?</span>
+              <button className="font-semibold text-amber-700 hover:underline" onClick={() => {
+                try {
+                  const raw = localStorage.getItem("presupuesto-borrador");
+                  if (raw) {
+                    const { data } = JSON.parse(raw);
+                    if (data?.form) setForm(data.form);
+                    if (data?.items) setItems(data.items);
+                  }
+                } catch { /* ignore */ }
+                setDraftBanner(false);
+              }}>Restaurar</button>
+              <button className="text-slate-400 hover:text-slate-600" onClick={() => { autosaveBudget.clear(); setDraftBanner(false); }}>Descartar</button>
+            </div>
+          )}
 
           {/* ── Paciente + Profesional + Fechas ── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

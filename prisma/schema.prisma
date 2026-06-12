@@ -101,7 +101,7 @@ model ClinicalRecord {
 }
 
 model Evolution {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   patientId    String
   userId       String
   date         String
@@ -109,9 +109,10 @@ model Evolution {
   treatment    String
   tooth        String?
   observations String?
-  cost         Float    @default(0)
-  isSystem     Boolean  @default(false)
-  createdAt    DateTime @default(now())
+  cost         Float     @default(0)
+  isSystem     Boolean   @default(false)
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
 
   patient Patient @relation(fields: [patientId], references: [id])
   user    User    @relation(fields: [userId], references: [id])
@@ -192,26 +193,27 @@ model BudgetItem {
 }
 
 model Payment {
-  id                 String   @id @default(cuid())
+  id                 String    @id @default(cuid())
   patientId          String
   budgetId           String?
   budgetItemId       String?
   date               String
   amount             Float
   method             String
-  status             String   @default("completed")
+  status             String    @default("completed")
   reference          String?
   notes              String?
   tuuCommission      Float?
   netAmount          Float?
-  isTuuInstallment   Boolean  @default(false)
-  isAutoAssignment   Boolean  @default(false)
+  isTuuInstallment   Boolean   @default(false)
+  isAutoAssignment   Boolean   @default(false)
   installments       Int?
   installmentNumber  Int?
   installmentGroupId String?
   installmentStatus  String?
   userId             String?
-  createdAt          DateTime @default(now())
+  deletedAt          DateTime?
+  createdAt          DateTime  @default(now())
 
   patient Patient @relation(fields: [patientId], references: [id])
   budget  Budget? @relation(fields: [budgetId], references: [id])
@@ -387,4 +389,24 @@ model PrescriptionRecord {
 
   patient Patient @relation(fields: [patientId], references: [id])
   user    User    @relation(fields: [userId], references: [id])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  userName   String?
+  action     String   // CREATE | UPDATE | DELETE | RESTORE | LOGIN | EXPORT | BACKUP
+  entity     String   // Patient | Evolution | Payment | Budget | User | etc.
+  entityId   String?
+  details    String?  // JSON snapshot of changed fields
+  ip         String?
+  createdAt  DateTime @default(now())
+}
+
+model LoginAttempt {
+  id         String   @id @default(cuid())
+  username   String
+  ip         String?
+  success    Boolean
+  createdAt  DateTime @default(now())
 }

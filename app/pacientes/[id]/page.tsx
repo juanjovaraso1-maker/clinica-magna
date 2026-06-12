@@ -16,6 +16,8 @@ import BudgetEditor from "@/components/budgets/BudgetEditor";
 import { buildRecetaBody, buildPresupuestoBody, buildIndicacionesBody } from "@/lib/pdf-templates";
 import { useIsAdmin } from "@/hooks/useRole";
 import { useSession } from "next-auth/react";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
+import { useAutosave } from "@/hooks/useAutosave";
 
 // Renders a body HTML string in a hidden A4-width div, captures it with html2canvas,
 // converts to PDF via jsPDF, and returns the PDF as a base64 string.
@@ -305,6 +307,16 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
   const [budgetPdfSending, setBudgetPdfSending] = useState<string|null>(null);
   const [convenios, setConvenios] = useState<Array<{id:string;name:string;discount:number;discountType:string}>>([]);
 
+  // Warn before closing/navigating with unsaved form data
+  const hasUnsavedData = (evoModal && (!!evoForm.observations.trim() || !!evoForm.diagnosis.trim() || !!evoForm.treatment?.trim())) ||
+    (fichaEdit && Object.values(fichaForm).some(v => !!v?.trim()));
+  useUnsavedChanges(hasUnsavedData);
+
+  // Autosave evolution draft
+  const autosaveEvo = useAutosave(`evolucion-borrador-${id}`, evoForm, evoModal);
+  // Autosave clinical record draft
+  const autosaveFicha = useAutosave(`ficha-borrador-${id}`, fichaForm, fichaEdit);
+
   async function load() {
     const [pr, ur, or_, fr, cr, tr, cvr] = await Promise.all([
       fetch(`/api/patients/${id}`), fetch("/api/users"),
@@ -586,6 +598,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
         treatment:treatmentText, tooth:"", observations:evoForm.observations,
         cost:0, userId:evoForm.userId }) });
 
+    autosaveEvo.clear();
     setEvoModal(false);
     setEvoForm({ date:new Date().toISOString().split("T")[0], diagnosis:"", observations:"", userId:sessionUserId, treatment:"", isPrivate:false });
     if (evoReminder > 0) {
@@ -1102,6 +1115,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     setFichaSaving(true);
     await fetch("/api/clinical-records", { method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({ patientId: id, ...fichaForm }) });
+    autosaveFicha.clear();
     setFichaEdit(false); load(); setFichaSaving(false);
   }
 

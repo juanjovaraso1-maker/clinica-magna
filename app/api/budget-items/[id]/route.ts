@@ -51,8 +51,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   let insufficientBalance = false;
   if (!wasCompleted && nowCompleted) {
     const [realAgg, autoAgg] = await Promise.all([
-      prisma.payment.aggregate({ where: { patientId, isAutoAssignment: false }, _sum: { amount: true } }),
-      prisma.payment.aggregate({ where: { patientId, isAutoAssignment: true }, _sum: { amount: true } }),
+      prisma.payment.aggregate({ where: { patientId, isAutoAssignment: false, deletedAt: null }, _sum: { amount: true } }),
+      prisma.payment.aggregate({ where: { patientId, isAutoAssignment: true,  deletedAt: null }, _sum: { amount: true } }),
     ]);
     const paidTotal           = realAgg._sum.amount ?? 0;
     const alreadyAutoAssigned = autoAgg._sum.amount ?? 0;
@@ -93,10 +93,11 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     });
   }
 
-  // Remove auto-assignment when reverting
+  // Soft-delete auto-assignment when reverting (preserves payment audit trail)
   if (wasCompleted && !nowCompleted) {
-    await prisma.payment.deleteMany({
+    await prisma.payment.updateMany({
       where: { budgetItemId: current.id, isAutoAssignment: true },
+      data: { deletedAt: new Date() },
     });
   }
 
