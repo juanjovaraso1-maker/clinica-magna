@@ -12,22 +12,26 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
   const marker = `/object/public/${BUCKET}/`;
   const idx = doc.fileName.indexOf(marker);
 
-  if (idx === -1) {
-    // Fallback: redirect directly to the stored URL
+  // If no service key configured or path not extractable, redirect to public URL directly
+  if (idx === -1 || !process.env.SUPABASE_SERVICE_KEY) {
     return NextResponse.redirect(doc.fileName);
   }
 
   const storagePath = doc.fileName.slice(idx + marker.length);
 
-  // Generate a signed URL valid for 1 hour (works for public and private buckets)
-  const { data, error } = await getSupabaseAdmin()
-    .storage.from(BUCKET)
-    .createSignedUrl(storagePath, 3600);
+  // Try to generate a signed URL (works for both public and private buckets)
+  try {
+    const { data, error } = await getSupabaseAdmin()
+      .storage.from(BUCKET)
+      .createSignedUrl(storagePath, 3600);
 
-  if (error || !data?.signedUrl) {
-    // Last resort: redirect to public URL directly
-    return NextResponse.redirect(doc.fileName);
+    if (!error && data?.signedUrl) {
+      return NextResponse.redirect(data.signedUrl);
+    }
+  } catch {
+    // Fall through to public URL
   }
 
-  return NextResponse.redirect(data.signedUrl);
+  // Fallback: redirect to the stored public URL
+  return NextResponse.redirect(doc.fileName);
 }
