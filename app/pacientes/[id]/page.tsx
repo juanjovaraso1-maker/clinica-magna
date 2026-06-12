@@ -430,17 +430,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     if (emailDlg.type === "rx") {
       setRxPdfSending(true);
       try {
-        const professional = users.find(u => u.id === rxUserId);
-        const bodyHtml = buildRecetaBody({
-          professionalName: professional?.name ?? "",
-          professionalRut:  professional?.rut  ?? "",
-          patientName:      fullName,
-          patientRut:       patient.rut,
-          patientBirthDate: patient.birthDate ? patient.birthDate.split("T")[0] : undefined,
-          date:        today,
-          medications: rxItems.filter(m => m.drug.trim()),
-          notes:       rxNotes,
-        }, "/LOGO.jpeg");
+        const bodyHtml = buildRxDocBody();
         const pdfBase64 = await generatePdfBase64(bodyHtml);
         const filename  = `Receta_Medica_${patient.firstName}_${patient.lastName}`;
         const bodyText  = `Estimado/a ${fullName}, adjuntamos su receta médica. Saludos, Clínica Magna.`;
@@ -456,17 +446,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
     } else if (emailDlg.type === "cuidados") {
       setCarePdfSending(true);
       try {
-        const professional = users.find(u => u.id === cuidadosUserId);
-        const sections  = CARE_SECTIONS[cuidadosTemplate];
-        const isCustom  = sections && cuidadosText.trim() && cuidadosText !== activeCareTemplates[cuidadosTemplate];
-        const bodyHtml  = buildIndicacionesBody({
-          professionalName: professional?.name ?? "",
-          patientName:  fullName,
-          date:         today,
-          procedimiento: cuidadosTemplate,
-          sections:     sections ?? { primeras2h: cuidadosText, primeras24h:"", general:"", alarma:"" },
-          observaciones: isCustom ? cuidadosText : undefined,
-        }, "/LOGO.jpeg");
+        const bodyHtml  = buildCuidadosDocBody();
         const pdfBase64 = await generatePdfBase64(bodyHtml);
         const filename  = `Indicaciones_${cuidadosTemplate}_${patient.firstName}_${patient.lastName}`;
         const bodyText  = `Estimado/a ${fullName}, adjuntamos sus indicaciones post-procedimiento. Saludos, Clínica Magna.`;
