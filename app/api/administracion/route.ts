@@ -44,10 +44,22 @@ export async function GET(req: NextRequest) {
 // POST /api/administracion — save commission config
 export async function POST(req: NextRequest) {
   const { commissions } = await req.json();
-  await prisma.clinicConfig.upsert({
-    where: { key: "doctor_commissions" },
-    update: { value: JSON.stringify(commissions) },
-    create: { key: "doctor_commissions", value: JSON.stringify(commissions) },
-  });
+
+  await Promise.all([
+    // Save JSON blob for Liquidaciones view
+    prisma.clinicConfig.upsert({
+      where:  { key: "doctor_commissions" },
+      update: { value: JSON.stringify(commissions) },
+      create: { key: "doctor_commissions", value: JSON.stringify(commissions) },
+    }),
+    // Sync each user's commissionRate so Mi Rendimiento stays consistent
+    ...Object.entries(commissions as Record<string, { global: number }>).map(([userId, cfg]) =>
+      prisma.user.update({
+        where: { id: userId },
+        data:  { commissionRate: cfg.global ?? 0 },
+      })
+    ),
+  ]);
+
   return NextResponse.json({ ok: true });
 }
