@@ -2395,7 +2395,7 @@ const hasAlerts = patient.clinicalRecord?.allergies || patient.clinicalRecord?.c
                     <div className="text-[11px] text-[#9AA0B4] mt-0.5">{new Date(doc.createdAt).toLocaleDateString("es-CL")} · {doc.type}</div>
                   </div>
                   <div className="flex gap-1 flex-shrink-0">
-                    <a href={doc.fileName} target="_blank" className="w-8 h-8 flex items-center justify-center rounded-[7px] bg-white border border-[#E3E8F0] text-[#5A6072] hover:bg-[#0057FF] hover:text-white hover:border-[#0057FF] transition-all text-[13px]">↗</a>
+                    <a href={`/api/documents/${doc.id}/file`} target="_blank" className="w-8 h-8 flex items-center justify-center rounded-[7px] bg-white border border-[#E3E8F0] text-[#5A6072] hover:bg-[#0057FF] hover:text-white hover:border-[#0057FF] transition-all text-[13px]">↗</a>
                     {isAdmin && <button onClick={()=>deleteDoc(doc.id)} className="w-8 h-8 flex items-center justify-center rounded-[7px] bg-white border border-[#E3E8F0] text-[#C8D0E0] hover:bg-[#FDECEA] hover:text-[#E53935] hover:border-[#E53935] transition-all"><Trash2 size={13}/></button>}
                   </div>
                 </div>
