@@ -7,6 +7,7 @@ import { ToothPNG } from "../odontogram/ToothPNG";
 interface Treatment { id: string; name: string; category: string; price: number; requiresLab?: boolean; defaultLabCost?: number; defaultLabName?: string }
 interface Convenio  { id: string; name: string; discount: number; discountType: string }
 export interface BudgetLine {
+  id?: string; // DB id — present for existing items, absent for new ones
   _key: string; toothNum?: number; area?: string; surfaces: string[];
   description: string; quantity: number; unitPrice: number; discount: number; discountAmt: number; total: number;
   status: string; directCost: number;
@@ -107,6 +108,7 @@ export default function BudgetEditor({ patientId, budgetId, budgetNumber, initUs
   async function handleSave() {
     const validLines=lines.filter(l=>l.description.trim());
     const items=validLines.map(({_key,...rest})=>({
+      id:rest.id,  // pass through so server can detect status changes on existing items
       description:rest.description,
       tooth:rest.toothNum?fmtTooth(rest.toothNum):"",
       area:rest.area||"",

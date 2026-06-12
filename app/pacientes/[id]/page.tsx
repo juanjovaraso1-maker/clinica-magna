@@ -2040,7 +2040,7 @@ const hasAlerts = patient.clinicalRecord?.allergies || patient.clinicalRecord?.c
               initStatus={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.status : "pending"}
               initDiscount={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.discount : 0}
               initNotes={budgetEditorEditId ? (patient.budgets.find(b=>b.id===budgetEditorEditId)?.notes ?? "") : (nextBudgetNum ? `Presupuesto #${String(nextBudgetNum).padStart(4,"0")}` : "")}
-              initLines={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.items.map((i,idx)=>({_key:String(idx),toothNum:undefined,surfaces:[],description:i.description,quantity:i.quantity,unitPrice:i.unitPrice,discount:i.discount??0,discountAmt:(i as any).discountAmt??0,total:i.total,status:(i as any).status||"pending",directCost:(i as any).directCost??0})) : []}
+              initLines={budgetEditorEditId ? patient.budgets.find(b=>b.id===budgetEditorEditId)?.items.map((i,idx)=>({_key:String(idx),id:(i as any).id,toothNum:undefined,surfaces:[],description:i.description,quantity:i.quantity,unitPrice:i.unitPrice,discount:i.discount??0,discountAmt:(i as any).discountAmt??0,total:i.total,status:(i as any).status||"pending",directCost:(i as any).directCost??0})) : []}
               users={users}
               treatments={treatments}
               convenios={convenios}
