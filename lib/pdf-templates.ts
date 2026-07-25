@@ -200,6 +200,19 @@ export function buildPresupuestoBody(data: PresupuestoData, logoSrc?: string): s
   const TH = `padding:6px 7px;border:1px solid #1A1D2E;font-size:10px;font-weight:bold;background:#1A1D2E;color:white`;
   const TD = `padding:6px 7px;border:1px solid #E5E7EB;font-size:10.5px`;
 
+  // Recalculate gross and discounts from items for accurate totals display
+  const grossSubtotal = data.items.reduce((s, it) => {
+    const qty = it.quantity ?? it.sessions ?? 1;
+    return s + it.unitPrice * qty;
+  }, 0);
+  const itemDiscountTotal = data.items.reduce((s, it) => {
+    const qty = it.quantity ?? it.sessions ?? 1;
+    const discPct = it.discount ?? 0;
+    return s + it.unitPrice * qty * discPct / 100;
+  }, 0);
+  const budgetDiscount = data.discount ?? 0;
+  const totalDiscount = itemDiscountTotal + budgetDiscount;
+
   const rows = data.items.map((it, i) => {
     const qty = it.quantity ?? it.sessions ?? 1;
     const discPct = it.discount ?? 0;
@@ -212,7 +225,7 @@ export function buildPresupuestoBody(data: PresupuestoData, logoSrc?: string): s
       <td style="padding:5px 7px;text-align:right;border:1px solid #E5E7EB;font-size:10px">${fmt(it.unitPrice)}</td>
       <td style="padding:5px 7px;text-align:center;border:1px solid #E5E7EB;font-size:10px">${qty}</td>
       <td style="padding:5px 7px;text-align:center;border:1px solid #E5E7EB;font-size:10px">${discPct > 0 ? discPct + "%" : "—"}</td>
-      <td style="padding:5px 7px;text-align:right;border:1px solid #E5E7EB;font-size:10px">${discAmt > 0 ? fmt(discAmt) : "—"}</td>
+      <td style="padding:5px 7px;text-align:right;border:1px solid #E5E7EB;font-size:10px;color:#c0392b">${discAmt > 0 ? "−" + fmt(discAmt) : "—"}</td>
       <td style="padding:5px 7px;text-align:right;border:1px solid #E5E7EB;font-size:10px">${fmt(it.total)}</td>
     </tr>
   `}).join("");
@@ -252,12 +265,12 @@ export function buildPresupuestoBody(data: PresupuestoData, logoSrc?: string): s
         ${rows}${emptyRows}
         <tr style="background:#F8F9FB">
           <td colspan="7" style="${TD};text-align:right;font-weight:bold">Subtotal</td>
-          <td style="${TD};text-align:right;font-weight:bold">${fmt(data.subtotal)}</td>
+          <td style="${TD};text-align:right;font-weight:bold">${fmt(grossSubtotal)}</td>
         </tr>
-        ${data.discount && data.discount > 0 ? `
-        <tr style="background:#F8F9FB">
+        ${totalDiscount > 0 ? `
+        <tr style="background:#FFF5F5">
           <td colspan="7" style="${TD};text-align:right;font-weight:bold;color:#c0392b">Descuento</td>
-          <td style="${TD};text-align:right;font-weight:bold;color:#c0392b">− ${fmt(data.discount)}</td>
+          <td style="${TD};text-align:right;font-weight:bold;color:#c0392b">− ${fmt(totalDiscount)}</td>
         </tr>` : ""}
         <tr style="background:#1A1D2E">
           <td colspan="7" style="${TD};text-align:right;font-weight:bold;color:white;font-size:12px">TOTAL A PAGAR</td>

@@ -278,6 +278,13 @@ function PresupuestosContent() {
     const w = window.open("", "_blank");
     if (!w || !detail) return;
     const paid = detail.payments.reduce((s, p) => s + p.amount, 0);
+    // Gross subtotal (before per-item discounts)
+    const grossSubtotal = detail.items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+    // Total item-level discounts in pesos
+    const itemDiscountTotal = detail.items.reduce((s, i) => s + i.unitPrice * i.quantity * (i.discount / 100), 0);
+    // Budget-level discount (fixed or % applied after items)
+    const budgetDiscount = detail.discount || 0;
+    const totalDiscount = itemDiscountTotal + budgetDiscount;
     w.document.write(`
     <html><head><title>Presupuesto #${detail.number}</title>
     <style>
@@ -338,24 +345,29 @@ function PresupuestosContent() {
         <th>Diente/Área</th>
         <th style="text-align:center">Cant.</th>
         <th style="text-align:right">P. Unit.</th>
-        <th style="text-align:right">Dto.</th>
+        <th style="text-align:right">Dto. %</th>
+        <th style="text-align:right">Dto. $</th>
         <th style="text-align:right">Total</th>
       </tr></thead>
-      <tbody>${detail.items.map(item => `
+      <tbody>${detail.items.map(item => {
+        const discAmt = item.unitPrice * item.quantity * (item.discount / 100);
+        return `
         <tr>
           <td>${item.description}</td>
           <td>${item.tooth || item.area || "—"}</td>
           <td style="text-align:center">${item.quantity}</td>
           <td style="text-align:right">${fmt(item.unitPrice)}</td>
-          <td style="text-align:right">${item.discount || 0}%</td>
+          <td style="text-align:right">${item.discount > 0 ? item.discount + "%" : "—"}</td>
+          <td style="text-align:right;color:#dc2626">${discAmt > 0 ? "−" + fmt(discAmt) : "—"}</td>
           <td style="text-align:right"><strong>${fmt(item.total)}</strong></td>
-        </tr>`).join("")}
+        </tr>`;
+      }).join("")}
       </tbody>
     </table>
     <div class="totals">
-      <div class="total-row"><span>Subtotal:</span><span>${fmt(detail.subtotal)}</span></div>
-      ${detail.discount > 0 ? `<div class="total-row" style="color:#dc2626"><span>Descuento:</span><span>-${fmt(detail.discount)}</span></div>` : ""}
-      <div class="total-row grand-total"><span>TOTAL:</span><span>${fmt(detail.total)}</span></div>
+      <div class="total-row"><span>Subtotal:</span><span>${fmt(grossSubtotal)}</span></div>
+      ${totalDiscount > 0 ? `<div class="total-row" style="color:#dc2626"><span>Descuento:</span><span>−${fmt(totalDiscount)}</span></div>` : ""}
+      <div class="total-row grand-total"><span>TOTAL A PAGAR:</span><span>${fmt(detail.total)}</span></div>
       <div class="total-row paid-row"><span>Abonado:</span><span>${fmt(paid)}</span></div>
       <div class="total-row balance-row"><span>Saldo:</span><span>${fmt(detail.total - paid)}</span></div>
     </div>

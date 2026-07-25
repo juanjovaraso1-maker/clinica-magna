@@ -476,8 +476,6 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
       setBudgetPdfSending(db.id);
       try {
         const numStr   = String(db.number).padStart(4, "0");
-        const itemDisc = db.items.reduce((s,it) => s + it.unitPrice * it.quantity * (it.discount||0) / 100, 0);
-        const totalDisc = itemDisc + (db.discount || 0);
         const bodyHtml = buildPresupuestoBody({
           number:           db.number,
           professionalName: db.user.name,
@@ -486,7 +484,7 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
           date:         db.date,
           items:        db.items,
           subtotal:     db.subtotal,
-          discount:     totalDisc > 0 ? totalDisc : undefined,
+          discount:     (db.discount || 0) > 0 ? db.discount : undefined,
           total:        db.total,
         }, "/LOGO.jpeg");
         const pdfBase64 = await generatePdfBase64(bodyHtml);
@@ -506,13 +504,11 @@ const [payEditId, setPayEditId] = useState<string|null>(null);
   async function printBudgetPdf(b: Patient["budgets"][0]) {
     if (!patient) return;
     const patFullName = `${patient.firstName} ${patient.lastName}`;
-    const itemDisc = b.items.reduce((s,it) => s + it.unitPrice * it.quantity * (it.discount||0) / 100, 0);
-    const totalDisc = itemDisc + (b.discount || 0);
     const bodyHtml = buildPresupuestoBody({
       number: b.number, professionalName: b.user.name,
       patientName: patFullName, patientRut: patient.rut, date: b.date,
       items: b.items, subtotal: b.subtotal,
-      discount: totalDisc > 0 ? totalDisc : undefined, total: b.total,
+      discount: (b.discount || 0) > 0 ? b.discount : undefined, total: b.total,
     }, "/LOGO.jpeg");
     const win = window.open("","_blank");
     if (!win) return;

@@ -10,9 +10,10 @@ const PUBLIC_API = [
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Static assets and login page
+  // Static assets, login page, and public patient-facing pages
   if (
     pathname.startsWith("/login") ||
+    pathname.startsWith("/confirmar") ||   // patient appointment confirmation — no auth required
     pathname.startsWith("/_next/static") ||
     pathname.startsWith("/_next/image") ||
     pathname.startsWith("/favicon") ||
